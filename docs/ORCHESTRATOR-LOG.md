@@ -54,4 +54,38 @@
 C7 → C8 → C9 → C10 → E7 → E6 → **E10d (kritik)** → E10a/b → E10c → E11 → C11.
 E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
 
+### C7 — TAMAMLANDI
+
+- Commit `1ef0998` · `src/core/classifier.ts` + `tests/classifier-robustness.test.ts`.
+- `LOG_DIR_RE` yalnız dizin adları; `probeLogs` tek yol kurulumu, yedek dal
+  kök girdilerden, çift okuma yok.
+- Kapı: typecheck temiz · **174/174** (+7) · diff beyaz listede.
+- Orkestratör notu: `probeLogs` artık her `probeDir`'de bir kez `logs\`
+  readdir deniyor; maliyet aday kök başına tek çağrı, kabul edildi.
+
+### C8 — TAMAMLANDI + C8b koruma paketi
+
+- Commit `1f4b202` · `src/core/classifier.ts` + `tests/classifier-python-env.test.ts`.
+- `pyvenv.cfg` dosya dalında `python-env`; `venv`/`.venv` dizini `venv`;
+  `Scripts` yalnız destekleyici kanıtla işaret; küçük `scripts/` yanlış
+  pozitif üretmiyor.
+- Kapı: typecheck temiz · **182/182** (+8) · diff beyaz listede.
+- **Açılan risk (rapor risk notu 1):** `analyze.ts:1167` 4b
+  (`runtime-pool`) proje kontrolünden (4e) önce geldiği için
+  `package.json` + `venv/` artık `project-workspace` değil `runtime-pool`
+  olabilir. P1/E2 ile aynı sınıf sıra hatası → **C8b** paketi açıldı;
+  `main`e merge C8b kapanmadan yapılmayacak.
+
+### C8b — TAMAMLANDI
+
+- Commit `6478828` · `src/core/analyze.ts` + `tests/project-runtime-order.test.ts`.
+- 4b ikiye ayrıldı: **güçlü** havuz kanıtı (`envs/`, `runtimed/`) her
+  durumda `runtime-pool`; **zayıf** kanıt (`python-env`, `venv`,
+  `site-packages`) `projectManifest` varsa 4e'ye (proje) bırakır.
+- Kapı: typecheck temiz · **189/189** (+7) · `agent-workspace` ve
+  `report-only` regresyonları testli.
+
+
+
+
 
