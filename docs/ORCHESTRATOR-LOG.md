@@ -99,6 +99,15 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
   benzersiz tür sayısına (`new Set(fileKinds).size >= 4`) bağlandı.
 - Kapı: typecheck temiz · **202/202** (+4) · NuGet deposu regresyonu korundu.
 
+### E7 — TAMAMLANDI
+
+- Commit `f6219cd` · `src/core/analyze.ts` + `tests/path-boundary.test.ts`.
+- `isPathInside` + `normalizeBoundary` (eşitlik veya `parent + '\\'`, `\\?\`,
+  eğik çizgi, `..`, küçük harf); `rootScope` ve `isTempPath` buna bağlandı.
+- Kapı: typecheck temiz · **210/210** (+8) · `Temp2`, `Local2`, `UserProfile2`
+  yanlış eşleşmiyor; gerçek `%TEMP%`/`%LOCALAPPDATA%` davranışı korunuyor.
+
+
 
 
 
