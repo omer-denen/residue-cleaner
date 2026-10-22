@@ -1084,12 +1084,45 @@ export function clusterKey(ev: Evidence, root: string): string {
   return `${scope}:dir:${base.toLowerCase()}`;
 }
 
+/**
+ * Yol sinir kontrolu: child, parent'a ESIT mi yoksa parent'in ALTINDA mi?
+ *
+ * startsWith tek basina yetmez (E7): parent `...\\Local` iken
+ * `child.startsWith(parent)` kontrolu `...\\Local2` kardes dizinini de
+ * parent altinda sayar. Bu yuzden eslesme ya tam esitlik ya da
+ * `parent + '\\'` oneki olmalidir.
+ *
+ * Normalize: `\\?\` on eki (surucu harfli) atilir, egik cizgiler ters
+ * cizgiye cevrilir, sonundaki ayiricilar dusulur, `.`/`..` parcalari
+ * leksik (dosya sistemi gritmeden) cozulur; karsilastirma Windows
+ * uyumlu olarak buyuk/kucuk harf duyarsizdir.
+ */
+function normalizeBoundary(p: string): string {
+  let s = p.trim();
+  if (/^\\\\\?\\[a-z]:/i.test(s)) s = s.slice(4);
+  const segments = s.replace(/\//g, '\\').split('\\');
+  const out: string[] = [];
+  for (const seg of segments) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') out.pop();
+    else out.push(seg);
+  }
+  return out.join('\\').toLowerCase();
+}
+
+function isPathInside(child: string, parent: string): boolean {
+  const c = normalizeBoundary(child);
+  const p = normalizeBoundary(parent);
+  if (p === '' || c === '') return false;
+  return c === p || c.startsWith(`${p}\\`);
+}
+
 /** Koke gore kapsam: home / local / roaming. */
 function rootScope(root: string): string {
   const e = process.env;
-  if (e.LOCALAPPDATA && root.toLowerCase().startsWith(e.LOCALAPPDATA.toLowerCase())) return 'local';
-  if (e.APPDATA && root.toLowerCase().startsWith(e.APPDATA.toLowerCase())) return 'roaming';
-  if (e.USERPROFILE && root.toLowerCase().startsWith(e.USERPROFILE.toLowerCase())) return 'home';
+  if (e.LOCALAPPDATA && isPathInside(root, e.LOCALAPPDATA)) return 'local';
+  if (e.APPDATA && isPathInside(root, e.APPDATA)) return 'roaming';
+  if (e.USERPROFILE && isPathInside(root, e.USERPROFILE)) return 'home';
   return 'other';
 }
 
@@ -1271,11 +1304,10 @@ export function detectArchetype(
   return 'unknown';
 }
 
-/** Gecici klasor yolu mu? (env degiskenleri uzerinden de kontrol edilir) */
+/** Gecici klasor yolu mu? (env degiskenleri uzerinden de kontrol edilir; sinir kontrolu icin bkz. E7) */
 function isTempPath(root: string): boolean {
-  const e = process.env;
-  const temp = (e.TEMP ?? '').toLowerCase();
-  return temp !== '' && root.toLowerCase().startsWith(temp);
+  const temp = process.env.TEMP;
+  return temp !== undefined && temp !== '' && isPathInside(root, temp);
 }
 
 /**
