@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { longPath } from '../util/longpath.ts';
 import { readExeInfo } from './exe-info.ts';
+import { compareVersions as compareSemVer } from './semver.ts';
 import type {
   NodeRuntimeCopy,
   NodeRuntimeKind,
@@ -271,7 +272,7 @@ export async function scanNodeRuntimes(
     });
   }
 
-  copies.sort((a, b) => compareVersions(b.version, a.version));
+  copies.sort((a, b) => compareSemVer(b.version, a.version));
   const activeVersion = copies.find((c) => c.active)?.version ?? null;
   const rootsOut = roots.map((path) => ({ path, kind: rootKinds.get(path) ?? 'unknown' }));
 
@@ -288,14 +289,9 @@ export async function scanNodeRuntimes(
   };
 }
 
-/** Surum karsilastirmasi (v oneki ve etiketler yok sayilir). */
-function compareVersions(a: string, b: string): number {
-  const pa = a.replace(/^v/i, '').split(/[.+-]/).map((s) => Number(s) || 0);
-  const pb = b.replace(/^v/i, '').split(/[.+-]/).map((s) => Number(s) || 0);
-  const n = Math.max(pa.length, pb.length);
-  for (let i = 0; i < n; i++) {
-    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (d !== 0) return d;
-  }
-  return 0;
-}
+/**
+ * (E6b) Yerel sayisal karsilastirma kaldirildi: eski karsilastirici
+ * `1.2.3-beta` ile `1.2.3`'u ESIT sayiyor ve on surumlu kopyalarin
+ * siralamasini bozuyordu. Tek kaynak `semver.ts` (on surum siralamasi
+ * dahil).
+ */

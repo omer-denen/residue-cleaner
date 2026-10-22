@@ -8,6 +8,11 @@ import { isOwnDataPath, isProtectedUserPath } from './discover.ts';
 import { isGitTracked } from './git.ts';
 import { walk, type WalkResult } from './walker.ts';
 import { buildClusterEvidence } from './evidence-tree.ts';
+import {
+  compareVersions as compareSemVer,
+  parseVersion,
+} from './semver.ts';
+import { readExeInfo } from './exe-info.ts';
 import type {
   Archetype,
   Cluster,
@@ -137,6 +142,10 @@ export async function classifyPath(
 
   const key = clusterKey(ev, root);
 
+  // E6b/E6c: guncel surum ek kanitsiz secildi ise bu, karar metnine
+  // yaziyor; "kanit tam" sanilmasin (bkz. K10/K16 deneyimi).
+  let versionEvidenceIncomplete = false;
+
   // Bilesik mimari: model deposunun icinde kullanilamayan GPU runtime'i
   // varsa, tum kume "temizlenebilir" degil, parca parca olur.
   // Onemli: alt parca yollari TAHMIN edilmez, gercekten olculur.
@@ -146,7 +155,13 @@ export async function classifyPath(
   // sekilde GERCEK YOLDAN olculur.
   const extra: SubPart[] = [];
   if (probe.editorExtensions) extra.push(...(await detectEditorOrphans(root, measure)));
-  if (probe.appVersions) extra.push(...(await detectAppVersionOrphans(root, measure)));
+  if (probe.appVersions) {
+    const orphans = await detectAppVersionOrphans(root, measure);
+    extra.push(...orphans.parts);
+    if (orphans.keepBasis === 'highest-only' && orphans.parts.length > 0) {
+      versionEvidenceIncomplete = true;
+    }
+  }
   if (archetype === 'agent-workspace') extra.push(...(await detectAgentParts(root, ev, measure)));
   // Ic ice parca olmaz: bir parca digerinin icindeyse yalnizca DIS olan
   // kalir. Aksi halde bayt iki kez sayilir ve silme hedefleri cakisir
@@ -204,6 +219,11 @@ export async function classifyPath(
   if (sub.length > 0) {
     verdict.because.unshift(
       `Icinde ${sub.length} ayri degerlendirilebilir parca var: ${sub.map((s) => s.label).join(', ')}`,
+    );
+  }
+  if (versionEvidenceIncomplete) {
+    verdict.because.push(
+      'Guncel surum ek kanitla dogrulanamadi (Update.exe surumu okunamadi); eski surumler report-only, silme hedefi uretilmez',
     );
   }
 
@@ -410,6 +430,8 @@ function buildDeleteTargets(
       // T28: --nuke-models verilmedikce YALNIZCA bilesik parcalar
       // (kullanilamayan GPU runtime/varyant) hedeflenir. Bayrakla tum
       // model deposu hedef olur; risk yuksektir.
+      // E6a/E6c: 'report-only' alt parcalar (sinirli tarama / dogrulan-
+      // mamis surum) hedef URETMEZ; yalnizca kanitli adaylar hedeflenir.
       if (allow?.models) {
         return [
           {
@@ -420,24 +442,29 @@ function buildDeleteTargets(
           },
         ];
       }
-      return sub.map((s) => ({
-        path: s.path,
-        kind: 'whole' as const,
-        label: s.label,
-        bytes: s.bytes,
-      }));
+      return sub
+        .filter((s) => s.verdictKind === 'recommend' || s.verdictKind === 'ask')
+        .map((s) => ({
+          path: s.path,
+          kind: 'whole' as const,
+          label: s.label,
+          bytes: s.bytes,
+        }));
     }
 
     case 'editor-extension-store':
     case 'versioned-app-store':
       // Yalnizca artik kalmis alt parcalar (eski uzanti surumu veya
       // eski app-<surum> klasoru) hedeflenir; kok klasor SILINMEZ.
-      return sub.map((s) => ({
-        path: s.path,
-        kind: 'whole' as const,
-        label: s.label,
-        bytes: s.bytes,
-      }));
+      // E6a/E6c: 'report-only' alt parcalar (kanit tam degil) hedef URETMEZ.
+      return sub
+        .filter((s) => s.verdictKind === 'recommend' || s.verdictKind === 'ask')
+        .map((s) => ({
+          path: s.path,
+          kind: 'whole' as const,
+          label: s.label,
+          bytes: s.bytes,
+        }));
 
     case 'accelerator-runtime':
       return [
@@ -694,7 +721,7 @@ export function dropNestedSubParts(parts: SubPart[]): SubPart[] {
  * ikinci kez yurumek bos maliyettir. Anahtar yolun kendisidir; ayni
  * yoldan gelen istekler AYNI promise'i paylasir.
  */
-class MeasureCache {
+export class MeasureCache {
   private readonly pending = new Map<string, Promise<WalkResult>>();
 
   measure(path: string): Promise<WalkResult> {
@@ -717,7 +744,13 @@ export function logGpuVerdict(signals: LogSignal[]): { gpuUsed: boolean; cpuLine
   return { gpuUsed, cpuLine, cpuOnly: cpuLine && !gpuUsed };
 }
 
-async function detectSubParts(root: string, ev: Evidence, now: number, measure: MeasureCache): Promise<SubPart[]> {
+export async function detectSubParts(
+  root: string,
+  ev: Evidence,
+  now: number,
+  measure: MeasureCache,
+  opts?: { maxDirs?: number },
+): Promise<SubPart[]> {
   const out: SubPart[] = [];
   const gpuAbsent = GPU_STATE ? !GPU_STATE.hasNvidia : false;
   const cpuOnly = logGpuVerdict(ev.logSignals ?? []).cpuOnly;
@@ -725,24 +758,30 @@ async function detectSubParts(root: string, ev: Evidence, now: number, measure: 
 
   if (!gpuUnusable) return out;
 
+  // E6a: sinirli tarama yarim kalirsa kanit TAM sayilmaz. Alt parca
+  // "silinebilir" olarak uretilmez; alistirma ve not saklanir.
+  const truncNotes: string[] = [];
+
   // --- 1. CUDA runtime dizinlerini GERCEK yoldan bul ---
-  const cudaDirs = await findDirsContaining(
+  const cudaScan = await findDirsContaining(
     root,
     4,
     (name) =>
       /^cu(dnn|blas|blaslt|fft|rand|solver|art|graph)[a-z0-9_]*64[_-]\d+\.dll$/i.test(name) ||
       /^onnxruntime[_-].*cuda.*\.dll$/i.test(name),
+    opts?.maxDirs,
   );
-  for (const d of cudaDirs) {
+  if (cudaScan.truncated) truncNotes.push('CUDA runtime taramasi sinira takildi');
+  for (const d of cudaScan.dirs) {
     const w = await measure.measure(d);
     out.push({
       path: d,
       bytes: w.bytes,
       label: 'GPU hizlandirici runtime (bu makinede kullanilamaz)',
       verdictKind: 'recommend',
-      reason: gpuAbsent
+      reason: (gpuAbsent
         ? 'NVIDIA CUDA surucusu yok; bu DLL yigini calistirilamaz'
-        : 'Uygulama gunlugu CPU saglayicisini kullaniyor',
+        : 'Uygulama gunlugu CPU saglayicisini kullaniyor'),
     });
   }
 
@@ -751,9 +790,10 @@ async function detectSubParts(root: string, ev: Evidence, now: number, measure: 
   // Guvenilir yontem: yol adinda GPU/CUDA ipucu tasiyan her dizini
   // dogrudan olcer. Model dosyasi adi degisebilir (model.onnx.data),
   // dizin adi degismez ("...-gpu-2", "...-trtrtx-gpu-2").
-  const gpuDirs = await findDirsNamed(root, 5, /(gpu|cuda|trt|rtx)/i);
+  const gpuScan = await findDirsNamed(root, 5, /(gpu|cuda|trt|rtx)/i, opts?.maxDirs);
+  if (gpuScan.truncated) truncNotes.push('GPU varyant taramasi sinira takildi');
   const gpuSeen = new Set<string>();
-  for (const variantDir of gpuDirs) {
+  for (const variantDir of gpuScan.dirs) {
     const key = variantDir.toLowerCase();
     if (gpuSeen.has(key)) continue;
     gpuSeen.add(key);
@@ -780,6 +820,18 @@ async function detectSubParts(root: string, ev: Evidence, now: number, measure: 
       verdictKind: 'recommend',
       reason: `Model agirliklari yalnizca GPU icin derlenmis ("${variant}"), cihaz ise CPU`,
     });
+  }
+
+  // E6a: Tarama siniri asildiysa bulunan alt parcalar KANIT TAM
+  // sayilmaz: 'report-only' uretilir (silme hedefi olmaz), gerekceye
+  // eksiklik notu eklenir. Liste yarim olabilecegi icin buradan
+  // silme Onerisi uretilmez (guvenli taraf).
+  if (truncNotes.length > 0) {
+    for (const s of out) {
+      if (s.verdictKind !== 'recommend') continue;
+      s.verdictKind = 'report-only';
+      s.reason += ` Tarama sinirina ulasildi (${truncNotes.join('; ')}); liste eksik olabilir, kanit tam sayilmaz. Yeniden taramadan sonra yeniden degerlendirin.`;
+    }
   }
 
   // Ayni yolu iki kez eklemeyi engelle
@@ -889,42 +941,117 @@ async function readObsoleteFile(file: string): Promise<Set<string>> {
  * Kanit: her klasor bir Electron/Chromium uygulama yuklemesidir
  * (resources/app/package.json veya Chromium runtime dosyalari).
  * Tek surum varsa parca uretilmez; uygulama guncel surumdedir.
+ *
+ * E6b: Surum metni eklerle birlikte ayristirilir. `app-1.2.4-beta`,
+ * `app-1.2.4` KARDESIDIR ama on surum olarak KUCUKTUR; guncel secimin
+ * stabil surumden tarafa donmesi icin `semver.ts` tek kaynak kullanilir.
+ * Esitlikte siralama klasor adiyla deterministik kirilir.
+ *
+ * E6c: "En yuksek surum duruyor" TEK BASINA silme kaniti degildir:
+ * en yuksek dizin yarim kalmis bir guncelleme olabilir; fiilen
+ * kullanilan eski surum o zaman silme adayi olur. Bu yuzden guncel
+ * surumun EK KANITI araniyor (varsayilan: kokteki Update.exe'nin
+ * VersionInfo surumu). Ek kanit yoksa eski surumler yalnizca
+ * `report-only` olarak raporlanir; silme hedefi uretilmez.
  */
-async function detectAppVersionOrphans(root: string, measure: MeasureCache): Promise<SubPart[]> {
+export interface AppVersionOrphanResult {
+  parts: SubPart[];
+  /** Hangi klasor "guncel" kabul edildi (klasor adi). */
+  keep: string | null;
+  /** Guncel secim hangi kanita dayanir? */
+  keepBasis: 'updater-evidence' | 'highest-only';
+}
+
+export async function detectAppVersionOrphans(
+  root: string,
+  measure: MeasureCache,
+  opts?: { updaterVersion?: string | null },
+): Promise<AppVersionOrphanResult> {
   let entries: Dirent[];
   try {
     entries = await readdir(longPath(root), { withFileTypes: true });
   } catch {
-    return [];
+    return { parts: [], keep: null, keepBasis: 'highest-only' };
   }
 
-  const candidates: Array<{ name: string; path: string; version: number[] }> = [];
+  const candidates: Array<{ name: string; path: string; verText: string }> = [];
   for (const e of entries) {
     if (!e.isDirectory()) continue;
-    const verText = /^app-(\d+(?:\.\d+)*)/i.exec(e.name)?.[1];
+    // E6b: on surum/derleme eki de yakalanmali: app-1.2.4-beta,
+    // app-1.2.4+build.7 gibi. Eski regex eki kirpar, surumleri yalnis
+    // esitlerdi.
+    const verText = /^app-(\d+(?:\.\d+)*(?:[-+][0-9A-Za-z.]+)?)/i.exec(e.name)?.[1];
     if (!verText) continue;
     const dir = `${root}\\${e.name}`;
     if (!(await looksLikeElectronRuntime(dir))) continue;
-    candidates.push({ name: e.name, path: dir, version: verText.split('.').map(Number) });
+    candidates.push({ name: e.name, path: dir, verText });
   }
 
-  if (candidates.length < 2) return [];
+  if (candidates.length < 2) {
+    return { parts: [], keep: null, keepBasis: 'highest-only' };
+  }
 
-  candidates.sort((a, b) => compareVersions(b.version, a.version));
-  const keep = candidates[0]!;
+  // On surum duyarli siralama (buyukten kucuge), sonra deterministik
+  // isim kirilimi: ayni girdi her zaman ayni "guncel"i secer.
+  candidates.sort(
+    (a, b) =>
+      compareSemVer(b.verText, a.verText) ||
+      a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }),
+  );
+
+  // E6c: Guncel surumun EK kaniti. Testler gercagi asabilir: acik bir
+  // `updaterVersion` verilirse diskteki Update.exe okunmaz.
+  let updaterVersion: string | null;
+  if (opts && 'updaterVersion' in opts) {
+    updaterVersion = opts.updaterVersion ?? null;
+  } else {
+    // readExeInfo surec acmaz; okuma hatasi "surum bilinmiyor" anlamina
+    // gelir ve ek kanit sayilmaz.
+    const info = await readExeInfo(`${root}\\Update.exe`);
+    updaterVersion = info.version?.replace(/^v/i, '') ?? null;
+    if (updaterVersion && !parseVersion(updaterVersion)) {
+      // "1.2.4_build" gibi surum bicimi olmayan metin kanit degildir.
+      updaterVersion = null;
+    }
+  }
+  // Update.exe surumu, kardes klasorlerin TAM birine esit (on surumle
+  // birlikte) olmalidir; eslesen yoksa ek kanit sayilmez.
+  const matched =
+    updaterVersion !== null
+      ? candidates.filter((c) => compareSemVer(c.verText, updaterVersion!) === 0)
+      : [];
+  const keepBasis: AppVersionOrphanResult['keepBasis'] =
+    matched.length > 0 ? 'updater-evidence' : 'highest-only';
+  // Ek kanitla eslesen surum en yukcek olmasa bile korunur: yarim
+  // guncelleme dizini en yukcek olabilir; fiilen KULLANILAN korunur.
+  const keep = keepBasis === 'updater-evidence' ? matched[0]! : candidates[0]!;
+
   const out: SubPart[] = [];
-  for (const c of candidates.slice(1)) {
+  for (const c of candidates) {
+    if (c.path.toLowerCase() === keep.path.toLowerCase()) continue;
     const w = await measure.measure(c.path);
     if (w.bytes === 0) continue;
-    out.push({
-      path: c.path,
-      bytes: w.bytes,
-      label: `${c.name} — eski uygulama surumu`,
-      verdictKind: 'recommend',
-      reason: `Guncel surum dururken (${keep.name}) bu eski surum kullanilmaz`,
-    });
+    if (keepBasis === 'updater-evidence') {
+      out.push({
+        path: c.path,
+        bytes: w.bytes,
+        label: `${c.name} — eski uygulama surumu`,
+        verdictKind: 'recommend',
+        reason: `Guncel surum dururken (${keep.name}; Update.exe surumu ${updaterVersion} ile dogrulandi) bu surum kullanilmaz`,
+      });
+    } else {
+      // E6c: Ek kanit yok. Hangi surumun fiilen kullanildigini yalnizca
+      // tahminle secemeyiz: "en yukcek" secim yarim guncelleme olabilir.
+      out.push({
+        path: c.path,
+        bytes: w.bytes,
+        label: `${c.name} — eski uygulama surumu (guncel surum dogrulanamadi)`,
+        verdictKind: 'report-only',
+        reason: `"${keep.name}" en yukcek surum dururken bu surum kullanilmayabilir; ancak guncel surum ek kanitla (Update.exe surumu, calisan surec, kayit girdisi) dogrulanamadi ve yarim guncelleme olasiligi var. Silme hedefi uretilmez; kanit bulunursa yeniden degerlendirilir`,
+      });
+    }
   }
-  return out;
+  return { parts: out, keep: keep.name, keepBasis };
 }
 
 async function looksLikeElectronRuntime(dir: string): Promise<boolean> {
@@ -945,14 +1072,7 @@ async function looksLikeElectronRuntime(dir: string): Promise<boolean> {
   return false;
 }
 
-function compareVersions(a: number[], b: number[]): number {
-  const n = Math.max(a.length, b.length);
-  for (let i = 0; i < n; i++) {
-    const d = (a[i] ?? 0) - (b[i] ?? 0);
-    if (d !== 0) return d;
-  }
-  return 0;
-}
+/** (E6b: Eski sayisal compareVersions kaldirildi; tek kaynak `semver.ts`.) */
 
 /**
  * Bu dizin bir MODEL varyanti mi, yoksa bir CALISTIRMA SAGLAYICISI mi
@@ -990,18 +1110,28 @@ async function looksLikeModelDir(dir: string): Promise<boolean> {
  * Agac icinde adi bir duzenli ifadeyle eslesen dizinleri dondurur.
  * Model varyantlari icin: "qwen2.5-0.5b-instruct-trtrtx-gpu-2" gibi
  * klasor adlari dosya adindan daha guvenilir bir isaret.
+ *
+ * E6a: Sinirli tarama SESSIZCE yarim kalmaz — `truncated: true` ile acik
+ * bildirir. Cagran, yarim listeyi "kanit tam" saymamali ve silme Onerisi
+ * uretmemelidir (bkz. `detectSubParts`).
  */
-async function findDirsNamed(
+export interface DirScanResult {
+  dirs: string[];
+  /** Tarama siniri asildi mi (E6a: yarim kanit = tam kanit degil)? */
+  truncated: boolean;
+}
+
+export async function findDirsNamed(
   root: string,
   maxDepth: number,
   nameRe: RegExp,
-): Promise<string[]> {
+  maxDirs: number = 4000,
+): Promise<DirScanResult> {
   const found: string[] = [];
   const queue: Array<{ dir: string; depth: number }> = [{ dir: root, depth: 0 }];
-  const MAX_DIRS = 4000;
   let visited = 0;
 
-  while (queue.length > 0 && visited < MAX_DIRS) {
+  while (queue.length > 0 && visited < maxDirs) {
     const { dir, depth } = queue.shift()!;
     visited++;
     if (depth >= maxDepth) continue;
@@ -1021,24 +1151,27 @@ async function findDirsNamed(
       queue.push({ dir: child, depth: depth + 1 });
     }
   }
-  return found.sort();
+  return { dirs: found.sort(), truncated: visited >= maxDirs && queue.length > 0 };
 }
 
 /**
  * Klasor agacinda, icinde "tetikleyici dosya" bulunan alt dizinleri
  * gercek yollariyla dondurur. Tahmin yok, olcum var.
+ *
+ * E6a: `truncated: true` dondenebilir; cagran bunu "kanit tam" sayarak
+ * silme Onerisi uretmemelidir.
  */
-async function findDirsContaining(
+export async function findDirsContaining(
   root: string,
   maxDepth: number,
   match: (fileName: string) => boolean,
-): Promise<string[]> {
+  maxDirs: number = 6000,
+): Promise<DirScanResult> {
   const found: string[] = [];
   const queue: Array<{ dir: string; depth: number }> = [{ dir: root, depth: 0 }];
-  const MAX_DIRS = 6000;
 
   let visited = 0;
-  while (queue.length > 0 && visited < MAX_DIRS) {
+  while (queue.length > 0 && visited < maxDirs) {
     const { dir, depth } = queue.shift()!;
     visited++;
     if (depth >= maxDepth) continue;
@@ -1059,7 +1192,7 @@ async function findDirsContaining(
     }
     if (hit) found.push(dir);
   }
-  return found;
+  return { dirs: found, truncated: visited >= maxDirs && queue.length > 0 };
 }
 
 /**
