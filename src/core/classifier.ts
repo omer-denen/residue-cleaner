@@ -188,7 +188,13 @@ const MODEL_FILE_RE = /(^model\.onnx$|\.onnx$|\.gguf$|\.safetensors$|^tokenizer\
 /** Sohbet/oturum gecmisi dosya turleri (dizin adi tek basina kanit degil). */
 const CHAT_FILE_RE = /\.(json|jsonl|ndjson|sqlite|sqlite3|db)$/i;
 const CHAT_DIR_NAMES = new Set(['sessions', 'history', 'conversations', 'chats']);
-const LOG_DIR_RE = /^logs?$|^.*\.logs?$/i;
+/**
+ * Log DIZINI adlari: `logs`, `log`, `myapp.logs` gibi. Yalnizca DIZIN
+ * girdilerinde denenir — kokte tek duran `daemon.log` bir DOSYA'dir.
+ * Eski desen `.*\.logs?` dosya adlarini da eşleşiyor; `.log` (tek L)
+ * artık dizinde de eşleşmez, `.logs` uzantılı dizin destegi korunur.
+ */
+const LOG_DIR_RE = /^(?:logs?|.+\.logs)$/i;
 
 /** Ajan calisma alani isaretleri: beceri, oturum, hafiza. */
 const AGENT_DIR_MARKERS = new Set(['skills', 'sessions', 'memories', 'agents', 'plugins']);
@@ -205,7 +211,6 @@ export async function probeDir(path: string): Promise<Probe> {
     return p;
   }
 
-  const names = new Set(entries.map((e) => e.name));
   let hasShim = false;
 
   // --- Dizin/manifest isaretleri ---
@@ -418,15 +423,11 @@ export async function probeDir(path: string): Promise<Probe> {
     }
   }
 
-  // --- log dosyalarindan uretim sinyalleri ---
-  if (names.has('logs') || [...names].some((n) => LOG_DIR_RE.test(n))) {
-    await probeLogs(path, p);
-  }
-  // kokte tek duran log (daemon.log, runtimed.log vb.)
-  const rootLogs = entries.filter((e) => e.isFile() && e.name.toLowerCase().endsWith('.log'));
-  for (const l of rootLogs.slice(0, 3)) {
-    await readLogFile(`${path}\\${l.name}`, p);
-  }
+  // --- log dosyalarindan uretim sinyalleri (TEK kaynak: probeLogs) ---
+  // Yol kurulumu da tek yerde, probeLogs icinde: kok loglarinin cift
+  // okunmasi log kanitini kirlendirir. Kokte tek duran `daemon.log` bir
+  // DOSYA'dir; logs dizin aramasi yalniz dizin girdilerine bakar.
+  await probeLogs(path, p, entries);
 
   p.fileKinds = [...new Set(p.fileKinds)];
   p.markers = [...new Set(p.markers)];
@@ -1026,30 +1027,51 @@ const LOG_MARKERS: Array<{ re: RegExp; means: string }> = [
   { re: /WSL|distribution/i, means: 'Linux dagitimi' },
 ];
 
-async function probeLogs(dir: string, p: Probe): Promise<void> {
-  const logsDir = `${dir}\\logs`;
-  let names: string[] = [];
+/**
+ * Log dosyalarindan uretim sinyali. TEK yerde okunur: kok loglarini
+ * baska bir dongu okmaz (cift okuma kaniti kirlendirir).
+ *
+ * Sira:
+ *  1. `logs/` altindaki en yeni iki log (guncel durum son satirlarda).
+ *  2. Yedek dal: `logs/` yok ya da okunamazsa kok dizinindeki tek duran
+ *     loglar (daemon.log, runtimed.log vb.).
+ *
+ * Saglamlik kurallari:
+ *  - Yol kurulumu TEK yerde, asagidaki dongude yapilir: logs/ altindan
+ *    gelen ad `logs\` oneki alir, kokten gelen ad hicbir onek almaz.
+ *    Eski `n.startsWith('logs')` kontrolu kaldirildi; yedek dal o
+ *    kontrol nedeniyle var olmayan `logs\daemon.log` yolunu deniyordu.
+ *  - Hicbir okuma hatasi disari sizmaz: `logs/` readdir hatasi burada
+ *    yakalanir (yedek dal kok girdilerini CAGIRANDAN alir; ikinci bir
+ *    readdir atmasi gerekmez ve korumasiz kalmaz); readLogFile kendi
+ *    ogr/okuma hatalarini zaten yutar.
+ */
+async function probeLogs(dir: string, p: Probe, rootEntries: Dirent[]): Promise<void> {
+  const picked: Array<{ name: string; inLogs: boolean }> = [];
   try {
-    const ents = await readdir(longPath(logsDir));
-    names = ents.filter((n) => n.toLowerCase().endsWith('.log')).sort().reverse();
+    const ents = await readdir(longPath(`${dir}\\logs`));
+    for (const n of ents.filter((n) => n.toLowerCase().endsWith('.log')).sort().reverse().slice(0, 2)) {
+      picked.push({ name: n, inLogs: true });
+    }
   } catch {
-    const rootLogs = await readdir(longPath(dir));
-    names = rootLogs.filter((n) => n.toLowerCase().endsWith('.log')).slice(0, 3);
+    /* `logs/` yok ya da okunamadi — kok loglarina yedeklenir */
   }
-  const newest = names.slice(0, 2);
-  for (const n of newest) {
-    await readLogFile(`${dir}\\${n.startsWith('logs') ? n : `logs\\${n}`}`, p, dir);
+  const rootLogs = rootEntries.filter((e) => e.isFile() && e.name.toLowerCase().endsWith('.log'));
+  for (const e of rootLogs.slice(0, 3)) {
+    picked.push({ name: e.name, inLogs: false });
+  }
+  for (const l of picked) {
+    await readLogFile(l.inLogs ? `${dir}\\logs\\${l.name}` : `${dir}\\${l.name}`, p);
   }
 }
 
-async function readLogFile(f: string, p: Probe, root?: string): Promise<void> {
-  const target = root ? `${root}\\${f.replace(`${root}\\`, '')}` : f;
+async function readLogFile(f: string, p: Probe): Promise<void> {
   try {
-    const st = await stat(longPath(target));
+    const st = await stat(longPath(f));
     if (!st.isFile()) return;
     const txt = st.size > LOG_TAIL_BYTES
-      ? await readFileTail(target, LOG_TAIL_BYTES)
-      : await readFile(longPath(target), 'utf8');
+      ? await readFileTail(f, LOG_TAIL_BYTES)
+      : await readFile(longPath(f), 'utf8');
     // Son satirlar guncel durumu anlatir; ilk satirlar acilis/kurulum.
     const lines = txt.split(/\r?\n/).filter(Boolean).slice(-LOG_TAIL_LINES);
     for (const line of lines) {
