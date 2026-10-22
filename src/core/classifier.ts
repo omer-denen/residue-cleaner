@@ -551,7 +551,13 @@ async function deepProbe(dir: string, p: Probe, depth: number): Promise<void> {
     return;
   }
 
-  const dirs = entries.filter((e) => e.isDirectory()).slice(0, MAX_PROBE_CHILDREN);
+  // Deterministik ornekleme: readdir sirasi garanti degildir; hangi
+  // cocuklarin taranacagi isim sirasina gore secilir ki ayni klasor
+  // iki taramada ayni kaniti uretsin.
+  const dirs = entries
+    .filter((e) => e.isDirectory())
+    .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))
+    .slice(0, MAX_PROBE_CHILDREN);
 
   for (const e of entries) {
     if (e.isDirectory()) continue;
@@ -602,8 +608,10 @@ async function deepProbe(dir: string, p: Probe, depth: number): Promise<void> {
     if (SKIP_PROBE_DIRS.has(n) && !big) continue;
     // Homogeneous devasa dizinler icin daha derin ama yine sinirli
     await deepProbe(`${dir}\\${d.name}`, p, big ? depth : depth - 1);
-    // Kanit yeterliyse daha derine inme
-    if (p.fileKinds.length >= 4) return;
+    // Kanit cesitliligi yeterliyse daha derine inme. TUR sayisi esas:
+    // ayni turden 4 dosya erken cikisi tetiklemez, cunku dedupe
+    // probeDir sonunda yapilir.
+    if (new Set(p.fileKinds).size >= 4) return;
   }
 }
 
