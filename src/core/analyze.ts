@@ -14,7 +14,6 @@ import type {
   Confidence,
   DeleteTarget,
   Evidence,
-  FileKind,
   LogSignal,
   Part,
   Regenerability,
@@ -1277,26 +1276,6 @@ function isTempPath(root: string): boolean {
   const e = process.env;
   const temp = (e.TEMP ?? '').toLowerCase();
   return temp !== '' && root.toLowerCase().startsWith(temp);
-}
-
-/**
- * SDK / calisma zamani kurulumu mu?
- *
- * Bunlar "paket onbellegi" DEGILDIR; kaldirmak projeleri bozar.
- * Tespit yolu daima tur bazlidir, adi bazli degil:
- *   - .dotnet/sdk, .dotnet/shared      -> .NET SDK
- *   - nvm/fnm/volta -> Node surum yoneticisi
- *   - Python dizini + exe             -> yorumlayici
- */
-function hasSdkMarker(markers: Set<string>, kinds: Set<FileKind>): boolean {
-  if (markers.has('sdk') || markers.has('shared') || markers.has('packs')) {
-    // "packs" ayni zamanda NuGet paket deposu olabilir; ancak
-    // "sdk"/"shared" birlikte gelirse bu bir SDK kurulumudur.
-    if (markers.has('sdk')) return true;
-  }
-  // Yorumlayici/servis alt klasoru olan bir yigin
-  if (markers.has('python-env') || kinds.has('venv')) return false;
-  return false;
 }
 
 /**

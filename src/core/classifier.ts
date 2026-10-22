@@ -34,7 +34,7 @@ export interface Probe {
   logSignals: LogSignal[];
   /** Electron/Chromium onbellegi iceren klasor */
   electronCache?: boolean;
-  /** SDK kurulumu isaretleri (sdk/, shared/, tools/) */
+  /** SDK kurulumu: kombinasyon kaniti — `sdk/` ya da `shared/`+`tools/` ayni kokte (C9) */
   sdkInstall?: boolean;
   /** Editor uzanti deposu: extensions/ + extensions.json */
   editorExtensions?: boolean;
@@ -228,6 +228,8 @@ export async function probeDir(path: string): Promise<Probe> {
   let hasShim = false;
   /** Kekte buyuk harfli `Scripts` DIZINI var mi? (yukarida yakalanir) */
   let hasScriptsDir = false;
+  /** Kokte gorulen SDK-kurulum adi dasiyan dizinler (asagida kombinasyonla karar verilir). */
+  const sdkDirs = new Set<string>();
 
   // --- Dizin/manifest isaretleri ---
   for (const e of entries) {
@@ -270,9 +272,11 @@ export async function probeDir(path: string): Promise<Probe> {
         p.electronCache = true;
         p.markers.push(e.name);
       }
-      // SDK kurulumu (silinmemeli)
+      // SDK kurulumu (silinmemeli): dizin adlari toplanir; karar dongu
+      // SONUNDA kombinasyonla verilir (asagida). Tek basina `tools/` ya
+      // da `host/` YAYGIN klasor adidir ve SDK kaniti degildir (C9).
       if (n === 'sdk' || n === 'shared' || n === 'tools' || n === 'host') {
-        p.sdkInstall = true;
+        sdkDirs.add(n);
       }
       // Ajan calisma alani isaretleri: beceri, oturum, hafiza.
       if (AGENT_DIR_MARKERS.has(n)) p.markers.push(e.name);
@@ -337,6 +341,18 @@ export async function probeDir(path: string): Promise<Probe> {
       if (e.name.toLowerCase() === 'update.exe') p.markers.push('update-exe');
     }
   }
+
+  // --- SDK kurului: KOMBINASYON kaniti (C9) ---
+  //
+  // Yeterli olanlar:
+  //   sdk/                          -> yeterli (or. .NET: `<kok>/sdk`)
+  //   shared/ + tools/ ayni kokte   -> yeterli (SDK dagitim yigini)
+  //   sdk/ + shared/                -> yeterli (`sdk/` zaten tek basina yeterli)
+  //
+  // YETMEZ: tek basina `tools/`, `host/` veya `shared/`. Bunlar siradan
+  // klasor adlaridir (her uygulamin "tools" klasoru olabilir); tek basina
+  // SDK sayilmalari gereksiz yanlis pozitif report-only kumesi uretir.
+  p.sdkInstall = sdkDirs.has('sdk') || (sdkDirs.has('shared') && sdkDirs.has('tools'));
 
   // `Scripts` TEK BASINA kanit degildir (kural 13): ayni kokte gercek
   // Python ortam kaniti (pyvenv.cfg dosyasi / site-packages dizini)
