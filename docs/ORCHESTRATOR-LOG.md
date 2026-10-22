@@ -92,6 +92,14 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
   tek başına `tools/`, `host/`, `shared/` yetmez. Ölü `hasSdkMarker` silindi.
 - Kapı: typecheck temiz · **198/198** (+9) · `os-user-data` hedefsiz regresyonu testli.
 
+### C10 — TAMAMLANDI
+
+- Commit `776946f` · `src/core/classifier.ts` + `tests/classifier-deep-probe.test.ts`.
+- Çocuk dizinler isim sırasına göre deterministik örnekleniyor; erken çıkış
+  benzersiz tür sayısına (`new Set(fileKinds).size >= 4`) bağlandı.
+- Kapı: typecheck temiz · **202/202** (+4) · NuGet deposu regresyonu korundu.
+
+
 
 
 
