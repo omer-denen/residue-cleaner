@@ -172,7 +172,21 @@ const ORT_DLL_RE = /^onnxruntime[_-].*(?:cuda|tensorrt|trt)[a-z0-9_.-]*\.(dll|so
 
 /** Node modullerini tanimak icin tipik ayirt edici dosya/dizin. */
 const NODE_MARKERS = new Set(['node_modules', '.bin', 'package-lock.json', 'yarn.lock', '.package-lock.json']);
-const PYENV_MARKERS = new Set(['pyvenv.cfg', 'conda-meta', 'site-packages', 'Scripts', '.venv', 'venv']);
+/**
+ * Python ortam isaretleri (C8).
+ *
+ * Bu set DIZIN dalinda `n = e.name.toLowerCase()` ile karsilastirilir;
+ * bu yuzden yalnizca kucuk harfli adlar icermeli. Buyuk harfli 'Scripts'
+ * girisi oydu: hicbir dizin adı ile ESLESMEYORDU (olu kanit).
+ *
+ * `Scripts` bilerek sette DEGILDIR: siradan projelerde `scripts/`
+ * klasoru yaygindir; dizin adi TEK BASINA Python ortam kaniti
+ * degildir (kural 13: genel ad tek basina kanit degildir). `Scripts`
+ * (buyuk harf, Windows venv gelenegi) yalnizca ayni kokte gercek
+ * kanit (pyvenv.cfg dosyasi veya site-packages) varsa
+ * `probeDir`'in sonunda isaretlenir.
+ */
+const PYENV_MARKERS = new Set(['pyvenv.cfg', 'conda-meta', 'site-packages', '.venv', 'venv']);
 const RUNTIME_POOL_MARKERS = new Set(['envs', 'conda', 'pixi', 'uv', 'runtimed', '.conda']);
 /**
  * Model deposu isaretleri.
@@ -212,6 +226,8 @@ export async function probeDir(path: string): Promise<Probe> {
   }
 
   let hasShim = false;
+  /** Kekte buyuk harfli `Scripts` DIZINI var mi? (yukarida yakalanir) */
+  let hasScriptsDir = false;
 
   // --- Dizin/manifest isaretleri ---
   for (const e of entries) {
@@ -228,7 +244,14 @@ export async function probeDir(path: string): Promise<Probe> {
         p.markers.push(MODEL_DIR_NAME);
       }
       if (n === 'node_modules') p.fileKinds.push('node-modules');
-      if (n === 'pyvenv.cfg') p.fileKinds.push('python-env');
+      // `venv` / `.venv` DIZINI bir sanal ortamin kendisidir (C8):
+      // karar katmani `kinds.has('venv')` ile okur; ilk kural bu turu
+      // hic uretiyordu, isaret ('venv' marker') vardi ama tur yoktu.
+      if (n === '.venv' || n === 'venv') p.fileKinds.push('venv');
+      // `Scripts` adı case-sensitive karsilastirilir: kucuk `scripts`
+      // siradan proje klasorudur ve hicbir kanit uretmez. Isaret
+      // dongu sonunda destekleyici kanitla verilir.
+      if (e.name === 'Scripts') hasScriptsDir = true;
       // Pac yoneticisi onbellegi semasi: _cacache, pkgs, repodata, store
       // (_npx: npm'in "bir kez calistirilan" paket deposu; yeniden uretilir.)
       if (/^(_cacache|_npx|pkgs|repodata|archives|packs|simple-v|wheels|conda-meta)$/.test(n)) {
@@ -274,6 +297,11 @@ export async function probeDir(path: string): Promise<Probe> {
       if (k) p.fileKinds.push(k);
       if (NODE_MARKERS.has(e.name)) p.markers.push(e.name);
       if (PYENV_MARKERS.has(e.name)) p.markers.push(e.name);
+      // `pyvenv.cfg` bir DOSYADIR (venv dizininin kokunde durur).
+      // python-env kaniti burada uretilir; eski kod bu turu DIZIN
+      // dalina yazmisti ve pyvenv.cfg dizin olmadigindan yol olu
+      // kalinca Windows venv'leri taninmiyordu (C8).
+      if (e.name.toLowerCase() === 'pyvenv.cfg') p.fileKinds.push('python-env');
       // CACHEDIR.TAG = bu klasor BIR ONBELLEKTIR (bkz. godot CACHEDIR.TAG
       // spesifikasyonu). npm, conda/rattler, uv, pip hepsi koyar.
       // Bu, "bu klasor ne?" sorusunun en guvenilir cevabi.
@@ -308,6 +336,14 @@ export async function probeDir(path: string): Promise<Probe> {
       // Squirrel tarzi guncelleyici ikilisi: surum klasorlerini yonetir.
       if (e.name.toLowerCase() === 'update.exe') p.markers.push('update-exe');
     }
+  }
+
+  // `Scripts` TEK BASINA kanit degildir (kural 13): ayni kokte gercek
+  // Python ortam kaniti (pyvenv.cfg dosyasi / site-packages dizini)
+  // varsa Windows venv betik dizini olarak isaretlenir. Yalniz
+  // `Scripts/` goren siradan bir projede bu isaret URETILMEZ (C8).
+  if (hasScriptsDir && (p.fileKinds.includes('python-env') || p.markers.includes('site-packages'))) {
+    p.markers.push('Scripts');
   }
 
   // Proje ici bagimlilik klasoru (T31): node_modules / .venv + manifest.
