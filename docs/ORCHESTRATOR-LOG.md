@@ -119,6 +119,18 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
   `recommend|ask` parçaları hedefler.
 - Kapı: typecheck temiz · **221/221** (+11).
 
+### E10d — TAMAMLANDI
+
+- Commit `d5587ee` · `src/core/analyze.ts` + `tests/gpu-detect.test.ts`.
+- `systemRootPath()`: `%SystemRoot%` → `%SystemDrive%\Windows` → `C:\Windows`;
+  adaylar `System32\nvcuda.dll` + ek kanıt `SysWOW64\nvcuda.dll`. Sabit
+  `C:\Windows` artık birincil değil; `longPath` korunuyor.
+- Erişim hatası (`EACCES`/`EPERM`) notta "bilinmiyor" olarak ayrıldı.
+- Kapı: typecheck temiz · **226/226** (+5).
+- **Açık risk:** erişim hatasında `hasNvidia:false` dönüyor; motor üçlü
+  durumu bilmiyor. E10c'de `gpu: null` (bilinmiyor) ayrımı yapılacak.
+
+
 
 
 

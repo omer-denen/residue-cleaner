@@ -16,7 +16,7 @@
 | 1 | **T70 / P1** | Yanlış silme riski: E1, E2, E3, E9, C1–C5 | ✅ 22.10.2026 (19 test) |
 | 2 | **T71 / P3** | Keşif ve koruma: D6, D7, D8, D1–D5, D9 | ✅ 22.10.2026 (16 test) |
 | 3 | **T72 / P2** | Ölçüm doğruluğu: W1–W6, E4, E8 | ✅ 22.10.2026 (9 test) |
-| 4 | **T73 / P4** | Sağlamlık ve temizlik: C7–C10, E6, E7, E10, E11 | 📋 sıradaki |
+| 4 | **T73 / P4** | Sağlamlık ve temizlik: C7–C10, E6, E7, E10, E11 | 🟡 kısmi: C7, C8, C8b, C9, C10, E7, E6, E10d ✔ · E10a/b, E10c, E11, C11 açık |
 
 **T69 (kanıt hijyeni / CLI kullanım kanıtı) bu sıranın dışında kalır**, ayrı
 kalem olarak durur: o iş `cli-inventory.ts` + `usageVerdict` ile ilgilidir,
@@ -52,7 +52,8 @@ okunarak doğrulandı; diğerleri P3/P2/P4 başlarken doğrulanacak.
 
 - **P3:** D1–D9 (özellikle D6/D7 ters yön kasa koruması, D8 kimlik klasörleri).
 - **P2:** W1–W6 (W2 `bigint` iddiası gerçek makinede ölçülmeli), E4, E8.
-- **P4:** C7–C11, E6, E7, E10, E11.
+- **P4:** C7–C11, E6, E7, E10, E11. ✅ 23.10.2026 doğrulandı —
+  `scratch/p4-dogrulama.md` (C7–C11, E7, E10, E11 DOĞRU; E6 DOĞRU, E6b KISMEN).
 
 ---
 
@@ -179,8 +180,11 @@ PowerShell toplamıyla **birebir aynı**, 139 ms.
 - Bu belge güncellenir: her prompt bitiminde durum sütunu ve "doğrulama"
   tablosu işlenir.
 - `state.json`: T70 (P1, done), T71 (P3, done), T72 (P2, done),
-  **T73 (P4) sıradaki**. `SESSION_LOG.md` + `docs/HANDOVER-2026-10-22b.md`:
-  oturum özeti.
+  **T73 (P4) kısmi**, **T74 (3 profilli web, planned)**.
+  `SESSION_LOG.md` + `docs/HANDOVER-2026-10-23.md`: oturum özeti.
+- **P4 kalanı:** E10a/b → E10c → E11 → C11. Sonra **T69 → T30 → T37 → T54**
+  ve en son **web (T74, 3 profil)**. Kullanıcı kararı 23.10.2026: önce tüm
+  kritik altyapı, web en son.
 - **P4 başlarken:** C7–C11, E6, E7, E10, E11 maddelerini önce kodda
   doğrula; özellikle E10'da `GPU_STATE` globalini `ClassifyOptions`'a
   taşımak imzaları değiştirir (web/server çağrıları kontrol edilmeli).
