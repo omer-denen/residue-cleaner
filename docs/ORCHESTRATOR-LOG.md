@@ -85,6 +85,14 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
 - Kapı: typecheck temiz · **189/189** (+7) · `agent-workspace` ve
   `report-only` regresyonları testli.
 
+### C9 — TAMAMLANDI
+
+- Commit `af229dc` · `classifier.ts` + `analyze.ts` + `tests/classifier-sdk.test.ts`.
+- `sdkInstall` kombinasyon kanıtı: `sdk/` tek başına veya `shared/`+`tools/`;
+  tek başına `tools/`, `host/`, `shared/` yetmez. Ölü `hasSdkMarker` silindi.
+- Kapı: typecheck temiz · **198/198** (+9) · `os-user-data` hedefsiz regresyonu testli.
+
+
 
 
 
