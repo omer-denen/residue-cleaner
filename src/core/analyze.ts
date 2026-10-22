@@ -1,7 +1,8 @@
 import { stat, readdir, readFile } from 'node:fs/promises';
 import { readdirSync, statSync } from 'node:fs';
 import type { Dirent } from 'node:fs';
-import { longPath } from '../util/longpath.ts';
+import { join } from 'node:path';
+import { longPath, errorCode } from '../util/longpath.ts';
 import { debug, warn } from '../util/log.ts';
 import { probeDir, ownerFromName, type Probe } from './classifier.ts';
 import { isOwnDataPath, isProtectedUserPath } from './discover.ts';
@@ -59,15 +60,63 @@ export interface ClassifyOptions {
   readOnly?: boolean;
 }
 
-/** Ortam tespiti: makinede GPU var mi? */
+/**
+ * Windows kurulum kokunu sabitsiz cozer: %SystemRoot% > SystemDrive > C:\Windows.
+ * Sabit `C:\Windows` kullanmak, Windows baska surucuye kurulmus makinelerde
+ * (veya %SystemRoot% farkliysa) `nvcuda.dll`'i bulamayip fiilen KULLANILABILIR
+ * CUDA runtime'ini "yok" sansti (E10d). Yol kurulumu tek yerdedir; `longPath`
+ * korunur.
+ */
+export function systemRootPath(env: NodeJS.ProcessEnv = process.env): string {
+  const root = (env.SystemRoot ?? '').trim();
+  if (root !== '') return root;
+  const drive = (env.SystemDrive ?? '').trim();
+  if (drive !== '') return drive.endsWith('\\') ? drive + 'Windows' : drive + '\\Windows';
+  return 'C:\\Windows';
+}
+
+interface NvcudaCandidate {
+  file: string;
+  /** Gerekce metninde gosterilecek yer etiketi */
+  where: string;
+}
+
+function nvcudaCandidates(root: string): NvcudaCandidate[] {
+  return [
+    { file: join(root, 'System32', 'nvcuda.dll'), where: '%SystemRoot%\\System32' },
+    { file: join(root, 'SysWOW64', 'nvcuda.dll'), where: '%SystemRoot%\\SysWOW64' },
+  ];
+}
+
+/**
+ * Ortam tespiti: makinede GPU var mi?
+ *
+ * `hasNvidia:false` yalnizca "hicbir kanit yok" demektir. Erisim hatasi
+ * (EACCES/EPERM) ile "dosya yok" farkli seylerdir; erisim engellendiginde
+ * kaynak yokluguna hukmedilemez, bunu notta ayrimi ile belirtir.
+ * Ek kanit: System32'de bulunamazsa SysWOW64 (WOW64 CUDA stub'i) denenir.
+ */
 export async function detectGpu(): Promise<{ hasNvidia: boolean; note: string }> {
-  try {
-    const s = await stat(longPath('C:\\Windows\\System32\\nvcuda.dll'));
-    void s;
-    return { hasNvidia: true, note: 'NVIDIA CUDA surucusu bulundu' };
-  } catch {
-    return { hasNvidia: false, note: 'NVIDIA CUDA surucusu yok (GPU runtime kullanilamaz)' };
+  const candidates = nvcudaCandidates(systemRootPath());
+  let deniedCode: string | null = null;
+  for (const c of candidates) {
+    try {
+      const s = await stat(longPath(c.file));
+      void s;
+      return { hasNvidia: true, note: `NVIDIA CUDA surucusu bulundu (${c.where}\\nvcuda.dll)` };
+    } catch (err) {
+      const code = errorCode(err);
+      if (code === 'EACCES' || code === 'EPERM') deniedCode = code;
+      // ENOENT: bu yolda gercekten yok; siradaki kanit yoluna bak.
+    }
   }
+  if (deniedCode !== null) {
+    return {
+      hasNvidia: false,
+      note: `NVIDIA CUDA surucusu denetlenemedi (erisim engellendi, kod:${deniedCode}); varlik bilgisi bilinmiyor, "yok" denemez`,
+    };
+  }
+  return { hasNvidia: false, note: 'NVIDIA CUDA surucusu yok (GPU runtime kullanilamaz)' };
 }
 
 /** Tek bir kok klasoru inceler ve (varsa) kumeye cevirir. */
@@ -1022,8 +1071,8 @@ export async function detectAppVersionOrphans(
       : [];
   const keepBasis: AppVersionOrphanResult['keepBasis'] =
     matched.length > 0 ? 'updater-evidence' : 'highest-only';
-  // Ek kanitla eslesen surum en yukcek olmasa bile korunur: yarim
-  // guncelleme dizini en yukcek olabilir; fiilen KULLANILAN korunur.
+  // Ek kanitla eslesen surum en yuksek olmasa bile korunur: yarim
+  // guncelleme dizini en yuksek olabilir; fiilen KULLANILAN korunur.
   const keep = keepBasis === 'updater-evidence' ? matched[0]! : candidates[0]!;
 
   const out: SubPart[] = [];
@@ -1041,13 +1090,13 @@ export async function detectAppVersionOrphans(
       });
     } else {
       // E6c: Ek kanit yok. Hangi surumun fiilen kullanildigini yalnizca
-      // tahminle secemeyiz: "en yukcek" secim yarim guncelleme olabilir.
+      // tahminle secemeyiz: "en yuksek" secim yarim guncelleme olabilir.
       out.push({
         path: c.path,
         bytes: w.bytes,
         label: `${c.name} — eski uygulama surumu (guncel surum dogrulanamadi)`,
         verdictKind: 'report-only',
-        reason: `"${keep.name}" en yukcek surum dururken bu surum kullanilmayabilir; ancak guncel surum ek kanitla (Update.exe surumu, calisan surec, kayit girdisi) dogrulanamadi ve yarim guncelleme olasiligi var. Silme hedefi uretilmez; kanit bulunursa yeniden degerlendirilir`,
+        reason: `"${keep.name}" en yuksek surum dururken bu surum kullanilmayabilir; ancak guncel surum ek kanitla (Update.exe surumu, calisan surec, kayit girdisi) dogrulanamadi ve yarim guncelleme olasiligi var. Silme hedefi uretilmez; kanit bulunursa yeniden degerlendirilir`,
       });
     }
   }
