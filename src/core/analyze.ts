@@ -1164,9 +1164,17 @@ export function detectArchetype(
   //    Log satiri TEK BASINA yetmez: herhangi bir uygulama gunlugu
   //    "jupyter", "kernel" ya da "pipe" sozcugu icerebilir. Yapisal kanit
   //    (envs/, runtimed/, pyvenv.cfg, site-packages) aranir.
+  //
+  //    C8b: kaynak manifesti olan bir kok (package.json, pyproject.toml,
+  //    ...) venv / site-packages / pyvenv.cfg kanidi tasisa bile PROJE'dir;
+  //    bu zayif havuz kanitlari tek basina kumu runtime-pool yapamaz.
+  //    Karar 4e'ye (proje calisma alani) kalir — ayni sinif hatasi step 2'de
+  //    model-store icin duzeltilmisti. Guclu havuz kaniti (envs/, runtimed/)
+  //    manifest olsa bile havuz sayilmaya devam eder.
   if (
     markers.has('envs') || markers.has('runtimed') ||
-    kinds.has('python-env') || kinds.has('venv') || markers.has('site-packages')
+    (!probe?.projectManifest &&
+      (kinds.has('python-env') || kinds.has('venv') || markers.has('site-packages')))
   ) {
     return 'runtime-pool';
   }
