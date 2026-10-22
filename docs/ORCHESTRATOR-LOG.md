@@ -107,6 +107,19 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
 - Kapı: typecheck temiz · **210/210** (+8) · `Temp2`, `Local2`, `UserProfile2`
   yanlış eşleşmiyor; gerçek `%TEMP%`/`%LOCALAPPDATA%` davranışı korunuyor.
 
+### E6 — TAMAMLANDI
+
+- Commit `0bb2aac` · `analyze.ts` + `node-runtimes.ts` + `tests/version-boundaries.test.ts`.
+- `findDirsNamed`/`findDirsContaining` → `{dirs, truncated}`; sınır aşılırsa
+  alt parçalar `report-only` + gerekçe notu (silme hedefi yok).
+- Sürüm karşılaştırma tek kaynak `semver.ts`; `app-1.2.4-beta < app-1.2.4`;
+  eşitlikte klasör adı deterministik.
+- "Güncel sürüm" ek kanıtı: `Update.exe` VersionInfo (süreç açılmaz). Kanıt
+  yoksa eski sürümler `report-only`; `buildDeleteTargets` yalnız
+  `recommend|ask` parçaları hedefler.
+- Kapı: typecheck temiz · **221/221** (+11).
+
+
 
 
 
