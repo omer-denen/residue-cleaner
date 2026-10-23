@@ -392,8 +392,46 @@ bir arayüz çıkar" — tasarım serbestliği verildi.
     disk testini kirletiyordu. Orkestratör plan testlerini ayrı dosyaya
     taşıdı (`tests/api-plan-panel.test.ts`); **319/319**.
 - Commit `061c1fe` (tasarım), `2e6d506` (motor/API); `main`e fast-forward.
-- **Web UI uygulaması başlamadı.** Sıradaki: `docs/HANDOVER-2026-10-23d.md`
-  §3 beyaz listesi; normal yetkili oturumda ego-browser ile doğrulama.
+- **Web UI uygulaması başladı ve W1 tamamlandı (23.10.2026, bu oturum).**
+  Ayrıntı: `docs/HANDOVER-2026-10-23e.md`.
+
+## 23.10.2026 — W1-a: panel + Disk listesi (T74)
+
+- Görev paketi `scratch/gorev-w1a.md`; işçi `opencode-go/glm-5.3-flash`
+  (ayrı PowerShell penceresi, `--standalone --auto`); log `scratch/logs/w1a.log`.
+- Beyaz liste: `web/src/App.tsx`, `screens/Disk.tsx`, `i18n.ts`,
+  `styles.css`, `components/icons.tsx`.
+- **Sonuç:** panel 300–560 px (varsayılan 380, `residue.panelWidth`), 8 px
+  ayırıcı + klavye + çift tık; `main-fill` yalnız Disk → yalnız liste
+  kaydırılır; kompakt toolbar + kapalı gelişmiş filtreler; `Planda` rozeti;
+  "Plana ekle" mevcut `panel.keys` ile birleşir, sayfa değişmez.
+- **Orkestratör denetimi:** üç mekanik düzeltme — `.filters-advanced[hidden]`
+  (UA `hidden`'ı `display:flex` eziyordu), `.page-actions` hizası,
+  `onPlanStale` → `setPlan(null)` + `setPlanned(null)`.
+- Commit `4cc1ed5` · 5 dosya +449/−149 · typecheck temiz · **319/319** ·
+  build **125.67 kB gzip**.
+- **Görsel doğrulama yapılmadı** (ego-browser High integrity engeli).
+
+## 23.10.2026 — W1-b: sağ panel plan grupları (T74)
+
+- Görev paketi `scratch/gorev-w1b.md`; aynı işçi/log `scratch/logs/w1b.log`.
+- Beyaz liste: `web/src/api.ts`, `App.tsx`, `components/PlannedModule.tsx`,
+  `icons.tsx`, `i18n.ts`, `styles.css`.
+- **Sonuç:** `api.removeFromPlan` → `POST /api/plan/remove` (istemci yol
+  göndermez); panel özeti (toplam bayt, küme/hedef sayısı, `mm:ss` TTL —
+  yalnız gösterim), gruplu hedefler, küme/tek hedef çıkarma, boş durum,
+  `role="alert"` hata, sticky özet/alt eylem. App plan kimliği/TTL'i korur;
+  404/410'da `plan` + `planned` temizlenir.
+- **Orkestratör denetimi:** plan grubu risk noktası `aria-label` kazandı
+  (`role="img"`); başka kapsam dışı değişiklik yok.
+- Commit `f194eb2` · 6 dosya +430/−91 · typecheck temiz · **319/319** ·
+  build **126.44 kB gzip** · `npm run smoke` **35/35**.
+- **Görsel/DOM doğrulaması AÇIK:** ego-browser bu oturumda çalışmadı
+  (`High integrity` → medium relay yok). Kullanıcı kararı: bilgisayarı
+  yeniden başlatıp OpenCode'u **yönetici olmayan** normal terminalde açmak.
+  Ayrıntı ve kabul listesi: `docs/HANDOVER-2026-10-23e.md` §3.
+- **Sıradaki:** W1 görsel doğrulaması → F5 → W0-b (CLI E2E/parity/perf) →
+  T74 W2 (persona) → T37.
 
 
 
