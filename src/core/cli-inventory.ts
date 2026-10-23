@@ -1180,7 +1180,9 @@ export interface UsageVerdict {
  */
 export function usageVerdict(input: UsageInput): UsageVerdict {
   const { now, unusedDays, command } = input;
-  const usage = findHistoryMentions(input.history, command);
+  // T69/F4 (K19): gecmis ayristirici paket calistiricilarini tanir ve
+  // command'dan baska packageName (son parca) ile de eslesir.
+  const usage = findHistoryMentions(input.history, command, input.packageName);
   const lastStateAt = input.state.lastMtime;
   const unusedMs = unusedDays * DAY;
 
@@ -1369,14 +1371,241 @@ async function loadShellHistory(): Promise<HistoryData> {
   return { files, lines, lastWrite, available: files.length > 0 };
 }
 
-function findHistoryMentions(history: HistoryData, command: string): { mentions: number; lastRatio: number } {
+// ---------------------------------------------------------------------------
+// Kabuk gecmisini ayristirma (T69/F4, K19)
+//
+// Gecmis satiri yalniz "en az bir kez kullanildi" kanitidir; satir sirasi
+// zaman tasimaz (kural 21 — karar tarafi bunu `recent` icin kullanmaz).
+// Eslesen komutlar: yalin komut, sudo onceki, .exe/.cmd/.bat/.ps1 sonu,
+// ./ ve .\ onekli, tirnakli, yol onekli cagrilar. AYRICA paket
+// calistiricilari uzerinden yapilan cagrilar (npx @scope/pkg, pnpm dsh web,
+// dotnet tool run x, yarn dlx x, bunx x, uvx x, pipx run x).
+// Kurulum satirlari (npm install|add|remove...) KULLANIM DEGILDIR.
+// ---------------------------------------------------------------------------
+
+/** Tek belirtecli calistiricilar: <runner> <paket|bayraklar> ... */
+const RUNNER_SIMPLE = new Set(['npx', 'pnpx', 'bunx', 'uvx']);
+
+/**
+ * Degerli bayraklar: kendisinden SONRAKI belirtec de atlanir (`-p x`).
+ * Yalniz bilinenler listede; bilinmeyen bayrak yalniz kendisini gecirir
+ * (degersiz kabul edilir — `-y ornek` seklinde guvenlidir).
+ */
+const VALUE_FLAGS = new Set([
+  '-p', '--package', '-C', '--dir', '-c', '--call',
+  '--prefix', '--registry', '--python', '--cache', '--userconfig',
+  '--workspace', '--filter', '--from', '--with',
+]);
+
+/** pipx alt komutlari (`run` HARIC — bunlar paket konumu saglamaz). */
+const PIPX_OTHER_VERBS = new Set([
+  'install', 'inject', 'upgrade', 'upgrade-all', 'uninstall', 'uninstall-all',
+  'reinstall', 'reinstall-all', 'list', 'unlist', 'ensurepath',
+  'environment', 'home', 'version', 'update',
+]);
+
+/** pnpm/yarn/bun: bu fiiller yerel betik/ikili calistirma DEGILDIR. */
+const PM_VERBS = new Set([
+  'install', 'i', 'add', 'remove', 'rm', 'uninstall', 'update', 'upgrade',
+  'link', 'unlink', 'init', 'create', 'audit', 'outdated', 'list', 'ls',
+  'why', 'config', 'store', 'cache', 'publish', 'pack', 'self', 'env',
+  'setup', 'bin', 'prune', 'import', 'info', 'start', 'test', 'dev', 'up',
+  'dlx', 'exec', 'run',
+]);
+
+/** dotnet: SDK alt komutlari (yalniz `tool run` / `<ad>` paket konumdur). */
+const DOTNET_VERBS = new Set([
+  'test', 'build', 'run', 'watch', 'add', 'remove', 'list', 'new', 'restore',
+  'publish', 'pack', 'sln', 'format', 'tool', 'ef', 'nuget', 'workload',
+  'help', 'msbuild', 'clean', 'vstest', 'search', 'get', 'set', 'clear',
+  'delete', 'edit', 'fsi', 'sql', 'dev-certs', 'user-secrets',
+]);
+
+const INSTALL_VERBS: Record<string, string[]> = {
+  npm: ['install', 'i', 'add', 'uninstall', 'remove', 'rm'],
+  pnpm: ['add', 'install', 'remove'],
+  yarn: ['add', 'install', 'remove'],
+  bun: ['add', 'install', 'remove'],
+};
+
+/** Windows betik uzantilari: `ornek.cmd` == `ornek`. */
+const SCRIPT_EXTS = ['.exe', '.cmd', '.bat', '.ps1'];
+
+/**
+ * Belirteci karsilastirma bicimine indirger: tirnak ve yol/baglam on eki
+ * atilir (`'x'`, `"x"`, `./x`, `.\x`, `C:\x\x.exe`, `@scope/ad`),
+ * Windows betik uzantilari ve surum eki (`pkg@2`) duser, kucuk harfe
+ * iner.
+ */
+function normToken(raw: string): string {
+  let t = raw.trim();
+  if (
+    t.length >= 2 &&
+    ((t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"')))
+  ) {
+    t = t.slice(1, -1);
+  }
+  const slash = Math.max(t.lastIndexOf('/'), t.lastIndexOf('\\'));
+  if (slash >= 0) t = t.slice(slash + 1);
+  t = t.toLowerCase();
+  for (const ext of SCRIPT_EXTS) {
+    if (t.endsWith(ext) && t.length > ext.length) {
+      t = t.slice(0, -ext.length);
+      break;
+    }
+  }
+  // Surum eki: pkg@1.2.3 / @scope/ad@2 (baglam on eki korunmaz; ada bakilir)
+  const at = t.indexOf('@', t.startsWith('@') ? 1 : 0);
+  if (at > 0) t = t.slice(0, at);
+  return t;
+}
+
+/** Paket adinin son parcasi: `@scope/ad` -> `ad`. */
+function packageBaseName(t: string): string {
+  const lower = t.toLowerCase();
+  const slash = lower.lastIndexOf('/');
+  return slash >= 0 ? lower.slice(slash + 1) : lower;
+}
+
+type NameMatcher = (tokenNorm: string) => boolean;
+
+/** Komut VE paket adi (son parca) eslesme kumesini kurar. */
+function buildNameMatcher(command: string, packageName: string | undefined): NameMatcher {
+  const cmd = command.toLowerCase();
+  const pkgBase = packageName ? packageBaseName(packageName) : '';
+  return (t) => {
+    if (!t) return false;
+    if (t === cmd) return true;
+    if (pkgBase && t === pkgBase) return true;
+    return false;
+  };
+}
+
+/** Calistiricidan sonraki paket/parametre belirtecleri: bayraklar atlanir. */
+function* candidateTokens(tokens: readonly string[], start: number): Generator<string> {
+  for (let i = start; i < tokens.length; i++) {
+    const tok = tokens[i]!;
+    if (tok.startsWith('-')) {
+      // `--pkg=x` kendi icinde degerlidir; dugun bayrak sadece atlanir.
+      if (VALUE_FLAGS.has(tok)) i++;
+      continue;
+    }
+    yield normToken(tok);
+  }
+}
+
+function withoutSudo(tokens: readonly string[]): readonly string[] {
+  if (tokens.length > 1 && normToken(tokens[0]!) === 'sudo') return tokens.slice(1);
+  return tokens;
+}
+
+/** Kesim bir kurulum satiri mi? (npm i / pipx install / uv tool install ...) */
+function isInstallSegment(tokens: readonly string[]): boolean {
+  const parts = withoutSudo(tokens);
+  if (parts.length === 0) return false;
+  const head = normToken(parts[0]!);
+  const v1 = parts[1] ? normToken(parts[1]!) : '';
+  const verbs = INSTALL_VERBS[head];
+  if (verbs) return verbs.includes(v1);
+  if (head === 'pipx') return v1 === 'install';
+  if (head === 'uv' || head === 'dotnet') {
+    const v2 = parts[2] ? normToken(parts[2]!) : '';
+    return v1 === 'tool' && v2 === 'install';
+  }
+  return false;
+}
+
+/** Bir satir kesimi komutu/paketi cagiriyor mu? */
+function segmentMentions(
+  tokens: readonly string[],
+  isName: NameMatcher,
+): boolean {
+  const parts = withoutSudo(tokens);
+  if (parts.length === 0) return false;
+  const head = normToken(parts[0]!);
+  if (!head) return false;
+
+  // Kapsam konumu: calistirici alt komutlarindan sonrasi paket yeridir;
+  // calistirma degil olan yonetici fiilleri eslesme saglamaz.
+  const startAfterRunner = (from: number): boolean => {
+    // Paket/alt komut, bayraklar atlandiktan sonraki ILK belirtecdir;
+    // sonraki belirtecler argumandir ve eslesme saglamaz
+    // (`npx bir-arac ornek` -> 'ornek' argumandir, kullanim degildir).
+    for (const c of candidateTokens(parts, from)) return isName(c);
+    return false;
+  };
+
+  if (RUNNER_SIMPLE.has(head)) return startAfterRunner(1);
+
+  if (head === 'pipx') {
+    const v1 = parts[1] ? normToken(parts[1]!) : '';
+    const start = v1 === 'run' ? 2 : PIPX_OTHER_VERBS.has(v1) ? parts.length : 1;
+    return startAfterRunner(start);
+  }
+  if (head === 'npm') {
+    // npm exec <paket>, npm run <ad>; diger npm alt komutlari eslesmez.
+    const v1 = parts[1] ? normToken(parts[1]!) : '';
+    const start = v1 === 'exec' || v1 === 'run' ? 2 : parts.length;
+    return startAfterRunner(start);
+  }
+  if (head === 'pnpm' || head === 'yarn' || head === 'bun') {
+    const v1 = parts[1] ? normToken(parts[1]!) : '';
+    const start =
+      v1 === 'run' || (head === 'bun' && v1 === 'x') || v1 === 'dlx' || v1 === 'exec'
+        ? 2
+        : PM_VERBS.has(v1)
+          ? parts.length
+          : 1;
+    return startAfterRunner(start);
+  }
+  if (head === 'dotnet') {
+    const v1 = parts[1] ? normToken(parts[1]!) : '';
+    const v2 = parts[2] ? normToken(parts[2]!) : '';
+    const start =
+      v1 === 'tool' && v2 === 'run' ? 3 : DOTNET_VERBS.has(v1) ? parts.length : 1;
+    return startAfterRunner(start);
+  }
+
+  // Dogrudan cagri: komut yalniz ilk belirtec konumundadir.
+  return isName(head);
+}
+
+/**
+ * Kabuk gecmisinde komutun/paketin gecme adedi. Satir basi veya `;|&`
+ * sonrasi kesimlerde arar; `sudo`, betik uzantilari, yol oneki ve
+ * tirnaklar disarida birakilir; paket calistiricilari ve paket
+ * yoneticisi calistirmalarini gorur; kurulum iceren satir tamamen
+ * atlanir (muhafazakar).
+ */
+export function findHistoryMentions(
+  history: HistoryData,
+  command: string,
+  packageName?: string,
+): { mentions: number; lastRatio: number } {
   if (history.lines.length === 0) return { mentions: 0, lastRatio: 0 };
-  const esc = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(`(?:^|[;&|]\\s*)(?:sudo\\s+)?(?:&\\s*)?(?:\\.[\\\\/])?${esc}(?:\\.exe)?(?:\\s|$)`, 'i');
+  const isName = buildNameMatcher(command, packageName);
   let mentions = 0;
   let last = -1;
   for (let i = 0; i < history.lines.length; i++) {
-    if (re.test(history.lines[i]!)) {
+    const line = history.lines[i]!;
+    // Kesimler: `;` `|` `&&` ayraclari her komut konumu tasiyabilir.
+    const segs = line.split(/[;&|]+/);
+    let matched = false;
+    for (const seg of segs) {
+      const tokens = seg.trim().split(/\s+/).filter(Boolean);
+      if (tokens.length === 0) continue;
+      if (isInstallSegment(tokens)) {
+        // Muhafazakar davranis: kurulum satirinin TAMAMI atlanir —
+        // ayni satirda baska komut olsa bile kullanim sayilmaz.
+        matched = false;
+        break;
+      }
+      if (segmentMentions(tokens, isName)) {
+        matched = true;
+        break;
+      }
+    }
+    if (matched) {
       mentions++;
       last = i;
     }
