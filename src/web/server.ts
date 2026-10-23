@@ -653,6 +653,13 @@ async function handleRequest(
     return;
   }
 
+  if (route === 'GET /api/dependencies') {
+    // Sorgu motorda eslesir; bos sorgu 400 DEGIL sade 'empty' durumdur.
+    const q = url.searchParams.get('q') ?? '';
+    sendJson(res, 200, await ctx.graph.relations(q));
+    return;
+  }
+
   if (route === 'POST /api/graph/what-if') {
     const body = await readJson<Record<string, unknown>>(req);
     const query = typeof body.query === 'string' ? body.query.trim() : '';

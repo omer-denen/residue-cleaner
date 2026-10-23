@@ -1,15 +1,42 @@
 import {
   buildInventoryGraph,
   groupNodesByKind,
+  matchGraphNodes,
   type DependencyGraph,
+  type EdgeState,
 } from '../core/dependency-graph.ts';
 import type { CliInventoryService } from './cli-inventory-service.ts';
-import type { GraphViewResponse, GraphWhatIfResponse } from '../core/contract.ts';
+import type {
+  DependenciesResponse,
+  DependencyRefView,
+  GraphViewResponse,
+  GraphWhatIfResponse,
+} from '../core/contract.ts';
 
 /**
  * Bagimlilik grafigi servisi. Envanteri (gerekirse) tazeler ve
  * dugum/kenar gorunumu ile what-if sonucu uretir. Silme YAPMAZ.
  */
+
+/** Kenar durumu agirligi (broken en once gorunur; unknown en son). */
+const REF_STATE_WEIGHT: Record<EdgeState, number> = {
+  broken: 6,
+  'missing-chain': 5,
+  shadowed: 4,
+  drifted: 3,
+  cyclic: 2,
+  intact: 1,
+  unknown: 0,
+};
+
+/** Bagimlilik referanslari: once kok nedenler (kirik/golgede), sonra etiket. */
+function sortRefs(refs: DependencyRefView[]): DependencyRefView[] {
+  return refs.sort(
+    (a, b) =>
+      REF_STATE_WEIGHT[b.state] - REF_STATE_WEIGHT[a.state] ||
+      a.label.localeCompare(b.label),
+  );
+}
 
 export class GraphService {
   private readonly inventory: CliInventoryService;
@@ -107,6 +134,58 @@ export class GraphService {
 
   async view(): Promise<GraphViewResponse> {
     return this.toView(await this.graph());
+  }
+
+  /**
+   * Secili oge(n)in bagimliliklari: sorguya eslesen dugumleri bulur,
+   * gelen/giden kenarlari birlestirir. YALNIZ onbellek kullanir;
+   * agir tarama tetiklemez (arayuzdeki "Bagimliliklari goster" diyezi).
+   */
+  async relations(query: string): Promise<DependenciesResponse> {
+    const q = query.trim().slice(0, 200);
+    if (!q) {
+      return { query: '', matched: [], dependents: [], needs: [], note: 'empty' };
+    }
+    const view = await this.viewCached();
+    if (!view) {
+      return { query: q, matched: [], dependents: [], needs: [], note: 'no-cache' };
+    }
+    const matched = matchGraphNodes(view.nodes, { text: q });
+    if (matched.length === 0) {
+      return { query: q, matched: [], dependents: [], needs: [], note: 'no-match' };
+    }
+
+    // Dugum kimlikleri icinde mi diye bakmak icin indeks.
+    const byId = new Map(view.nodes.map((n) => [n.id, n]));
+    const matchIds = new Set(matched.map((m) => m.id));
+    const collect = (key: 'dependents' | 'needs'): DependencyRefView[] => {
+      // id ile tekillestir (ilk gorulen kazanir); eslesen dugumlerin
+      // KENDI kimlikleri dislida (kendi kendine bagimlilik raporlanmaz).
+      const seen = new Map<string, DependencyRefView>();
+      for (const m of matched) {
+        const node = byId.get(m.id);
+        if (!node) continue;
+        for (const ref of node[key]) {
+          if (matchIds.has(ref.id)) continue;
+          if (!seen.has(ref.id)) {
+            seen.set(ref.id, {
+              id: ref.id,
+              label: ref.label,
+              kind: ref.kind,
+              state: ref.edge.state,
+            });
+          }
+        }
+      }
+      return sortRefs([...seen.values()]);
+    };
+    return {
+      query: q,
+      matched,
+      dependents: collect('dependents'),
+      needs: collect('needs'),
+      note: null,
+    };
   }
 
   async whatIf(query: string): Promise<GraphWhatIfResponse> {

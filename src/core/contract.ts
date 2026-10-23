@@ -740,6 +740,32 @@ export interface GraphWhatIfResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Bagimlilik sorgu ucu (secili ogenin dependents/needs; SALT OKUNUR)
+// ---------------------------------------------------------------------------
+
+/** Gelen/giden kenarin karsi ucundaki dugum referansi (kenar durumuyla). */
+export interface DependencyRefView {
+  id: string;
+  label: string;
+  kind: GraphNodeKind;
+  /** Kenar durumu: intact | shadowed | broken | missing-chain | drifted | cyclic | unknown */
+  state: EdgeState;
+}
+
+export interface DependenciesResponse {
+  /** Sorgu (trim). Bos ise `note: 'empty'`. */
+  query: string;
+  /** Eslestirilen dugumler (en fazla 5; MOTOR secer). */
+  matched: Array<{ id: string; label: string; kind: GraphNodeKind }>;
+  /** Bu dugumlere ihtiyac duyanlar (gelen kenarlar). */
+  dependents: DependencyRefView[];
+  /** Bu dugumlerin ihtiyac duydugu dugumler (giden kenarlar). */
+  needs: DependencyRefView[];
+  /** 'empty' | 'no-cache' | 'no-match' | null */
+  note: 'empty' | 'no-cache' | 'no-match' | null;
+}
+
+// ---------------------------------------------------------------------------
 // CLI envanteri (SALT OKUNUR) + kaldirma plani
 // ---------------------------------------------------------------------------
 

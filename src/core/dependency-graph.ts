@@ -573,3 +573,60 @@ export function buildInventoryGraph(inv: CliInventory): DependencyGraph {
   g.validate();
   return g;
 }
+
+// ---------------------------------------------------------------------------
+// Dugum eslestirici (SAF; kullanici sorgusu -> dugumler. Siralama MOTORDA)
+// ---------------------------------------------------------------------------
+
+export interface NodeMatchQuery {
+  text: string;
+  /** Varsayilan 5. */
+  limit?: number;
+}
+
+/** Dugumleri sorguya gore eslestirir (SAF; siralama MOTORDA). */
+export function matchGraphNodes<
+  T extends { id: string; label: string; kind: string; path?: string },
+>(nodes: Iterable<T>, query: NodeMatchQuery): Array<Pick<T, 'id' | 'label' | 'kind'>> {
+  const raw = query.text.trim();
+  if (!raw) return [];
+  const q = normalizeMatchText(raw);
+  if (!q) return [];
+  const limit = query.limit ?? 5;
+
+  const scored: Array<Pick<T, 'id' | 'label' | 'kind'> & { score: number }> = [];
+  for (const node of nodes) {
+    const idN = normalizeMatchText(node.id);
+    const labelN = normalizeMatchText(node.label);
+    const pathN = node.path ? normalizeMatchText(node.path) : '';
+    let score = 0;
+    if (idN === q) score = 100;
+    else {
+      if (pathN && pathN === q) score = 90;
+      else if (labelN === q) score = 80;
+      else if (pathN && pathN.endsWith(q)) score = 70;
+    }
+    if (score === 0 && (idN.includes(q) || labelN.includes(q) || (pathN && pathN.includes(q)))) {
+      score = 10;
+    }
+    if (score === 0) continue;
+    scored.push({ id: node.id, label: node.label, kind: node.kind, score });
+  }
+
+  scored.sort(
+    (a, b) =>
+      b.score - a.score || // once skor
+      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0), // esitlikte id alfabetik
+  );
+  return scored.slice(0, limit).map(({ id, label, kind }) => ({ id, label, kind }));
+}
+
+/**
+ * Eslestirme normalizasyonu: kucuk harf, `\` ve `/` ayni sayilir,
+ * bastaki Windows uzun yol oneki (`\\?\`) atilir, coklu bosluk sadelesir.
+ */
+function normalizeMatchText(text: string): string {
+  let t = text.trim();
+  if (t.startsWith('\\\\?\\')) t = t.slice(4);
+  return t.toLowerCase().replace(/[\\/]+/g, '/').replace(/\s+/g, ' ');
+}
