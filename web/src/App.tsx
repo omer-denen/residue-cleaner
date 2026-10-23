@@ -22,6 +22,7 @@ import {
   type RightPanelModuleId,
 } from './components/RightPanel.tsx';
 import { PlannedModule } from './components/PlannedModule.tsx';
+import { ContextBlock } from './components/ContextBlock.tsx';
 import { Dashboard } from './screens/Dashboard.tsx';
 import { Disk } from './screens/Disk.tsx';
 import { Env } from './screens/Env.tsx';
@@ -68,22 +69,24 @@ function isTypingTarget(target: EventTarget | null): boolean {
   );
 }
 
-/** Ekran -> sag panel modulleri (VS Code "3-5 modul" siniri). */
+/** Ekran -> sag panel modulleri (VS Code "3-5 modul" siniri).
+ *  (W2-d) Baglam ayrı sekme degil; Kanitalar footer'i oldugu icin
+ *  yalnizca Plan ekraninda oge yok, orada kanit slotu da YOK. */
 function modulesFor(screen: Screen): RightPanelModuleId[] {
   switch (screen) {
     case 'dashboard':
     case 'disk':
     case 'projects':
-      return ['evidence', 'planned', 'context'];
+      return ['evidence', 'planned'];
     case 'tools':
-      return ['evidence', 'action', 'planned', 'context'];
+      return ['evidence', 'action', 'planned'];
     case 'env':
     case 'graph':
-      return ['action', 'planned', 'context'];
+      return ['action', 'planned'];
     case 'plan':
       return ['context'];
     default:
-      return ['planned', 'context'];
+      return ['planned'];
   }
 }
 
@@ -162,13 +165,9 @@ export function App() {
   useEffect(() => {
     if (previousScreenRef.current === screen) return;
     previousScreenRef.current = screen;
-    const ids = modulesFor(screen);
-    const primary =
-      ids[0] === 'planned' && !planned && ids.includes('context')
-        ? 'context'
-        : ids[0];
+    const primary = modulesFor(screen)[0];
     if (primary) setRightTab(primary);
-  }, [screen, planned]);
+  }, [screen]);
 
   /** Plan gecersiz oldugunda (404/410) ortak temizlik + uyarı bayragi. */
   const stalePlan = (): void => {
@@ -188,25 +187,6 @@ export function App() {
       // Sag panel plandan cikarma: AYNI plan kimligi ve TTL korunur;
       // istemci YOL gondermez, yalnizca kume/hedef kimligi yollar.
       const next = await api.removeFromPlan(planned.planId, selector);
-      setPlanned(next);
-      setPlan(next);
-    } catch (err) {
-      if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
-        stalePlan();
-      }
-      setPlanError(err instanceof ApiError ? err.message : String(err));
-    } finally {
-      setPlanBusy(false);
-    }
-  };
-
-  /** Plan adi degistirme (W2-c): ad sunucuda; kimlik/kapsam/TTL korunur. */
-  const renamePlanned = async (name: string): Promise<void> => {
-    if (!planned || planBusy) return;
-    setPlanBusy(true);
-    setPlanError(null);
-    try {
-      const next = await api.renamePlan(planned.planId, name);
       setPlanned(next);
       setPlan(next);
     } catch (err) {
@@ -461,6 +441,8 @@ export function App() {
       : t('nav.collapse');
 
   // Sag panel modulleri: karar YOK; yalnizca sunum + motordan gelen sayilar.
+  // (W2-d) Baglam ayrı modul YALNIZ Plan ekraninda (kanit slotu yok);
+  // diger ekranlarda Kanitalar modulunun footer'idir.
   const panelModules: RightPanelModule[] = [];
   if (['dashboard', 'disk', 'projects', 'tools'].includes(screen)) {
     panelModules.push({
@@ -468,6 +450,7 @@ export function App() {
       label: 'rightPanel.evidence',
       slot: true,
       empty: 'rightPanel.evidence.empty',
+      footer: <ContextBlock meta={meta} lang={lang} />,
     });
   }
   if (['tools', 'env', 'graph'].includes(screen)) {
@@ -494,7 +477,6 @@ export function App() {
           onDismissExpired={() => setPlanExpired(false)}
           onRemoveKey={(key) => void removePlanned({ key })}
           onRemoveTarget={(targetId) => void removePlanned({ targetId })}
-          onRename={(name) => void renamePlanned(name)}
           onClearAll={() => void clearPlanned()}
           onOpenPlan={() => setScreen('plan')}
           onOpenTools={() => setScreen('tools')}
@@ -502,35 +484,13 @@ export function App() {
       ),
     });
   }
-  panelModules.push({
-    id: 'context',
-    label: 'rightPanel.context',
-    content: (
-      <>
-        <section className="context-block">
-          <h2>{tu('safety.title')}</h2>
-          <p className="dim">{t('safety.body')}</p>
-        </section>
-        {meta && (
-          <section className="context-block">
-            <h2>{tu('context.meta')}</h2>
-            <dl className="meta-list">
-              <dt>{t('context.ui')}</dt>
-              <dd className="mono">{meta.ui ? 'web' : 'api'}</dd>
-              <dt>{t('context.cwd')}</dt>
-              <dd className="mono" title={meta.cwd}>
-                {meta.cwd ?? '—'}
-              </dd>
-              <dt>{t('context.home')}</dt>
-              <dd className="mono" title={meta.home}>
-                {meta.home ?? '—'}
-              </dd>
-            </dl>
-          </section>
-        )}
-      </>
-    ),
-  });
+  if (screen === 'plan') {
+    panelModules.push({
+      id: 'context',
+      label: 'rightPanel.context',
+      content: <ContextBlock meta={meta} lang={lang} />,
+    });
+  }
 
   return (
     <div

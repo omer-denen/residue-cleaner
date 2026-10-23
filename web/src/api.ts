@@ -251,16 +251,6 @@ export const api = {
     post<PlanResponse>('/api/plan/add', { ...(planId ? { planId } : {}), keys }),
 
   /**
-   * Plan adi degistirme (`PATCH /api/plan/:id`); plan kimligi, kapsam ve
-   * TTL sunucuda KORUNUR; gorunen ad tek kaynaktan (sunucu plan kaydi) gelir.
-   */
-  renamePlan: (planId: string, name: string): Promise<PlanResponse> =>
-    request<PlanResponse>(`/api/plan/${encodeURIComponent(planId)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ name }),
-    }),
-
-  /**
    * Plandan COKLU cikarma: `keys` sunucudaki mevcut plan anahtarlari
    * (`planned.panel.keys`) olmali; BOS `keys` gonderilmez (400 doner).
    * Sonuc planda oge kalmadiysa null'dur.

@@ -158,11 +158,6 @@ export function PlanScreen({
           <p className="dim">{t('plan.subtitle')}</p>
         </div>
         <div className="page-actions plan-head-right">
-          {plan.name && (
-            <span className="dim plan-name-value" title={plan.name}>
-              {plan.name}
-            </span>
-          )}
           <span className="ledger-value">{formatBytes(plan.plan.totalBytes)}</span>
           <PlanValidity expiresAt={plan.expiresAt} lang={lang} labelKey="plan.validity" />
         </div>

@@ -15,7 +15,8 @@ import { Icon } from './icons.tsx';
  * PlanResponse.name); burada hesap YOKTUR (kural 18). Islemler tek ucluler:
  *  - ekleme: `POST /api/plan/add` (kimlik + TTL korunur)
  *  - cikarma: `POST /api/plan/remove` (istemci YOL gondermez)
- *  - ad degistirme: `PATCH /api/plan/:id`
+ *  - (W2-d) ad degistirme kaldirildi: plan 10 dk yasar; adi saklamak
+ *    anlamsiz. `PATCH /api/plan/:id` sunucuda ileride icin kalir.
  * Onay/kelime dogrulama burada YOKTUR; Plan ekraninda kalir. "Planı uygula"
  * yalnizca Plan ekranina yonlendirir; `POST /api/execute` cagrilmaz.
  */
@@ -260,7 +261,6 @@ export function PlannedModule({
   onDismissExpired,
   onRemoveKey,
   onRemoveTarget,
-  onRename,
   onClearAll,
   onOpenPlan,
   onOpenTools,
@@ -274,8 +274,6 @@ export function PlannedModule({
   onDismissExpired: () => void;
   onRemoveKey: (key: string) => void;
   onRemoveTarget: (targetId: string) => void;
-  /** PATCH /api/plan/:id sonrasi onPlan(next) App'te uygulanir. */
-  onRename: (name: string) => void;
   /** "Tümünü boşalt" ve onayli "Yeni plan" ayni isi yapar. */
   onClearAll: () => void;
   onOpenPlan: () => void;
@@ -285,22 +283,13 @@ export function PlannedModule({
     translate(lang, key, vars);
   const tu = (key: MessageKey) => translateUpper(lang, key);
 
-  const [nameDraft, setNameDraft] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const newPlanRef = useRef<HTMLButtonElement | null>(null);
 
-  // Plan kimligi degistince taslagi sunucudaki adla esitle (yazilarken ezme).
+  // Plan kimligi degistince onay diyalogunu kapat.
   useEffect(() => {
-    setNameDraft(plan?.name ?? '');
     setConfirmOpen(false);
   }, [plan?.planId]);
-
-  const saveName = (): void => {
-    if (!plan || busy) return;
-    const name = nameDraft.trim();
-    if (!name) return;
-    onRename(name);
-  };
 
   const hasPlan = plan !== null && plan.panel.keys.length > 0;
 
@@ -338,7 +327,7 @@ export function PlannedModule({
         </p>
       ) : (
         <>
-          {/* Üst blok: aksiyon + ad + özet/ geçerlilik (sticky). */}
+          {/* Üst blok: aksiyon + özet/geçerlilik (sticky). */}
           <div className="rp-plan-head">
             <div className="rp-plan-actions">
               <button
@@ -349,14 +338,6 @@ export function PlannedModule({
                 onClick={onOpenPlan}
               >
                 {t('rightPanel.planned.apply')}
-              </button>
-              <button
-                type="button"
-                className="ghost"
-                disabled={!plan || busy || nameDraft.trim() === ''}
-                onClick={saveName}
-              >
-                {t('rightPanel.planned.save')}
               </button>
               <button
                 type="button"
@@ -376,19 +357,6 @@ export function PlannedModule({
                 {t('rightPanel.planned.clearAll')}
               </button>
             </div>
-
-            <input
-              className="control rp-plan-name"
-              type="text"
-              value={nameDraft}
-              placeholder={t('rightPanel.planned.namePlaceholder')}
-              aria-label={t('rightPanel.planned.namePlaceholder')}
-              disabled={!plan || busy}
-              onChange={(e) => setNameDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') saveName();
-              }}
-            />
 
             <div className="rp-planned-summary">
               <strong className="mono rp-planned-total">

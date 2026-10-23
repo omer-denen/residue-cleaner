@@ -43,6 +43,8 @@ export interface RightPanelModule {
   empty?: MessageKey;
   /** slot=false ise dogrudan basilan icerik. */
   content?: ReactNode;
+  /** Slot altinda basilan ek bolum (or. Baglam); slot bos olsa da gorunur. */
+  footer?: ReactNode;
 }
 
 interface RightPanelContextValue {
@@ -242,6 +244,7 @@ export function RightPanel({
         ) : (
           current.content
         )}
+        {current.footer && <div className="rp-footer">{current.footer}</div>}
       </div>
     </aside>
   );
