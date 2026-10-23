@@ -88,6 +88,8 @@ olarak **yapısal kanıtla** sınıflandırılıyor. Ancak `model-store` kapsam�
 
 ## 6. Düzeltme sırası
 
+> **Durum 23.10.2026:** F1 ✅ `8d9610a` · F2 ✅ `a783f3e` · F3/F4/F5 açık.
+
 1. **F1 — Observer hijyeni:** `scanStandaloneShims` + `annotateHealth` okumalarında
    atime/mtime'ı geri yaz; ortak `withPreservedAtime` yardımcısı.
 2. **F2 — Durum kanıtı:** `boundedStats` log/cache/tmp hariç; `Programs/<ad>`

@@ -249,6 +249,20 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
 - **Sıradaki:** F2 (durum kanıtı: log/Programs) → F3 (karar) → F4 (geçmiş)
   → F5 (görünürlük).
 
+### F2 — TAMAMLANDI
+
+- Commit `a783f3e` · `cli-inventory.ts` + `tests/inventory-state-evidence.test.ts`
+  (**6 test**).
+- `findStateDirs` adaylarından `%LOCALAPPDATA%\Programs\<ad>` çıkarıldı
+  (kurulum dizini; E4). Env enjeksiyonu test için opsiyonel parametre.
+- `boundedStats` gürültü süzgeci: `*.log|*.jsonl|*.tmp|*.pid` sayılmıyor;
+  `logs?/caches?/tmp/temp` klasörleri ne sayılıyor ne geziliyor;
+  `node_modules/.git/dist` içine girilmiyor (kendi mtime'ı sayılıyor).
+- Kapı: typecheck temiz · **270/270** (+6).
+- **Sıradaki:** F3 (kullanım kararı: atime tek başına `recent` olmasın,
+  kurulum-atime ayrımı, toplu atime filtresi, geçmiş tek başına `recent`
+  üretmesin) → F4 → F5.
+
 
 
 
