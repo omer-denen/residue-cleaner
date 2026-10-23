@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 import { readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { classifyPath, detectGpu, setGpuState } from '../core/analyze.ts';
+import { classifyPath, detectGpu } from '../core/analyze.ts';
 import { mergeClusters, groupByVerdict, summarize } from '../core/merge.ts';
 import { discover, BUILTIN_PROFILES, ENVS, isOwnDataPath } from '../core/discover.ts';
 import { walk } from '../core/walker.ts';
@@ -66,9 +66,11 @@ export async function runScan(args: ScanArgs): Promise<ScanResult> {
     minAgeDays: args.minAgeDays,
   });
 
+  // E10c: GPU bir kez saptanir ve her classifyPath cagrisina PARAMETRE
+  // olarak gecer; artik modul-duzeyi global doldurulmaz. null (erisim
+  // engellendi) "NVIDIA yok" olarak gosterilmez.
   const gpu = await detectGpu();
-  setGpuState(gpu);
-  debug('gpu durumu', gpu);
+  debug('gpu durumu', { gpu });
 
   // T10: --root verildiyse yalnizca o koklerin cocuklari taranir. Birden
   // fazla kok desteklenir; varsayilan kesif atlanir.
@@ -145,7 +147,11 @@ export async function runScan(args: ScanArgs): Promise<ScanResult> {
   );
   if (args.profile) log(`  Profil     : ${args.profile}`);
   log(`  Dizinler   : ${targets.length} aday`);
-  log(`  GPU        : ${gpu.hasNvidia ? 'NVIDIA bulundu' : 'NVIDIA yok'}\n`);
+  log(
+    `  GPU        : ${
+      gpu === null ? 'bilinmiyor (erisim engellendi)' : gpu.hasNvidia ? 'NVIDIA bulundu' : 'NVIDIA yok'
+    }\n`,
+  );
 
   // Kuyruk tabanli paralel tarama (6 es zamanli is)
   const results: Cluster[] = [];
@@ -173,6 +179,7 @@ export async function runScan(args: ScanArgs): Promise<ScanResult> {
           signal: args.signal,
           allow: args.allow,
           readOnly,
+          gpu,
           onSkipped: (sk) => {
             allSkipped.push(...sk);
             args.onSkipped?.(sk);

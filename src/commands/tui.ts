@@ -1,5 +1,4 @@
 import { runScan } from './scan.ts';
-import { detectGpu, setGpuState } from '../core/analyze.ts';
 import type { Env } from '../core/types.ts';
 import type { DeleteMode } from '../actions/delete.ts';
 
@@ -18,9 +17,6 @@ export async function runTui(args: {
   const React = (await import('react')).default;
   const { render } = await import('ink');
   const { App } = await import('../ui/App.tsx');
-
-  // Tarama GPU bilgisine ihtiyac duyar; TUI oncesinde hazirla.
-  setGpuState(await detectGpu());
 
   const instance = render(
     React.createElement(App, {

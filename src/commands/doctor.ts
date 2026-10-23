@@ -62,11 +62,18 @@ export async function runDoctor(): Promise<void> {
   });
 
   // --- GPU ---
+  // E10c: detectGpu artik UCLU durum dondurer. null (erisim engellendi)
+  // "yok" DEGILDIR: "bilinmiyor" olarak gosterilir, "yok" denmez.
   const gpu = await detectGpu();
   checks.push({
     name: 'GPU hizlandirma',
-    status: gpu.hasNvidia ? 'ok' : 'warn',
-    detail: gpu.hasNvidia ? 'NVIDIA CUDA surucusu bulundu' : gpu.note,
+    status: gpu === null ? 'warn' : gpu.hasNvidia ? 'ok' : 'warn',
+    detail:
+      gpu === null
+        ? 'NVIDIA durumu bilinmiyor (erisim engellendi; kanit toplanamadi)'
+        : gpu.hasNvidia
+          ? 'NVIDIA CUDA surucusu bulundu'
+          : gpu.note,
   });
 
   // --- Disk boslugu ---

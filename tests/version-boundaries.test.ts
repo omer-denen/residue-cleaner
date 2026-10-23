@@ -8,7 +8,6 @@ import {
   detectSubParts,
   findDirsContaining,
   findDirsNamed,
-  setGpuState,
   MeasureCache,
   classifyPath,
   type SubPart,
@@ -35,8 +34,9 @@ let root = '';
 
 before(async () => {
   root = await mkdtemp(join(process.cwd(), 'scratch', 'e6-fixtures-'));
-  // GPU yok varsayimi alt parca taramasini actigi icin gerekli.
-  setGpuState({ hasNvidia: false, note: 'test' });
+  // E10c: GPU artik global degil, parametredir. Bu dosyadaki alt parca
+  // testleri `Device: CPU` kanitini dogrudan tasidigindan (cpuOnly)
+  // burada GPU kurulumuna gerek kalmadi; setGpuState cagrisi kaldirildi.
 });
 
 after(async () => {

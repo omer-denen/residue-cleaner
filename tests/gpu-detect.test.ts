@@ -62,6 +62,9 @@ test('System32 altinda nvcuda.dll varsa nvidia tespit edilir', async () => {
     await writeNvcuda(process.env.SystemRoot!, 'System32');
     const { detectGpu } = await import('../src/core/analyze.ts');
     const gpu = await detectGpu();
+    // E10c: erisim hatasinda null doner; fixture kokundeki dosya erisilir
+    // durumda oldugundan null beklenmez (tip resepdleri icin de kirilim).
+    assert.ok(gpu, "detectGpu null döndü: erisim engellendi (test bunu beklemiyor)");
     assert.equal(gpu.hasNvidia, true);
     assert.match(gpu.note, /bulundu/);
   } finally {
@@ -75,6 +78,7 @@ test('dosya hic yoksa yoktur ve notta "yok" der', async () => {
   try {
     const { detectGpu } = await import('../src/core/analyze.ts');
     const gpu = await detectGpu();
+    assert.ok(gpu, "detectGpu null döndü: erisim engellendi (test bunu beklemiyor)");
     assert.equal(gpu.hasNvidia, false);
     assert.match(gpu.note, /yok/);
     // Erisim hatasi degil dosya yok senaryosu: "bilinmiyor" karismamali.
@@ -91,6 +95,7 @@ test('yalniz SysWOW64 altinda nvcuda.dll varsa da tespit edilir (ek kanit yolu)'
     await writeNvcuda(process.env.SystemRoot!, 'SysWOW64');
     const { detectGpu } = await import('../src/core/analyze.ts');
     const gpu = await detectGpu();
+    assert.ok(gpu, "detectGpu null döndü: erisim engellendi (test bunu beklemiyor)");
     assert.equal(gpu.hasNvidia, true);
     // Kanitin hangi yoldan geldigi notta gorunur olmali.
     assert.match(gpu.note, /SysWOW64/);
@@ -108,6 +113,7 @@ test('SystemRoot tanimsizken cokmez; makul bir yola duser', async () => {
     const root = systemRootPath();
     assert.match(root, /\\Windows\\?$/i);
     const gpu = await detectGpu();
+    assert.ok(gpu, "detectGpu null döndü: erisim engellendi (test bunu beklemiyor)");
     assert.equal(typeof gpu.hasNvidia, 'boolean');
     assert.ok(gpu.note.length > 0);
   } finally {
@@ -134,6 +140,7 @@ test('sabit C:\\Windows KULLANILMAZ: fixture bosken sonuc fixture\sina gore fals
     assert.equal(fixtureHasDll, false, "Fixture'da nvcuda.dll olmamali (test kurulum hatasi)");
     const { detectGpu } = await import('../src/core/analyze.ts');
     const gpu = await detectGpu();
+    assert.ok(gpu, "detectGpu null döndü: erisim engellendi (test bunu beklemiyor)");
     assert.equal(gpu.hasNvidia, false);
     assert.match(gpu.note, /yok/);
   } finally {

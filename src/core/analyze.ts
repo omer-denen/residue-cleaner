@@ -47,6 +47,14 @@ export interface ClassifyOptions {
   /** T28: hassas siniflarin (gecmis/model/kural) acik izni. */
   allow?: SensitiveAllow;
   /**
+   * E10c: GPU kaniti; `detectGpu()` sonucu bir kez alinip CAGRI
+   * yerinde enjekte edilir. Modul duzeyinde paylasilan durum yoktur;
+   * iki classifyPath cagrisi birbirinin GPU durumunu tasmaz. `null`
+   * veya verilmediyse "bilinmiyor" demektir ve "GPU yok" SAYILMAZ;
+   * yokluk yalnizca kanitla dogrulanir.
+   */
+  gpu?: GpuEvidence;
+  /**
    * Erisilemeyen/atlanan yollar. Tarama sonucundaki `skipped` listesine
    * akar; "sessizce eksik sayma" yerine kanit olur.
    */
@@ -89,34 +97,87 @@ function nvcudaCandidates(root: string): NvcudaCandidate[] {
 }
 
 /**
+ * GPU kanitinin UCLU durumu (E10c/E10d):
+ *  - `{ hasNvidia: true/false, note }` → kanit toplanabildi.
+ *    `false` yalnizca "tum adaylar gercekten yok (ENOENT)" demektir.
+ *  - `null` → kanit toplanamadi (erisim engellendi): "bilinmiyor".
+ *    "GPU yok" hukmu VERILEMEZ; kullanilabilir CUDA runtime'in silme
+ *    teklifine donmesi boylece engellenir.
+ */
+export type GpuEvidence = { hasNvidia: boolean; note: string } | null;
+
+/** Bir nvcuda adayinin toplama sonucu (saf yardimcinin girdisi). */
+export interface GpuCandidateResult {
+  /** Gerekce metninde gosterilecek yer etiketi */
+  where: string;
+  outcome: 'found' | 'missing' | 'denied';
+  /** outcome === 'denied' icin erisim hatasi kodu (EACCES/EPERM) */
+  code?: string;
+}
+
+/**
+ * Saf GPU karar yardimcisi (E10d): aday basina toplama sonucunu UCLU
+ * duruma cevirir. I/O BILMEZ; testler stat enjeksiyonu olmadan buradan
+ * uc durumu dogrulayabilir.
+ *  - Bir adayda nvcuda.dll bulundu → `{ hasNvidia: true }`
+ *  - TUM adaylar gercekten yok (ENOENT) → `{ hasNvidia: false }`
+ *  - Erisim engellendi (EACCES/EPERM) → `null`: "bilinmiyor". Kanit
+ *    olmadigi icin "yok" denmez.
+ */
+export function interpretGpuEvidence(
+  candidates: readonly GpuCandidateResult[],
+): GpuEvidence {
+  const hit = candidates.find((c) => c.outcome === 'found');
+  if (hit) {
+    return {
+      hasNvidia: true,
+      note: `NVIDIA CUDA surucusu bulundu (${hit.where}\\nvcuda.dll)`,
+    };
+  }
+  if (candidates.some((c) => c.outcome === 'denied')) return null;
+  return { hasNvidia: false, note: 'NVIDIA CUDA surucusu yok (GPU runtime kullanilamaz)' };
+}
+
+/**
  * Ortam tespiti: makinede GPU var mi?
  *
- * `hasNvidia:false` yalnizca "hicbir kanit yok" demektir. Erisim hatasi
- * (EACCES/EPERM) ile "dosya yok" farkli seylerdir; erisim engellendiginde
- * kaynak yokluguna hukmedilemez, bunu notta ayrimi ile belirtir.
- * Ek kanit: System32'de bulunamazsa SysWOW64 (WOW64 CUDA stub'i) denenir.
+ * Sonuc UCLU durumdur (bkz. `GpuEvidence`). Erisim hatasi (EACCES/EPERM)
+ * "dosya yok" DEGILDIR: o durumda null doner ve cagran "GPU yok"
+ * varsayimiyla hareket EDEMEZ. Ek kanit: System32'de bulunamazsa
+ * SysWOW64 (WOW64 CUDA stub'i) denenir. Karar mantigi saf yardimci
+ * `interpretGpuEvidence` icindedir.
  */
-export async function detectGpu(): Promise<{ hasNvidia: boolean; note: string }> {
+export async function detectGpu(): Promise<GpuEvidence> {
   const candidates = nvcudaCandidates(systemRootPath());
-  let deniedCode: string | null = null;
+  const results: GpuCandidateResult[] = [];
   for (const c of candidates) {
     try {
       const s = await stat(longPath(c.file));
       void s;
-      return { hasNvidia: true, note: `NVIDIA CUDA surucusu bulundu (${c.where}\\nvcuda.dll)` };
+      results.push({ where: c.where, outcome: 'found' });
     } catch (err) {
       const code = errorCode(err);
-      if (code === 'EACCES' || code === 'EPERM') deniedCode = code;
       // ENOENT: bu yolda gercekten yok; siradaki kanit yoluna bak.
+      results.push({
+        where: c.where,
+        outcome: code === 'EACCES' || code === 'EPERM' ? 'denied' : 'missing',
+        code,
+      });
     }
   }
-  if (deniedCode !== null) {
-    return {
-      hasNvidia: false,
-      note: `NVIDIA CUDA surucusu denetlenemedi (erisim engellendi, kod:${deniedCode}); varlik bilgisi bilinmiyor, "yok" denemez`,
-    };
+  const verdict = interpretGpuEvidence(results);
+  if (verdict === null) {
+    // E10d: erisim engellendiyse "yok" denmez; kanit toplanamadi ayri
+    // durumdur. Kodlar gunluge acik yazilir (sessiz eksiklik yok).
+    const denied = results
+      .filter((r) => r.outcome === 'denied')
+      .map((r) => `${r.where}(${r.code})`)
+      .join(', ');
+    warn('NVIDIA kaniti toplanamadi: erisim engellendi (GPU durumu bilinmiyor)', {
+      erisen: denied,
+    });
   }
-  return { hasNvidia: false, note: 'NVIDIA CUDA surucusu yok (GPU runtime kullanilamaz)' };
+  return verdict;
 }
 
 /** Tek bir kok klasoru inceler ve (varsa) kumeye cevirir. */
@@ -171,7 +232,9 @@ export async function classifyPath(
   };
 
   const archetype = detectArchetype(ev, root, w.extensionCounts, probe);
-  let reclaimable = estimateReclaimable(archetype, w.bytes, w.extensionCounts, w.olderBytes);
+  // E10c: GPU kaniti cagrandan (opsiyonlardan) gelir; global durum yok.
+  const gpu = opts.gpu ?? null;
+  let reclaimable = estimateReclaimable(archetype, w.bytes, w.extensionCounts, w.olderBytes, gpu);
   // T28: --nuke-models verildiyse tum model deposu hedeflenir.
   if (archetype === 'model-store' && opts.allow?.models) reclaimable = w.bytes;
 
@@ -215,7 +278,7 @@ export async function classifyPath(
   // Ic ice parca olmaz: bir parca digerinin icindeyse yalnizca DIS olan
   // kalir. Aksi halde bayt iki kez sayilir ve silme hedefleri cakisir
   // (or. CUDA dizini "-gpu" varyant dizininin icinde).
-  const sub = dropNestedSubParts([...extra, ...(await detectSubParts(root, ev, now, measure))]);
+  const sub = dropNestedSubParts([...extra, ...(await detectSubParts(root, ev, now, measure, { gpu }))]);
   // Yalnizca GERCEKTEN geri kazanilabilir alt parcalar toplanir. Ajan
   // calisma alanindaki beceri/plan (keep) ve bagimlilik (report-only)
   // parcalari "silinebilir" sayiya KATILMAZ.
@@ -235,6 +298,7 @@ export async function classifyPath(
     now,
     minAgeDays: opts.minAgeDays ?? 0,
     allow: opts.allow,
+    gpu,
   });
 
   // Her kararin gerekcesi kaydedilir: "bu klasor neden guvenli sayildi"
@@ -798,10 +862,12 @@ export async function detectSubParts(
   ev: Evidence,
   now: number,
   measure: MeasureCache,
-  opts?: { maxDirs?: number },
+  opts?: { maxDirs?: number; gpu?: GpuEvidence },
 ): Promise<SubPart[]> {
   const out: SubPart[] = [];
-  const gpuAbsent = GPU_STATE ? !GPU_STATE.hasNvidia : false;
+  // E10c: GPU bilgisi parametreden gelir. null/yok = "bilinmiyor":
+  // gpuAbsent false kalir, GPU'nun YOK sayilmasi yalnizca kanitla olur.
+  const gpuAbsent = opts?.gpu != null ? !opts.gpu.hasNvidia : false;
   const cpuOnly = logGpuVerdict(ev.logSignals ?? []).cpuOnly;
   const gpuUnusable = gpuAbsent || cpuOnly;
 
@@ -1528,6 +1594,7 @@ export function estimateReclaimable(
   totalBytes: number,
   extCounts: Map<string, number>,
   olderBytes?: Map<number, number>,
+  gpu?: GpuEvidence,
 ): number {
   switch (archetype) {
     case 'pkg-manager-cache':
@@ -1539,9 +1606,9 @@ export function estimateReclaimable(
       // Hedef yalnizca 3 gunden eski dosyalar; tahmin de o kirilimdan gelir.
       return olderBytes ? (olderBytes.get(3) ?? 0) : 0;
     case 'accelerator-runtime':
-      // Yalnizca cihazda GPU yoksa tamami artik sayilir; GPU varsa
-      // kullanici karar vermeli.
-      return GPU_STATE && !GPU_STATE.hasNvidia ? totalBytes : 0;
+      // Yalnizca cihazda GPU YOKSA (kanitla) tamami artik sayilir; GPU
+      // varsa veya kanit yoksa (bilinmiyor) kullanici karar vermeli.
+      return gpu != null && !gpu.hasNvidia ? totalBytes : 0;
     case 'virtual-disk':
       return 0; // ASLA otomatik
     case 'model-store':
@@ -1643,6 +1710,7 @@ function decide(ctx: {
   now: number;
   minAgeDays: number;
   allow?: SensitiveAllow;
+  gpu?: GpuEvidence;
 }): Verdict {
   const base = decideBase(ctx);
   let regenerability: Regenerability = REGENERABILITY[ctx.archetype] ?? 'unknown';
@@ -1685,8 +1753,9 @@ function decideBase(ctx: {
   now: number;
   minAgeDays: number;
   allow?: SensitiveAllow;
+  gpu?: GpuEvidence;
 }): Omit<Verdict, 'regenerability' | 'confidence'> {
-  const { archetype, ev, root, reclaimable, totalBytes, now, minAgeDays, allow } = ctx;
+  const { archetype, ev, root, reclaimable, totalBytes, now, minAgeDays, allow, gpu } = ctx;
   const name = displayName(ev, root);
   const age = daysSince(ev.lastTouched ?? 0, now);
   const because: string[] = [];
@@ -1713,17 +1782,17 @@ function decideBase(ctx: {
 
   // ---- HIZLANDIRICI RUNTIME: dongu/dongu kontrolu ile ----
   if (archetype === 'accelerator-runtime') {
-    const gpu = GPU_STATE;
     const cpuOnly = /CPUExecutionProvider|Device: CPU/i.test(
       logs.map((l) => l.line).join(' '),
     );
-    if (gpu && !gpu.hasNvidia) {
-      push(`Bu makinede NVIDIA CUDA surucusu yok (${gpu.note})`);
+    const gpuDead = gpu != null && !gpu.hasNvidia;
+    if (gpuDead) {
+      push(`Bu makinede NVIDIA CUDA surucusu yok (${gpu!.note})`);
     }
     if (cpuOnly) {
       push('Loglar "Device: CPU / CPUExecutionProvider" diyor: GPU saglayicisi kaydedilmemis');
     }
-    const unused = cpuOnly || (gpu && !gpu.hasNvidia);
+    const unused = cpuOnly || gpuDead;
     return {
       risk: unused ? 'low' : 'medium',
       kind: unused ? 'recommend' : 'ask',
@@ -1754,7 +1823,7 @@ function decideBase(ctx: {
     }
     const cpuOnly = /Device: CPU|CPUExecutionProvider/i.test(logs.map((l) => l.line).join(' '));
     const gpuVariants = (ev.largeFiles ?? []).filter((f) => /gpu|cuda|trt/i.test(f.relPath));
-    const gpuAbsent = GPU_STATE ? !GPU_STATE.hasNvidia : false;
+    const gpuAbsent = gpu != null && !gpu.hasNvidia;
     const hasCuda = (ev.fileKinds ?? []).includes('cuda-runtime');
 
     const hasDeadGpu = hasCuda && (gpuAbsent || cpuOnly);
@@ -2166,10 +2235,8 @@ function dedupeLogSignals<T extends { means: string }>(signals: T[]): T[] {
   return [...byMeans.values()].slice(0, 6);
 }
 
-/** Global ortam durumu; bir kez doldurulur. */
-export let GPU_STATE: { hasNvidia: boolean; note: string } | null = null;
-export function setGpuState(s: { hasNvidia: boolean; note: string }): void {
-  GPU_STATE = s;
-}
+// E10c: Modul duzeyi GPU globalleri KALDIRILDI. GPU kaniti
+// ClassifyOptions.gpu alani (UCLU durum) ile parametre olarak gecer;
+// iki classifyPath cagrisi birbirinin durumunu tasmaz.
 
 export { ownerFromName };
