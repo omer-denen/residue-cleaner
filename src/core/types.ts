@@ -48,6 +48,8 @@ export type OwnerSignal =
 
 export type FileKind =
   | 'onnx-model'
+  /** Model agirligi (.gguf / .safetensors) — kok kanitidir tek basina karar degil */
+  | 'model-weight'
   | 'cuda-runtime'
   | 'container-image'
   | 'python-env'

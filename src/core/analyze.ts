@@ -1427,8 +1427,14 @@ export function detectArchetype(
   //    "models" adli bir alt klasor, kullanicinin veri klasorunu model
   //    deposu yapmaz; bu yuzden proje/ajan korumasi ONCE gelir.
   const agentWorkspace = markers.has('skill-store') || markers.has('skill-lock');
+  // T30: kok seviyesinde model depozisyonu kombinasyon kaniti (agirlik +
+  // manifest; classifier tarafindan dogrulanir). TEK basina agirlik
+  // (.gguf / .safetensors / model.bin) veya TEK basina manifest kanit
+  // DEGILDIR (kural 13); 'model-weight' turu bu yuzden yalnizca
+  // kombinasyon kanitinin (probe.modelStore) parcasi olarak etkilidir.
   const modelEvidence =
-    kinds.has('onnx-model') || markers.has('models') || logKinds.has('model-catalog') || logKinds.has('onnx-runtime');
+    kinds.has('onnx-model') || markers.has('models') || logKinds.has('model-catalog') || logKinds.has('onnx-runtime') ||
+    probe?.modelStore === true;
   if (modelEvidence && !probe?.projectManifest && !agentWorkspace) return 'model-store';
 
   // 7. CUDA/cuDNN runtime yigini (model icermeyen)

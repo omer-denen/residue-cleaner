@@ -54,6 +54,12 @@ export interface Probe {
    * silme hedefi olabilir.
    */
   cacheRoot?: string;
+  /**
+   * T30: kok seviyesinde model deposu kaniti — KOMBINASYON:
+   * en az bir model agirligi + en az bir calistirma manifesti ayni
+   * kokte goruldu. Tek basina agirlik ya da manifest kanit degildir.
+   */
+  modelStore?: boolean;
 }
 
 /**
@@ -92,6 +98,9 @@ const UUID_DIR_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 /** Uzantiya gore anlamli tur siniflandirmasi. */
 const EXT_KIND: Record<string, FileKind> = {
   onnx: 'onnx-model',
+  // T30: yerel AI model agirliklari (format adi; uygulama adi degil).
+  gguf: 'model-weight',
+  safetensors: 'model-weight',
   nupkg: 'nuget-package',
   whl: 'archive',
   tgz: 'archive',
@@ -199,6 +208,16 @@ const MODEL_MARKERS = new Set(['model.onnx', 'gguf', 'safetensors', 'tokenizer.j
 const MODEL_DIR_NAME = 'models';
 /** Model agirligi veya calistirma yapilandirmasi (icerik kaniti). */
 const MODEL_FILE_RE = /(^model\.onnx$|\.onnx$|\.gguf$|\.safetensors$|^tokenizer\.json$|^genai_config\.json$|^(pytorch_model|model)\.bin$)/i;
+/**
+ * T30: kok seviyesinde model deposu kombinasyon kaniti.
+ * Agirlik: .onnx / .gguf / .safetensors veya `pytorch_model.bin` /
+ * `model.bin`. GENEL `data.bin` SAYILMAZ (kural 13: genel ad tek basina
+ * kanit degildir). Manifest: tokenizer / calistirma yapilandirmasi.
+ * Tek basina agirlik, tek basina manifest — ikisi de yeterli degildir;
+ * ikisi ayni kokte gorulurse yerel model deposudur.
+ */
+const MODEL_WEIGHT_RE = /(\.onnx$|\.gguf$|\.safetensors$|^(pytorch_model|model)\.bin$)/i;
+const MODEL_MANIFEST_RE = /^(config\.json|tokenizer\.json|tokenizer_config\.json|genai_config\.json)$/i;
 /** Sohbet/oturum gecmisi dosya turleri (dizin adi tek basina kanit degil). */
 const CHAT_FILE_RE = /\.(json|jsonl|ndjson|sqlite|sqlite3|db)$/i;
 const CHAT_DIR_NAMES = new Set(['sessions', 'history', 'conversations', 'chats']);
@@ -226,6 +245,9 @@ export async function probeDir(path: string): Promise<Probe> {
   }
 
   let hasShim = false;
+  /** T30: kok seviyesinde model agirligi / manifest kombinasyon kaniti */
+  let hasModelWeight = false;
+  let hasModelManifest = false;
   /** Kekte buyuk harfli `Scripts` DIZINI var mi? (yukarida yakalanir) */
   let hasScriptsDir = false;
   /** Kokte gorulen SDK-kurulum adi dasiyan dizinler (asagida kombinasyonla karar verilir). */
@@ -299,6 +321,9 @@ export async function probeDir(path: string): Promise<Probe> {
     } else {
       const k = kindOfFile(e.name);
       if (k) p.fileKinds.push(k);
+      // T30: kok seviyesinde model deposu kombinasyon kaniti toplanir.
+      if (MODEL_WEIGHT_RE.test(e.name)) hasModelWeight = true;
+      if (MODEL_MANIFEST_RE.test(e.name)) hasModelManifest = true;
       if (NODE_MARKERS.has(e.name)) p.markers.push(e.name);
       if (PYENV_MARKERS.has(e.name)) p.markers.push(e.name);
       // `pyvenv.cfg` bir DOSYADIR (venv dizininin kokunde durur).
@@ -353,6 +378,17 @@ export async function probeDir(path: string): Promise<Probe> {
   // klasor adlaridir (her uygulamin "tools" klasoru olabilir); tek basina
   // SDK sayilmalari gereksiz yanlis pozitif report-only kumesi uretir.
   p.sdkInstall = sdkDirs.has('sdk') || (sdkDirs.has('shared') && sdkDirs.has('tools'));
+
+  // --- Kok seviyesinde model deposu (T30): KOMBINASYON kaniti ---
+  //
+  // Tek basina model agirligi (.gguf, model.bin...) ya da tek basina
+  // manifest (config.json...) kanit degildir; ikisi ayni kokte
+  // gorulurse yerel AI model deposudur. Karar report-only'dir; silme
+  // hedefi yalnizca --nuke-models ile uretir (analyze katmani).
+  if (hasModelWeight && hasModelManifest) {
+    p.modelStore = true;
+    p.markers.push('model-root');
+  }
 
   // `Scripts` TEK BASINA kanit degildir (kural 13): ayni kokte gercek
   // Python ortam kaniti (pyvenv.cfg dosyasi / site-packages dizini)
@@ -534,7 +570,7 @@ const NEVER_PROBE = new Set([
  */
 function hasSubstantiveSignal(p: Probe): boolean {
   if (p.fileKinds.some((k) => k !== 'log' && k !== 'sqlite')) return true;
-  if (p.editorExtensions || p.appVersions || p.skillStore) return true;
+  if (p.editorExtensions || p.appVersions || p.skillStore || p.modelStore) return true;
   // manifest / ortam isaretleri anlamli
   if (p.markers.some((m) => /node_modules|site-packages|pyvenv|conda|pixi|models|envs|ep$|store|cachedir|app-versions|skill-lock/i.test(m))) {
     return true;
