@@ -21,7 +21,9 @@ export type IconName =
   | 'vault'
   | 'settings'
   | 'panel'
-  | 'check';
+  | 'check'
+  | 'chevronDown'
+  | 'file';
 
 const PATHS: Record<IconName, ReactElement> = {
   menu: <path d="M2 4h12M2 8h12M2 12h12" />,
@@ -99,6 +101,13 @@ const PATHS: Record<IconName, ReactElement> = {
     </>
   ),
   check: <path d="M3 8.5l3.5 3.5L13 4.5" />,
+  chevronDown: <path d="M4 6l4 4 4-4" />,
+  file: (
+    <>
+      <path d="M4 1.5h5l3 3V14.5H4z" />
+      <path d="M9 1.5v3h3" />
+    </>
+  ),
 };
 
 export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {

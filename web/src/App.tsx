@@ -164,21 +164,17 @@ export function App() {
     if (primary) setRightTab(primary);
   }, [screen, planned]);
 
-  const removePlanned = async (key: string): Promise<void> => {
+  const removePlanned = async (selector: {
+    key?: string;
+    targetId?: string;
+  }): Promise<void> => {
     if (!planned || planBusy) return;
     setPlanBusy(true);
     setPlanError(null);
     try {
-      const remaining = planned.plan.clusters
-        .filter((cluster) => cluster.key !== key)
-        .map((cluster) => cluster.key);
-      if (remaining.length === 0) {
-        setPlanned(null);
-        setPlan(null);
-        return;
-      }
-      // Plan ekranindaki "plandan cikar" ile AYNI motor: sunucu yeniden kurar.
-      const next = await api.plan(remaining);
+      // Sag panel plandan cikarma: AYNI plan kimligi ve TTL korunur;
+      // istemci YOL gondermez, yalnizca kume/hedef kimligi yollar.
+      const next = await api.removeFromPlan(planned.planId, selector);
       setPlanned(next);
       setPlan(next);
     } catch (err) {
@@ -425,14 +421,16 @@ export function App() {
     panelModules.push({
       id: 'planned',
       label: 'rightPanel.planned',
-      badge: planned?.plan.clusters.length ?? null,
+      // Motorun panel sayimi (`plan.panel.clusterCount`); rozet kararidir.
+      badge: planned?.panel.clusterCount ?? null,
       content: (
         <PlannedModule
           plan={planned}
           lang={lang}
           busy={planBusy}
           error={planError}
-          onRemove={(key) => void removePlanned(key)}
+          onRemoveKey={(key) => void removePlanned({ key })}
+          onRemoveTarget={(targetId) => void removePlanned({ targetId })}
           onOpenPlan={() => setScreen('plan')}
         />
       ),

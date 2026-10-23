@@ -553,65 +553,236 @@ code,
   margin-top: 10px;
 }
 
-.rp-planned-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
-}
+/* --- Sag panel "Planlananlar": gercek plan paneli ---------------------- */
 
-.rp-planned-list {
+.rp-planned {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  min-height: 100%;
+  gap: 10px;
 }
 
-.rp-planned-list li {
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--panel);
-  padding: 8px;
-}
-
-.rp-planned-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 8px;
-  align-items: center;
-}
-
-.rp-planned-title {
+/* Ozet: panel govdesi (.rp-body) kaydirilir; ozet ustte sabit kalir.
+   Negatif kenar boslugu ozeti kaydirma alani genisligine yayar; aksi
+   halde kayan satirlar yanda gorunur kalirdi (K15 benzeri kenar sizmasi). */
+.rp-planned-summary {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  gap: 4px;
+  margin: -14px -16px 0;
+  padding: 14px 16px 10px;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line);
+}
+
+.rp-planned-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+
+.rp-planned-total {
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.rp-planned-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  align-items: baseline;
   font-size: 11.5px;
 }
 
-.rp-planned-title .mono {
+.rp-ttl {
+  font-variant-numeric: tabular-nums;
+}
+
+.rp-planned-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rp-group {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  padding: 4px;
+  min-width: 0;
+}
+
+.rp-group-head {
+  display: flex;
+  gap: 2px;
+  align-items: stretch;
+}
+
+.rp-group-toggle {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto 12px;
+  gap: 6px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  padding: 6px 8px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rp-group-toggle:hover {
+  background: var(--panel-2);
+}
+
+.rp-group-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.rp-group-toggle:disabled {
+  cursor: default;
+}
+
+.rp-group-title {
+  font-size: 11.5px;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.rp-planned-row .risk-badge {
-  justify-self: start;
+.rp-group-meta {
+  font-size: 10.5px;
+  white-space: nowrap;
 }
 
-.rp-planned-row > .mono.dim {
-  grid-column: 1;
+/* Katlanma durumu: ok sola doner (aria-expanded'la surulur). */
+.rp-chevron {
+  display: inline-flex;
+  transition: transform 0.15s ease;
+}
+
+.rp-group-toggle[aria-expanded='false'] .rp-chevron {
+  transform: rotate(-90deg);
+}
+
+.rp-target-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 2px 6px;
+  list-style: none;
+  min-width: 0;
+}
+
+.rp-target-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto auto;
+  gap: 6px;
+  align-items: center;
+  min-height: 32px;
+  padding: 2px 4px;
+}
+
+.rp-target-row + .rp-target-row {
+  border-top: 1px solid var(--line);
+}
+
+.rp-target-row > .icon {
+  color: var(--dim);
+}
+
+.rp-target-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 10.5px;
 }
 
-.rp-remove {
-  grid-column: 2;
-  grid-row: 2;
-  justify-self: end;
-  padding: 2px 6px;
+.rp-target-label,
+.rp-target-row > .mono.dim {
   font-size: 10.5px;
+  white-space: nowrap;
+}
+
+/* Cikarma dugmeleri: kucuk ama en az 24x24 hedef alani. */
+.rp-item-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  align-self: center;
+  color: var(--dim);
+}
+
+.rp-item-remove:not(:disabled):hover {
+  color: var(--danger);
+}
+
+.rp-item-remove:not(:disabled):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Alt eylem: panel tabaninda sabit kalir (ayni kenar boslugu hilesi). */
+.rp-planned-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -16px -24px;
+  padding: 10px 16px 14px;
+  background: var(--bg-soft);
+  border-top: 1px solid var(--line);
+}
+
+.rp-planned-foot .rp-hint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 11px;
+}
+
+.rp-plan-id {
+  margin-left: auto;
+  font-size: 10.5px;
+}
+
+.rp-planned-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 26px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+  color: var(--dim);
+  text-align: center;
+}
+
+.rp-planned-empty strong {
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.rp-planned-empty p {
+  margin: 0;
+  font-size: 11.5px;
 }
 
 /* Portallanan ekran aside'lari panelde cerceve/padding tasimaz. */

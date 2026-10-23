@@ -242,6 +242,17 @@ export const api = {
   /** Sag panel "Planlananlar": sunucudaki en son gecerli plan (yoksa null). */
   planned: (): Promise<PlanResponse | null> => request<PlanResponse | null>('/api/plan'),
 
+  /**
+   * Sag panel "Planlananlar" plandan cikarma. Istemci YOL GONDERMEZ;
+   * yalnizca plan kimligi + kume anahtari (`key`) veya hedef kimligi
+   * (`targetId`) yollar. Plan kimligi ve TTL sunucuda KORUNUR.
+   */
+  removeFromPlan: (
+    planId: string,
+    selector: { key?: string; targetId?: string },
+  ): Promise<PlanResponse | null> =>
+    post<PlanResponse | null>('/api/plan/remove', { planId, ...selector }),
+
   execute: (
     planId: string,
     phrase: string | undefined,
