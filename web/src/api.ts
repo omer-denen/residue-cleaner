@@ -243,6 +243,32 @@ export const api = {
   planned: (): Promise<PlanResponse | null> => request<PlanResponse | null>('/api/plan'),
 
   /**
+   * Disk satiri/_secim plana EKLEME. `planId` verilmisse mevcut plana
+   * ekler (kimlik/TTL korunur, idempotent); verilmemisse tek ogeli yeni
+   * plan kurulur. Istemci YOL gondermez; yalnizca kume anahtari yollar.
+   */
+  addToPlan: (planId: string | null, keys: string[]): Promise<PlanResponse> =>
+    post<PlanResponse>('/api/plan/add', { ...(planId ? { planId } : {}), keys }),
+
+  /**
+   * Plan adi degistirme (`PATCH /api/plan/:id`); plan kimligi, kapsam ve
+   * TTL sunucuda KORUNUR; gorunen ad tek kaynaktan (sunucu plan kaydi) gelir.
+   */
+  renamePlan: (planId: string, name: string): Promise<PlanResponse> =>
+    request<PlanResponse>(`/api/plan/${encodeURIComponent(planId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+
+  /**
+   * Plandan COKLU cikarma: `keys` sunucudaki mevcut plan anahtarlari
+   * (`planned.panel.keys`) olmali; BOS `keys` gonderilmez (400 doner).
+   * Sonuc planda oge kalmadiysa null'dur.
+   */
+  clearPlan: (planId: string, keys: string[]): Promise<PlanResponse | null> =>
+    post<PlanResponse | null>('/api/plan/remove', { planId, keys }),
+
+  /**
    * Sag panel "Planlananlar" plandan cikarma. Istemci YOL GONDERMEZ;
    * yalnizca plan kimligi + kume anahtari (`key`) veya hedef kimligi
    * (`targetId`) yollar. Plan kimligi ve TTL sunucuda KORUNUR.

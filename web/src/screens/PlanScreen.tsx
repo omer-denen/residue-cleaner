@@ -6,10 +6,14 @@ import { openEvents } from '../sse.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { formatBytes } from '../format.ts';
 import { RISK_LABEL } from '../labels.ts';
+import { PlanValidity } from '../components/PlannedModule.tsx';
 
 interface Props {
   plan: PlanResponse | null;
   lang: Lang;
+  /** Plan suresi doldu: bos durumda kapatilabilir uyarida yumusak cikis. */
+  expired?: boolean;
+  onDismissExpired?: () => void;
   onBack: () => void;
   onVault: () => void;
   onReplace: (plan: PlanResponse) => void;
@@ -30,7 +34,16 @@ interface JobState {
  * arayuz kendi dogrulamasini yapmaz, sunucunun reddini gosterir.
  * Kalici silme yoktur: yalniz kasaya tasima.
  */
-export function PlanScreen({ plan, lang, onBack, onVault, onReplace, onExecuted }: Props) {
+export function PlanScreen({
+  plan,
+  lang,
+  expired,
+  onDismissExpired,
+  onBack,
+  onVault,
+  onReplace,
+  onExecuted,
+}: Props) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
 
@@ -55,6 +68,20 @@ export function PlanScreen({ plan, lang, onBack, onVault, onReplace, onExecuted 
         <header className="page-head">
           <h1>{t('plan.title')}</h1>
         </header>
+        {expired && (
+          <div className="banner danger" role="alert">
+            {t('plan.expired')}
+            {onDismissExpired && (
+              <button
+                type="button"
+                className="ghost"
+                onClick={onDismissExpired}
+              >
+                {t('common.close')}
+              </button>
+            )}
+          </div>
+        )}
         <div className="state">{t('plan.empty')}</div>
         <button type="button" className="ghost" onClick={onBack}>
           {t('plan.back')}
@@ -130,7 +157,15 @@ export function PlanScreen({ plan, lang, onBack, onVault, onReplace, onExecuted 
           <h1>{t('plan.title')}</h1>
           <p className="dim">{t('plan.subtitle')}</p>
         </div>
-        <span className="ledger-value">{formatBytes(plan.plan.totalBytes)}</span>
+        <div className="page-actions plan-head-right">
+          {plan.name && (
+            <span className="dim plan-name-value" title={plan.name}>
+              {plan.name}
+            </span>
+          )}
+          <span className="ledger-value">{formatBytes(plan.plan.totalBytes)}</span>
+          <PlanValidity expiresAt={plan.expiresAt} lang={lang} labelKey="plan.validity" />
+        </div>
       </header>
 
       {error && <div className="banner danger" role="alert">{error}</div>}

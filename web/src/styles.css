@@ -549,11 +549,7 @@ code,
   margin: 4px 0;
 }
 
-.rp-hint {
-  margin-top: 10px;
-}
-
-/* --- Sag panel "Planlananlar": gercek plan paneli ---------------------- */
+/* --- Sag panel "Plan Durumu": asiyon + ad + ozet + gecerlilik ---------- */
 
 .rp-planned {
   display: flex;
@@ -566,22 +562,43 @@ code,
    Negatif kenar boslugu ozeti kaydirma alani genisligine yayar; aksi
    halde kayan satirlar yanda gorunur kalirdi (K15 benzeri kenar sizmasi). */
 .rp-planned-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/*
+ * Üst blok: aksiyon satiri + ad + özet/geçerlilik alta yapışmadan üstte
+ * sabit kalir. Negatif kenar boslugu bloğu kaydirma alanı genişliğine
+ * yayar (K15 benzeri kenar sizmasi).
+ */
+.rp-plan-head {
   position: sticky;
   top: 0;
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   margin: -14px -16px 0;
   padding: 14px 16px 10px;
   background: var(--bg-soft);
   border-bottom: 1px solid var(--line);
 }
 
-.rp-planned-label {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+.rp-plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.rp-plan-name {
+  width: 100%;
+  max-width: 100%;
+}
+
+.rp-validity {
+  font-size: 11.5px;
   color: var(--dim);
 }
 
@@ -600,6 +617,16 @@ code,
 
 .rp-ttl {
   font-variant-numeric: tabular-nums;
+}
+
+/* Panel bos: tek cumle ("Henüz öğe seçilmedi"). */
+.rp-planned-empty-note {
+  margin: 14px 2px;
+  padding: 22px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+  text-align: center;
+  font-size: 12.5px;
 }
 
 .rp-planned-groups {
@@ -715,6 +742,7 @@ code,
 }
 
 /* Cikarma dugmeleri: kucuk ama en az 24x24 hedef alani. */
+/* Planli satirin sondaki "Plandan çıkar" dügmesi: ayni küçük hedef alani. */
 .rp-item-remove {
   display: inline-flex;
   align-items: center;
@@ -737,52 +765,73 @@ code,
   outline-offset: -2px;
 }
 
-/* Alt eylem: panel tabaninda sabit kalir (ayni kenar boslugu hilesi). */
-.rp-planned-foot {
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
+/* Satirda rozet + çikarma dügmesi birlikte: son kolon bunlara yeter. */
+.badges-right .rp-item-remove {
+  margin-left: 2px;
+}
+
+/* "Araçlar" bölümü: disk planindan AYRI; yalniz yönlendirme. */
+.rp-planned-tools {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 0 -16px -24px;
-  padding: 10px 16px 14px;
-  background: var(--bg-soft);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 4px;
+  padding-top: 10px;
   border-top: 1px solid var(--line);
 }
 
-.rp-planned-foot .rp-hint {
-  flex-basis: 100%;
+.rp-planned-tools h3 {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+
+.rp-planned-tools p {
   margin: 0;
   font-size: 11px;
 }
 
-.rp-plan-id {
-  margin-left: auto;
-  font-size: 10.5px;
-}
-
-.rp-planned-empty {
+/* Süre doldu uyarisi: metin solda, kapatma sagda. */
+.rp-plan-expired {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 26px 12px;
-  border: 1px dashed var(--line);
-  border-radius: 9px;
-  color: var(--dim);
-  text-align: center;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.rp-planned-empty strong {
-  color: var(--text);
+.rp-plan-expired span {
+  min-width: 0;
+}
+
+/* "Yeni plan" onayi: kucuk diyalog (duvar metninin genisliggren). */
+.rp-plan-dialog {
+  width: min(420px, 100%);
+}
+
+.rp-plan-dialog-body {
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn) 8%, var(--panel));
+  color: var(--warn);
   font-size: 12.5px;
 }
 
-.rp-planned-empty p {
-  margin: 0;
-  font-size: 11.5px;
+/* --------------------------------------------------- Plan ekranı sağ bloku */
+
+.plan-head-right {
+  color: var(--text);
+}
+
+.plan-name-value {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Portallanan ekran aside'lari panelde cerceve/padding tasimaz. */
@@ -1669,7 +1718,11 @@ body.resizing {
 .cluster-head,
 .cluster-row {
   display: grid;
-  grid-template-columns: 24px 10px minmax(0, 1fr) 104px 108px 88px 72px 96px;
+  /* Esnek izgara: panel genişliği daraldığında son kolon (rozet + çıkar)
+     taşmasın; her kolon kendi alt sınırına kadar küçülür. */
+  grid-template-columns:
+    24px 10px minmax(120px, 1fr) minmax(72px, 104px) minmax(72px, 108px)
+    minmax(64px, 88px) minmax(56px, 72px) minmax(88px, 150px);
   align-items: center;
   gap: 7px;
 }
@@ -1698,6 +1751,9 @@ body.resizing {
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
+  /* Kaydirma cubugu satir sonundaki "Plandan cikar" dugmesini ortmesin
+     (orkestrator duzeltmesi: pointer interception). */
+  scrollbar-gutter: stable;
 }
 
 .cluster-row {
@@ -1719,6 +1775,11 @@ body.resizing {
 .cluster-row.in-plan {
   background: color-mix(in srgb, var(--accent) 7%, var(--panel));
   box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* Planda olan satirin checkbox'i kapalidir: tıklanamaz VARLIKTIR. */
+.cluster-row input[type="checkbox"]:disabled {
+  cursor: default;
 }
 
 .cluster-title-wrap {
@@ -1782,6 +1843,9 @@ body.resizing {
   display: flex;
   gap: 4px;
   justify-content: flex-end;
+  /* Daralan kolonda taşma yerine kırp: "Plandan çıkar" her zaman erişilebilir. */
+  min-width: 0;
+  overflow: hidden;
 }
 
 .num {

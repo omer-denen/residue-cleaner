@@ -109,6 +109,12 @@ export function App() {
   const [planned, setPlanned] = useState<PlanResponse | null>(null);
   const [planBusy, setPlanBusy] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
+  /**
+   * Plan suresi doldu (ya da plan 410): sessiz kaybolma YOK; sag panel ve
+   * Plan ekraninda uyarisi kapatilabilir olarak durur; yeni plan kurulunca
+   * temizlenir.
+   */
+  const [planExpired, setPlanExpired] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [help, setHelp] = useState(false);
@@ -164,6 +170,13 @@ export function App() {
     if (primary) setRightTab(primary);
   }, [screen, planned]);
 
+  /** Plan gecersiz oldugunda (404/410) ortak temizlik + uyarı bayragi. */
+  const stalePlan = (): void => {
+    setPlanned(null);
+    setPlan(null);
+    setPlanExpired(true);
+  };
+
   const removePlanned = async (selector: {
     key?: string;
     targetId?: string;
@@ -179,8 +192,54 @@ export function App() {
       setPlan(next);
     } catch (err) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
-        setPlanned(null);
-        setPlan(null);
+        stalePlan();
+      }
+      setPlanError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setPlanBusy(false);
+    }
+  };
+
+  /** Plan adi degistirme (W2-c): ad sunucuda; kimlik/kapsam/TTL korunur. */
+  const renamePlanned = async (name: string): Promise<void> => {
+    if (!planned || planBusy) return;
+    setPlanBusy(true);
+    setPlanError(null);
+    try {
+      const next = await api.renamePlan(planned.planId, name);
+      setPlanned(next);
+      setPlan(next);
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
+        stalePlan();
+      }
+      setPlanError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setPlanBusy(false);
+    }
+  };
+
+  /**
+   * Plani BOSALT ("Tümünü boşalt" + onaylı "Yeni plan"): mevcut plan
+   * anahtarlarinin TAMAMI tek istekte cikarilir; sonuc planda oge
+   * kalmadiginda null'dur (plan bos durum). Onay diyalogu sag panelde
+   * yapilir; buraya onaylanmis istek gelir.
+   */
+  const clearPlanned = async (): Promise<void> => {
+    if (!planned || planBusy) return;
+    setPlanBusy(true);
+    setPlanError(null);
+    try {
+      const next = await api.clearPlan(
+        planned.planId,
+        [...planned.panel.keys].filter((key) => key.length > 0),
+      );
+      setPlanExpired(false);
+      setPlanned(next);
+      setPlan(next);
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
+        stalePlan();
       }
       setPlanError(err instanceof ApiError ? err.message : String(err));
     } finally {
@@ -232,15 +291,17 @@ export function App() {
     localStorage.setItem('residue.panelWidth', String(panelWidth));
   }, [panelWidth]);
 
-  // Plan TTL: suresi dolan plan sag panelde kalmasin (sunucu da 410 verir).
+  // Plan TTL: suresi dolan plan sessiz kaybolmaz — uyarı gorunur kalir
+  // (sag panel + Plan ekranı role=alert); diskte hicbir sey degismez.
+  // Sayaç yalnizca Date.now() farki; sure doldugunda tek seferlik temizlik.
   useEffect(() => {
     if (!planned) return;
     const remaining = planned.expiresAt - Date.now();
     if (remaining <= 0) {
-      setPlanned(null);
+      stalePlan();
       return;
     }
-    const timer = window.setTimeout(() => setPlanned(null), remaining + 500);
+    const timer = window.setTimeout(() => stalePlan(), remaining + 500);
     return () => window.clearTimeout(timer);
   }, [planned]);
 
@@ -429,9 +490,14 @@ export function App() {
           lang={lang}
           busy={planBusy}
           error={planError}
+          expired={planExpired}
+          onDismissExpired={() => setPlanExpired(false)}
           onRemoveKey={(key) => void removePlanned({ key })}
           onRemoveTarget={(targetId) => void removePlanned({ targetId })}
+          onRename={(name) => void renamePlanned(name)}
+          onClearAll={() => void clearPlanned()}
           onOpenPlan={() => setScreen('plan')}
+          onOpenTools={() => setScreen('tools')}
         />
       ),
     });
@@ -585,6 +651,22 @@ export function App() {
         >
           {loading && <div className="state">{t('common.loading')}</div>}
 
+          {/* Plan 404/410 ya da TTL: uyarı HER ekranda görünür (sessiz
+              kaybolma yok). Plan Durumu sekmesi açıkken panelin kendi
+              uyarısı gösterilir; çiftlemeyi önlemek için burada gizlenir. */}
+          {planExpired && screen !== 'plan' && rightTab !== 'planned' && (
+            <div className="banner danger" role="alert">
+              <span>{t('rightPanel.planned.expired')}</span>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setPlanExpired(false)}
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          )}
+
           {!loading && error && (
             <div className="state error" role="alert">
               <strong>{t('common.error')}</strong>
@@ -607,17 +689,22 @@ export function App() {
               scanRequest={scanRequest}
               onStatus={() => void load()}
               onOpenScanStatus={() => setScanReport(true)}
+              planned={planned}
+              planBusy={planBusy}
               plannedKeys={planned?.panel.keys ?? []}
               onPlan={(nextPlan) => {
-                // Sayfa DEGISMEZ: plan sag panelde + Plan ekraninda guncellenir.
+                // Sayfa DEGISMEZ: plan sag panelde + Plan ekraninda
+                // guncellenir; yeni plan kurulunca suresi-doldu uyarisi
+                // temizlenir.
                 setPlan(nextPlan);
                 setPlanned(nextPlan);
                 setPlanError(null);
+                if (nextPlan) setPlanExpired(false);
               }}
               onPlanStale={() => {
-                setPlan(null);
-                setPlanned(null);
+                stalePlan();
               }}
+              onOpenPlan={() => setScreen('plan')}
             />
           )}
 
@@ -625,14 +712,19 @@ export function App() {
             <PlanScreen
               plan={plan}
               lang={lang}
+              expired={planExpired}
+              onDismissExpired={() => setPlanExpired(false)}
               onBack={() => setScreen('disk')}
               onVault={() => setScreen('vault')}
               onReplace={(next) => {
                 setPlan(next);
                 setPlanned(next);
+                setPlanError(null);
+                setPlanExpired(false);
               }}
               onExecuted={() => {
                 setPlanned(null);
+                setPlanExpired(false);
                 void load();
               }}
             />

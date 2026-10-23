@@ -41,18 +41,27 @@ interface Props {
   scanRequest: number;
   onStatus: () => void;
   onOpenScanStatus: () => void;
-  /** Motorun guncel planindaki kume anahtarlari (panel.keys); satir rozeti icin. */
+  /** Guncel plan (PlanResponse|null): checkbox uyeligi + ekleme hedefi. */
+  planned: PlanResponse | null;
+  /** App'in plan ops gosterici durumu (panel cikarma vb.). */
+  planBusy: boolean;
+  /** Motorun guncel planindaki kume anahtarlari (panel.keys); `selected` parametresi. */
   plannedKeys: readonly string[];
-  onPlan: (plan: PlanResponse) => void;
-  /** Plan 404/410 dondugunde App plan durumunu temizler. */
+  onPlan: (plan: PlanResponse | null) => void;
+  /** Plan 404/410 dondugunde App plan durumunu temizler + uyarı gostermek. */
   onPlanStale: () => void;
+  /** "Planı uygula": yalnizca Plan ekranina gecirir; execute cagrilmaz. */
+  onOpenPlan: () => void;
 }
 
 /**
- * DISK — liste, filtre ve secim yalnizca MOTORDAN gelir.
+ * DISK — liste, filtre yalnizca MOTORDAN gelir.
  *
- * Bu bilesen kendi filtresini, siralmasini veya secim ozetini HESAPLAMAZ;
- * her degisiklikte `/api/disk` cagirir. Silme yoktur: yalniz plan uretir.
+ * Checkbox = PLAN ÜYELİĞİ (tek yön): isaretlemek `POST /api/plan/add`
+ * ile ekler; geri almak plandan cikarmadir (sag panel ya da satir
+ * eylemi). Bu bilesen kendi secimini HESAPLamaz; uyelik `planned.panel.keys`,
+ * sayaclar ve plan kapsami motorun `view.selection` alanidir. Silme yok:
+ * plan hareketlerinin yalnizca plan yapisini degistirir.
  */
 export function Disk({
   meta,
@@ -61,9 +70,12 @@ export function Disk({
   scanRequest,
   onStatus,
   onOpenScanStatus,
+  planned,
+  planBusy,
   plannedKeys,
   onPlan,
   onPlanStale,
+  onOpenPlan,
 }: Props) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
@@ -83,15 +95,14 @@ export function Disk({
   const [zombie, setZombie] = useState(false);
 
   const [view, setView] = useState<DiskViewResponse | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [detailKey, setDetailKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<ClusterDetailView | null>(null);
 
   /** Gelişmiş filtreler (profil/yas/kategori/siralama) varsayilan KAPALI. */
   const [filtersOpen, setFiltersOpen] = useState(false);
-  /** "Plana ekle" istegi: secim korunur; sayfa degismez. */
-  const [planBusy, setPlanBusy] = useState(false);
+  /** Bu bilesenin kendi plan ops yuku (ekleme/cikarma/bosaltma). */
+  const [busyL, setBusyL] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
 
   const [envs, setEnvs] = useState<string[]>([]);
@@ -110,7 +121,6 @@ export function Disk({
   const [scanError, setScanError] = useState<string | null>(null);
   const closeStream = useRef<(() => void) | null>(null);
   const foundIds = useRef<Set<string>>(new Set());
-  const defaultsApplied = useRef(false);
 
   useEffect(() => {
     if (!meta || metaInit.current) return;
@@ -125,7 +135,9 @@ export function Disk({
     return () => clearTimeout(id);
   }, [text]);
 
-  const selectedList = [...selected].join('\u0000');
+  // Motor `/api/disk`'in `selected` parametreleri = PLAN anahtarlari;
+  // `view.selection` motorun hesabidir (kural 18).
+  const plannedList = plannedKeys.join('\u0000');
 
   const load = useCallback(async () => {
     try {
@@ -138,23 +150,17 @@ export function Disk({
         big,
         risky,
         zombie,
-        selected: selectedList.length > 0 ? selectedList.split('\u0000') : [],
+        selected: plannedList.length > 0 ? plannedList.split('\u0000') : [],
       });
       setView(next);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     }
-  }, [debouncedText, kind, category, sort, big, risky, zombie, selectedList]);
+  }, [debouncedText, kind, category, sort, big, risky, zombie, plannedList]);
 
   useEffect(() => {
     void load();
   }, [load]);
-
-  useEffect(() => {
-    if (!view || defaultsApplied.current || view.scan.at === null) return;
-    setSelected(new Set(view.defaultSelectedKeys));
-    defaultsApplied.current = true;
-  }, [view]);
 
   useEffect(() => {
     return () => closeStream.current?.();
@@ -212,7 +218,6 @@ export function Disk({
             break;
           case 'done':
             setScan(null);
-            defaultsApplied.current = false;
             onStatus();
             void load();
             break;
@@ -253,52 +258,84 @@ export function Disk({
     void startScan();
   }, [scanRequest, meta, scan]);
 
-  const toggle = (key: string): void => {
-    setSelected((previous) => {
-      const next = new Set(previous);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const busy = planBusy || busyL;
+
+  /** "Planda" rozeti icin kume uyeligi (gosterim; filtre/siralama kurali DEGIL). */
+  const plannedSet = useMemo(() => new Set<string>(plannedKeys), [plannedKeys]);
+
+  /** Plan hatasi: 404/410 durumunda uyarı + App temizligi tek kaynaktan. */
+  const handlePlanError = (err: unknown): void => {
+    setPlanError(err instanceof ApiError ? err.message : String(err));
+    if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
+      onPlanStale();
+      setPlanError(null);
+    }
   };
 
-  const selectDefaults = (): void => {
-    if (!view) return;
-    setSelected(new Set(view.defaultSelectedKeys));
-  };
-
-  const selectVisible = (): void => {
-    if (!view) return;
-    setSelected((previous) => {
-      const next = new Set(previous);
-      for (const key of view.plannableKeys) next.add(key);
-      return next;
-    });
-  };
-
-  const clearSelection = (): void => {
-    setSelected(new Set());
-  };
-
-  const addToPlan = async (): Promise<void> => {
-    if (selected.size === 0 || planBusy) return;
-    setPlanBusy(true);
+  /**
+   * Checkbox = plana EKLEME (tek yön): `onChange` yalnizca ekler;
+   * isareti geri almak icin satir eylemi/sag panel kullanilir.
+   */
+  const addOneToPlan = async (key: string): Promise<void> => {
+    if (busy || plannedSet.has(key)) return;
+    setBusyL(true);
     setPlanError(null);
     try {
-      // Motorun panel.keys alanindaki mevcut plan anahtarlari + secim birlesir.
-      const merged = [...new Set([...plannedKeys, ...selected])];
-      const next = await api.plan(merged);
-      setSelected(new Set());
-      // Sag panel "Planlananlar" sekmesine gecer; sayfa degismeZ.
+      const next = await api.addToPlan(planned?.planId ?? null, [key]);
+      // Sag panel "Plan Durumu" sekmesine gecer; sayfa degismez.
       panel?.activate('planned');
       onPlan(next);
     } catch (err) {
-      setPlanError(err instanceof ApiError ? err.message : String(err));
-      if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
-        onPlanStale();
-      }
+      handlePlanError(err);
     } finally {
-      setPlanBusy(false);
+      setBusyL(false);
+    }
+  };
+
+  /** Planli satir eylemi: yalniz o ogeyi plandan cikarir; planId/TTL korunur. */
+  const removeOneFromPlan = async (key: string): Promise<void> => {
+    if (!planned || busy) return;
+    setBusyL(true);
+    setPlanError(null);
+    try {
+      const next = await api.removeFromPlan(planned.planId, { key });
+      onPlan(next);
+    } catch (err) {
+      handlePlanError(err);
+    } finally {
+      setBusyL(false);
+    }
+  };
+
+  /** "Varsayılanı/Görünenleri plana ekle": motor anahtarlari + plan disindakiler. */
+  const addKeysToPlan = async (keys: readonly string[]): Promise<void> => {
+    const fresh = keys.filter((key, index) => !plannedSet.has(key) && keys.indexOf(key) === index);
+    if (fresh.length === 0 || busy) return;
+    setBusyL(true);
+    setPlanError(null);
+    try {
+      const next = await api.addToPlan(planned?.planId ?? null, fresh);
+      panel?.activate('planned');
+      onPlan(next);
+    } catch (err) {
+      handlePlanError(err);
+    } finally {
+      setBusyL(false);
+    }
+  };
+
+  /** "Planı boşalt": motorun panel anahtarlari Tümü tek istekte cikarilir. */
+  const clearPlanAll = async (): Promise<void> => {
+    if (!planned || busy || plannedKeys.length === 0) return;
+    setBusyL(true);
+    setPlanError(null);
+    try {
+      const next = await api.clearPlan(planned.planId, [...plannedKeys]);
+      onPlan(next);
+    } catch (err) {
+      handlePlanError(err);
+    } finally {
+      setBusyL(false);
     }
   };
 
@@ -310,10 +347,10 @@ export function Disk({
     overscan: 8,
   });
 
-  /** "Planda" rozeti icin kume uyeligi (gosterim; filtre/siralama kurali DEGIL). */
-  const plannedSet = useMemo(() => new Set<string>(plannedKeys), [plannedKeys]);
-
   const detailTargets = detail?.cluster.deleteTargets ?? [];
+
+  // Motor secimi: plan bos iken 0; dolu iken plan kapsami.
+  const selectionCount = view?.selection.clusterCount ?? 0;
 
   return (
     <div className="disk">
@@ -519,13 +556,12 @@ export function Disk({
 
         <div className="selection-bar">
           <span className="sr-only" role="status" aria-live="polite">
-            {`${view?.selection.clusterCount ?? selected.size} ${t('disk.selected')} · ${formatBytes(
+            {`${selectionCount} ${t('disk.selection.planned')} · ${formatBytes(
               view?.selection.bytes ?? 0,
             )}`}
           </span>
           <span>
-            <strong className="mono">{view?.selection.clusterCount ?? selected.size}</strong>{' '}
-            {t('disk.selected')}
+            <strong className="mono">{selectionCount}</strong> {t('disk.selection.planned')}
           </span>
           <span>
             {t('disk.selection.bytes')}:{' '}
@@ -536,22 +572,38 @@ export function Disk({
             {t('disk.selection.targets')}
           </span>
           <span className="spacer" />
-          <button type="button" className="ghost" onClick={selectDefaults}>
+          <button
+            type="button"
+            className="ghost"
+            disabled={busy || !view}
+            onClick={() => void addKeysToPlan(view!.defaultSelectedKeys)}
+          >
             {t('disk.defaults')}
           </button>
-          <button type="button" className="ghost" onClick={selectVisible}>
+          <button
+            type="button"
+            className="ghost"
+            disabled={busy || !view}
+            onClick={() => void addKeysToPlan(view!.plannableKeys)}
+          >
             {t('disk.selectVisible')}
           </button>
-          <button type="button" className="ghost" onClick={clearSelection}>
-            {t('disk.clear')}
+          <button
+            type="button"
+            className="ghost"
+            disabled={busy || plannedKeys.length === 0}
+            onClick={() => void clearPlanAll()}
+          >
+            {t('disk.selection.clear')}
           </button>
           <button
             type="button"
             className="primary"
-            disabled={selected.size === 0 || planBusy}
-            onClick={() => void addToPlan()}
+            disabled={!view || selectionCount === 0}
+            title={selectionCount === 0 ? t('rightPanel.planned.applyHint') : undefined}
+            onClick={onOpenPlan}
           >
-            {t('disk.plan.add')}
+            {t('rightPanel.planned.apply')}
           </button>
         </div>
 
@@ -605,11 +657,16 @@ export function Disk({
                   >
                     <input
                       type="checkbox"
-                      checked={selected.has(c.key)}
-                      disabled={!c.plannable}
-                      onChange={() => toggle(c.key)}
+                      checked={inPlan}
+                      disabled={inPlan || !c.plannable || busy}
+                      onChange={() => void addOneToPlan(c.key)}
                       onClick={(e) => e.stopPropagation()}
-                      aria-label={`${t('disk.selected')}: ${c.title}`}
+                      aria-label={
+                        inPlan
+                          ? `${t('disk.plan.inPlan')}: ${c.title}`
+                          : `${t('disk.selected')}: ${c.title}`
+                      }
+                      title={inPlan ? t('disk.planned.hint') : undefined}
                     />
                     <span
                       className={`risk-dot risk-${c.risk}`}
@@ -641,10 +698,27 @@ export function Disk({
                       {c.gitTracked && <span className="badge git">git</span>}
                       {c.targetCount > 0 && <span className="badge">{c.targetCount}</span>}
                       {inPlan && (
-                        <span className="badge planda">
-                          <Icon name="check" size={11} />
-                          {t('disk.plan.inPlan')}
-                        </span>
+                        <>
+                          <span
+                            className="badge planda"
+                            title={planned?.name ? planned.name : undefined}
+                          >
+                            <Icon name="check" size={11} />
+                            {t('disk.planned.badge')}
+                          </span>
+                          <button
+                            type="button"
+                            className="ghost rp-item-remove"
+                            aria-label={`${t('disk.planned.remove')}: ${c.title}`}
+                            disabled={busy}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void removeOneFromPlan(c.key);
+                            }}
+                          >
+                            <Icon name="close" size={12} />
+                          </button>
+                        </>
                       )}
                     </span>
                   </div>
