@@ -75,6 +75,50 @@ export interface PlanView {
 }
 
 // ---------------------------------------------------------------------------
+// Sag panel plan gorunumu (plan paneli)
+// ---------------------------------------------------------------------------
+
+/**
+ * Panel satiri: planlanan TEK hedef. `id` kume anahtari + yol ozetinden
+ * uretilen KARARLI kimliktir; istemci cikarma isteginde YOL DEGIL `id`
+ * yollar (AGENTS.md: istemci yol gondermez).
+ */
+export interface PlanPanelItem {
+  id: string;
+  path: string;
+  label: string;
+  kind: 'whole' | 'older';
+  minAgeDays?: number;
+  bytes: number;
+}
+
+/** Panel grubu: planlanan kume ve altindaki hedefler. */
+export interface PlanPanelGroup {
+  key: string;
+  title: string;
+  reason: string;
+  risk: RiskLevel;
+  bytes: number;
+  targetCount: number;
+  items: PlanPanelItem[];
+}
+
+/**
+ * Sag panel "Planlananlar" gorunumu. Gruplama, siralama ve sayimlar
+ * MOTORDA hesaplanir (`core/plan-panel.ts`); arayuz yalnizca basar.
+ */
+export interface PlanPanelView {
+  mode: DeleteMode;
+  /** Kume gruplari: bayti buyukten kucuge; esitlikte anahtar alfabetik. */
+  groups: PlanPanelGroup[];
+  /** Planlanan kume anahtarlar (grup sirasiyla; liste rozeti). */
+  keys: string[];
+  totalBytes: number;
+  clusterCount: number;
+  targetCount: number;
+}
+
+// ---------------------------------------------------------------------------
 // Tarama
 // ---------------------------------------------------------------------------
 
@@ -391,6 +435,8 @@ export interface PlanRequest {
 export interface PlanResponse {
   planId: string;
   plan: PlanView;
+  /** Sag panel "Planlananlar" verisi; MOTOR kurar (`core/plan-panel.ts`). */
+  panel: PlanPanelView;
   /** Orta/yuksek risk varsa yazili onay zorunlu (kasa: TASI, kalici: SIL) */
   requiresPhrase: boolean;
   /** Onay turu: kasa tasima `vaultMove`, kalici silme `delete`. */

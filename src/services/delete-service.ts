@@ -6,6 +6,7 @@ import {
   type DeleteResult,
 } from '../actions/delete.ts';
 import { ApprovalRules } from '../core/approval.ts';
+import { PlanPanel, planTargetId } from '../core/plan-panel.ts';
 import { newId } from './ids.ts';
 import { ServiceError, describeError } from './errors.ts';
 import type { ScanResult } from '../core/types.ts';
@@ -77,32 +78,40 @@ export class DeleteService {
     const risks = plan.clusters.map((c) => c.risk);
     const requiresPhrase = ApprovalRules.requiresPhrase(risks);
     const requiresHighAck = ApprovalRules.requiresHighAck(risks);
-    // Ifade MODA baglidir: kasaya tasima "TASI", kalici silme "SIL".
-    const approvalKind = plan.mode === 'recycle' ? 'vaultMove' : 'delete';
-    const approvalPhrase = ApprovalRules.phrase(approvalKind);
-    this.plans.set(planId, {
+    const stored: StoredPlan = {
       planId,
       plan,
       createdAt: Date.now(),
       expiresAt,
       requiresPhrase,
       requiresHighAck,
-    });
+    };
+    this.plans.set(planId, stored);
+    return this.viewOf(stored);
+  }
 
+  /**
+   * Plan kaydini sozlesme yanitina cevirir. Onay ifadesi MODA baglidir:
+   * kasaya tasima "TASI", kalici silme "SIL"; ifade tek kaynaktan
+   * (ApprovalRules) gelir. Panel motor hesabidir (kural 18).
+   */
+  private viewOf(stored: StoredPlan): PlanResponse {
+    const approvalKind = stored.plan.mode === 'recycle' ? 'vaultMove' : 'delete';
     const view: PlanView = {
-      mode: plan.mode,
-      clusters: plan.clusters,
-      targets: plan.targets,
-      totalBytes: plan.totalBytes,
+      mode: stored.plan.mode,
+      clusters: stored.plan.clusters,
+      targets: stored.plan.targets,
+      totalBytes: stored.plan.totalBytes,
     };
     return {
-      planId,
+      planId: stored.planId,
       plan: view,
-      requiresPhrase,
+      requiresPhrase: stored.requiresPhrase,
       approvalKind,
-      phrase: approvalPhrase,
-      requiresHighAck,
-      expiresAt,
+      phrase: ApprovalRules.phrase(approvalKind),
+      requiresHighAck: stored.requiresHighAck,
+      expiresAt: stored.expiresAt,
+      panel: PlanPanel.from(view),
     };
   }
 
@@ -123,23 +132,81 @@ export class DeleteService {
       if (!latest || stored.createdAt >= latest.createdAt) latest = stored;
     }
     if (!latest) return null;
+    return this.viewOf(latest);
+  }
 
-    const approvalKind = latest.plan.mode === 'recycle' ? 'vaultMove' : 'delete';
-    const view: PlanView = {
-      mode: latest.plan.mode,
-      clusters: latest.plan.clusters,
-      targets: latest.plan.targets,
-      totalBytes: latest.plan.totalBytes,
+  /**
+   * Sag panel "Planlananlar": plandan TEK kume veya TEK hedef cikarir.
+   *
+   * Istemci YOL GONDERMEZ; yalnizca plandaki kimlikleri kullanir:
+   *  - `key` (kume anahtari) -> tum kume planin cikarilir.
+   *  - `targetId` (planTargetId) -> yalnizca o hedef cikarilir; kumenin
+   *    `bytes` degeri kalan hedeflerden yeniden hesaplanir, hedefi
+   *    kalmayan kume duser.
+   *
+   * Cikarma sonrasi onay gereksinimleri KALAN risklerden yeniden
+   * hesaplanir; plan kimligi ve suresi korunur. Plan tamamen bosaldiysa
+   * kayit silinir ve `null` doner.
+   */
+  removeFromPlan(
+    planId: string,
+    selector: { key?: string; targetId?: string },
+  ): PlanResponse | null {
+    const stored = this.plans.get(planId);
+    if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
+    if (Date.now() > stored.expiresAt) {
+      this.plans.delete(stored.planId);
+      throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
+    }
+    const key = typeof selector.key === 'string' ? selector.key.trim() : '';
+    const targetId = typeof selector.targetId === 'string' ? selector.targetId.trim() : '';
+    if (!key && !targetId) {
+      throw new ServiceError(400, 'Cikarilacak oge belirtilmedi');
+    }
+
+    const plan = stored.plan;
+    let clusters = plan.clusters;
+
+    if (targetId) {
+      let found = false;
+      clusters = clusters
+        .map((c) => {
+          const kept = c.targets.filter((t) => {
+            const hit = planTargetId(c.key, t.target.path) === targetId;
+            if (hit) found = true;
+            return !hit;
+          });
+          if (kept.length === c.targets.length) return c;
+          const bytes = kept.reduce((a, t) => a + t.bytes, 0);
+          return { ...c, targets: kept, bytes };
+        })
+        .filter((c) => c.targets.length > 0);
+      if (!found) throw new ServiceError(404, 'Hedef planda bulunamadi');
+    } else {
+      const before = clusters.length;
+      clusters = clusters.filter((c) => c.key !== key);
+      if (clusters.length === before) {
+        throw new ServiceError(404, 'Kume planda bulunamadi');
+      }
+    }
+
+    // Plan bosaldi: tek kullanilabilir kayit yok; kullanimli sayilmaz.
+    if (clusters.length === 0) {
+      this.plans.delete(stored.planId);
+      return null;
+    }
+
+    const targets = clusters.flatMap((c) => c.targets);
+    const totalBytes = clusters.reduce((a, c) => a + c.bytes, 0);
+    const risks = clusters.map((c) => c.risk);
+    const next: StoredPlan = {
+      ...stored,
+      plan: { mode: plan.mode, clusters, targets, totalBytes },
+      requiresPhrase: ApprovalRules.requiresPhrase(risks),
+      requiresHighAck: ApprovalRules.requiresHighAck(risks),
     };
-    return {
-      planId: latest.planId,
-      plan: view,
-      requiresPhrase: latest.requiresPhrase,
-      approvalKind,
-      phrase: ApprovalRules.phrase(approvalKind),
-      requiresHighAck: latest.requiresHighAck,
-      expiresAt: latest.expiresAt,
-    };
+    this.plans.set(next.planId, next);
+    return this.viewOf(next);
   }
 
   execute(planId: string, phrase: string | undefined, acknowledgeHigh: boolean): ExecuteStartResponse {

@@ -756,6 +756,24 @@ async function handleRequest(
     return;
   }
 
+  // Sag panel "Planlananlar" plandan cikarma: istemci YOL GONDERMEZ;
+  // yalnizca kume anahtari (`key`) veya hedef kimligi (`targetId`)
+  // yollar. Sonuc PlanResponse | null (200); hatalar mevcut
+  // ServiceError adaptoruyle JSON olarak doner.
+  if (route === 'POST /api/plan/remove') {
+    const body = await readJson<{ planId?: string; key?: string; targetId?: string }>(req);
+    const planId = typeof body.planId === 'string' ? body.planId : '';
+    if (!planId) {
+      sendJson(res, 400, { error: 'planId gerekli' });
+      return;
+    }
+    const key = typeof body.key === 'string' ? body.key : undefined;
+    const targetId = typeof body.targetId === 'string' ? body.targetId : undefined;
+    const out = ctx.remove.removeFromPlan(planId, { key, targetId });
+    sendJson(res, 200, out);
+    return;
+  }
+
   if (route === 'POST /api/execute') {
     const body = await readJson<ExecuteRequest>(req);
     const out = ctx.remove.execute(

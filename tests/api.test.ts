@@ -234,7 +234,8 @@ test('dashboard ve proje kesfi uclari yanit verir', async () => {
   assert.equal(missing.status, 404);
 });
 
-test('disk gorunumu ve bilinmeyen kume', async () => {  const d = await fetch(`${base}/api/disk`, { headers: { 'x-residue-token': token } });
+test('disk gorunumu ve bilinmeyen kume', async () => {
+  const d = await fetch(`${base}/api/disk`, { headers: { 'x-residue-token': token } });
   assert.equal(d.status, 200);
   const body = (await d.json()) as {
     clusters?: unknown[];
