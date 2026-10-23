@@ -347,6 +347,24 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
 - **Sıradaki:** W0-a `docs/READINESS-MATRIX.md` + E2E kataloğu; sonra
   W0-b (F5 + parity + web E2E) ve W1 (T74).
 
+### W0-a — TAMAMLANDI (readiness matrisi + E2E kataloğu)
+
+- Commit `989a704` · `docs/READINESS-MATRIX.md` (yeni, 268 satır).
+- Seviye ölçeği L0–L5 (kanıtsız davranış "hazır" sayılmaz).
+- Ağırlıklar: işlevsel 25 · güvenlik değişmezleri 25 · hata 15 · HTTP
+  güvenliği 15 · gözlemlenebilirlik 10 · performans 5 · yük 5.
+- **Mevcut skor 68.00**; alpha eşiği 70 → **açık** (fark, perf/load 0
+  puanından). Devir belgesindeki "alpha" ifadesi sayısal kapıyla uyumsuz
+  bulundu; matriste düzeltildi.
+- E2E kataloğu **90 senaryo**: CLI 6, SAFE 12, ERR 8, SEC 8, API 10,
+  PARITY 5, SCHED 5, ENV 4, PERF 3, LOAD 4, WEB 18, PROFILE 7.
+- Öne çıkan açıklar: Git tracked + junction koruması `npm test` dışında;
+  CLI E2E ve CLI↔API parity yok; `delete`/`vault` hata enjeksiyonu yok;
+  perf/load eşiği yok; web tarayıcı E2E yok.
+- Kapı: yalnız belge; kod değişmedi · typecheck temiz · **310/310**.
+- **Sıradaki:** W0-b — önce CLI E2E + parity + perf (alpha), sonra F5 +
+  web E2E + a11y; ardından W1 (T74 profilleri).
+
 
 
 
