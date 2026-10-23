@@ -95,9 +95,37 @@ export type Archetype =
   | 'virtual-disk'
   | 'unknown';
 
+/**
+ * E11: log isaretinin STABIL karar kimligi.
+ *
+ * `means` insan okur metindir; tek kelime degisse bile karar sessizce
+ * degisebiliyordu. Karar katmani artik yalnizca `kind`e baglanir;
+ * `means` yalnizca gosterim ve kanit aciklamasi icin kalir.
+ */
+export type LogSignalKind =
+  | 'model-catalog'
+  | 'gpu-provider'
+  | 'cpu-device'
+  | 'gpu-ep-missing'
+  | 'onnx-runtime'
+  | 'background-pipe'
+  | 'python-env'
+  | 'notebook'
+  | 'npm-cache'
+  | 'nuget-cache'
+  | 'wsl';
+
 export interface LogSignal {
   line: string;
+  /** Gosterim metni — karar buna baglanmaz (E11). */
   means: string;
+  /**
+   * Stabil karar kimligi. Eski kanitlar bu alani tasimadigi icin
+   * OPSIYONELDIR; `kind` yoksa karar katmani `signalKind()` ile
+   * means metninden esler. `classifier.ts` urettigi sinyallerde
+   * her zaman dolu.
+   */
+  kind?: LogSignalKind;
 }
 
 // ---------------------------------------------------------------------------

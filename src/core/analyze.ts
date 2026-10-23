@@ -4,7 +4,7 @@ import type { Dirent } from 'node:fs';
 import { join } from 'node:path';
 import { longPath, errorCode } from '../util/longpath.ts';
 import { debug, warn } from '../util/log.ts';
-import { probeDir, ownerFromName, type Probe } from './classifier.ts';
+import { probeDir, ownerFromName, signalKind, type Probe } from './classifier.ts';
 import { isOwnDataPath, isProtectedUserPath } from './discover.ts';
 import { isGitTracked } from './git.ts';
 import { walk, type WalkResult } from './walker.ts';
@@ -21,6 +21,7 @@ import type {
   DeleteTarget,
   Evidence,
   LogSignal,
+  LogSignalKind,
   Part,
   Regenerability,
   Risk,
@@ -848,8 +849,10 @@ export class MeasureCache {
 }
 
 export function logGpuVerdict(signals: LogSignal[]): { gpuUsed: boolean; cpuLine: boolean; cpuOnly: boolean } {
-  const means = signals.map((s) => s.means).join(' | ');
-  const gpuUsed = /GPU saglayicisi kullanildi/i.test(means);
+  // E11: karar `kind`e baglanir; kind'siz eski sinyallerde signalKind
+  // kanonik means metninden esler. `cpuLine` line metninden okunmaya
+  // devam eder (eski kanitlar "Device: CPU" gibi means tasiyabilir).
+  const gpuUsed = signals.some((s) => signalKind(s) === 'gpu-provider');
   const cpuLine = signals.some((s) => /Device: CPU|CPUExecutionProvider/i.test(s.line));
   // Olumlu sinyal olumsuzu veto eder: log "Device: CPU" yazsa bile ayni
   // dosyada GPU saglayicisi kaydi varsa (CUDAExecutionProvider vb.) GPU
@@ -1385,7 +1388,10 @@ export function detectArchetype(
 ): Archetype {
   const kinds = new Set(ev.fileKinds);
   const markers = new Set((ev.markers ?? []).map((m) => m.toLowerCase()));
-  const logs = (ev.logSignals ?? []).map((s) => s.means).join(' | ');
+  // E11: log karar kimlikleri. means metni yerine STABIL kind okunur:
+  // kind yoksa signalKind kanonik means'ten esler, eslesmezse "kanit
+  // yok" kabul edilir (eski davranis).
+  const logKinds = new Set((ev.logSignals ?? []).map(signalKind));
 
   // 1. Gecici klasorler: buradaki HICBIR sey anlamli degildir.
   //    Tem klasorunde tesadufen bulunan bir cuDNN .dll dosyasi, klasoru
@@ -1422,7 +1428,7 @@ export function detectArchetype(
   //    deposu yapmaz; bu yuzden proje/ajan korumasi ONCE gelir.
   const agentWorkspace = markers.has('skill-store') || markers.has('skill-lock');
   const modelEvidence =
-    kinds.has('onnx-model') || markers.has('models') || /model katalogu|model calistirma/i.test(logs);
+    kinds.has('onnx-model') || markers.has('models') || logKinds.has('model-catalog') || logKinds.has('onnx-runtime');
   if (modelEvidence && !probe?.projectManifest && !agentWorkspace) return 'model-store';
 
   // 7. CUDA/cuDNN runtime yigini (model icermeyen)
@@ -1503,9 +1509,9 @@ export function detectArchetype(
   // rattler, uv, pip) bu klasoru standart olarak "cache" olarak isaretler.
   if (
     markers.has('cachedir-tag') || markers.has('package-store') ||
-    markers.has('_cacache') || /npm paket onbellegi/i.test(logs) ||
+    markers.has('_cacache') || logKinds.has('npm-cache') ||
     markers.has('store') ||
-    kinds.has('nuget-package') || /NuGet paket onbellegi/i.test(logs) ||
+    kinds.has('nuget-package') || logKinds.has('nuget-cache') ||
     markers.has('conda') || markers.has('pixi') ||
     probe?.vectorStore ||
     isPackageStoreDir(root, markers, extCounts)
@@ -1871,8 +1877,9 @@ function decideBase(ctx: {
     const fresh = age < 7;
     const mset = new Set((ev.markers ?? []).map((m) => m.toLowerCase()));
     // npm cacache duzeni: "_cacache" / "_npx" isaretleri kanittir.
+    // E11: log kaniti kind ile okunur (means metnine baglilik yok).
     const npmManaged =
-      mset.has('_cacache') || mset.has('_npx') || /npm paket onbellegi/i.test(logs.map((l) => l.means).join(' '));
+      mset.has('_cacache') || mset.has('_npx') || logs.some((l) => signalKind(l) === 'npm-cache');
     const isVector = mset.has('vector-index');
 
     // Vektor/embedding depolar: yeniden uretilir ama YENIDEN INDEKSLEME
@@ -2226,13 +2233,20 @@ export function displayName(ev: Evidence, root: string): string {
   return base.replace(/^\./, '') || base;
 }
 
-/** Tekrarlanan log sinyallerini indirger (TUI kalabaliklasin diye). */
-function dedupeLogSignals<T extends { means: string }>(signals: T[]): T[] {
-  const byMeans = new Map<string, T>();
+/**
+ * Tekrarlanan log sinyallerini indirger (TUI kalabaliklasin diye).
+ * E11: anahtar STABIL kimliktir (`kind ?? means`) — ayni kind tek
+ * kalsin; means metni degisse bile tekrar silinir ve farkli kind
+ * korunur. kind'siz eski sinyallerde means metni anahtar olur
+ * (eski davranis).
+ */
+export function dedupeLogSignals<T extends { means: string; kind?: LogSignalKind }>(signals: T[]): T[] {
+  const byKey = new Map<string, T>();
   for (const s of signals) {
-    if (!byMeans.has(s.means)) byMeans.set(s.means, s);
+    const key = s.kind ?? s.means;
+    if (!byKey.has(key)) byKey.set(key, s);
   }
-  return [...byMeans.values()].slice(0, 6);
+  return [...byKey.values()].slice(0, 6);
 }
 
 // E10c: Modul duzeyi GPU globalleri KALDIRILDI. GPU kaniti

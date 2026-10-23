@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import type { Dirent } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { longPath } from '../util/longpath.ts';
-import type { FileKind, LogSignal, OwnerSignal } from './types.ts';
+import type { FileKind, LogSignal, LogSignalKind, OwnerSignal } from './types.ts';
 
 /**
  * Kanit toplayici.
@@ -1073,19 +1073,42 @@ async function probePackageJson(dir: string): Promise<OwnerSignal | null> {
   }
 }
 
-const LOG_MARKERS: Array<{ re: RegExp; means: string }> = [
-  { re: /Azure\s+Foundry|azure\.com\/api\/.*catalog|ai\.azure\.com/i, means: 'Azure AI Foundry model katalogu' },
-  { re: /CUDAExecutionProvider|DirectMLExecutionProvider|OrtGpuExecutionProvider/i, means: 'GPU saglayicisi kullanildi' },
-  { re: /\bDevice:\s*CPU\b|CPUExecutionProvider/i, means: 'cihaz tipi: CPU (GPU kullanilmiyor)' },
-  { re: /EPs are not fully registered|DownloadAndRegisterEpsAsync|EP registration deferred/i, means: 'GPU saglayicisi kaydedilmemis' },
-  { re: /onnxruntime/i, means: 'ONNX Runtime model calistirma' },
-  { re: /pipe\\/i, means: 'arka plan servisi (named pipe)' },
-  { re: /conda|pixi|uv pool|site-packages/i, means: 'Python ortam yoneticisi' },
-  { re: /Notebook|kernel|jupyter/i, means: 'notebook calistirma ortami' },
-  { re: /npm (install|ci)|npm-cache[\\/]_cacache/i, means: 'npm paket onbellegi' },
-  { re: /nuget\.org|NuGet\.Config|packages folder/i, means: 'NuGet paket onbellegi' },
-  { re: /WSL|distribution/i, means: 'Linux dagitimi' },
+// E11: `means` yalnizca gosterim metnidir; karar katmani `kind`e baglanir.
+const LOG_MARKERS: Array<{ re: RegExp; kind: LogSignalKind; means: string }> = [
+  { re: /Azure\s+Foundry|azure\.com\/api\/.*catalog|ai\.azure\.com/i, kind: 'model-catalog', means: 'Azure AI Foundry model katalogu' },
+  { re: /CUDAExecutionProvider|DirectMLExecutionProvider|OrtGpuExecutionProvider/i, kind: 'gpu-provider', means: 'GPU saglayicisi kullanildi' },
+  { re: /\bDevice:\s*CPU\b|CPUExecutionProvider/i, kind: 'cpu-device', means: 'cihaz tipi: CPU (GPU kullanilmiyor)' },
+  { re: /EPs are not fully registered|DownloadAndRegisterEpsAsync|EP registration deferred/i, kind: 'gpu-ep-missing', means: 'GPU saglayicisi kaydedilmemis' },
+  { re: /onnxruntime/i, kind: 'onnx-runtime', means: 'ONNX Runtime model calistirma' },
+  { re: /pipe\\/i, kind: 'background-pipe', means: 'arka plan servisi (named pipe)' },
+  { re: /conda|pixi|uv pool|site-packages/i, kind: 'python-env', means: 'Python ortam yoneticisi' },
+  { re: /Notebook|kernel|jupyter/i, kind: 'notebook', means: 'notebook calistirma ortami' },
+  { re: /npm (install|ci)|npm-cache[\\/]_cacache/i, kind: 'npm-cache', means: 'npm paket onbellegi' },
+  { re: /nuget\.org|NuGet\.Config|packages folder/i, kind: 'nuget-cache', means: 'NuGet paket onbellegi' },
+  { re: /WSL|distribution/i, kind: 'wsl', means: 'Linux dagitimi' },
 ];
+
+/**
+ * E11: eski (kind'siz) kanitlar icin kanonik means metni -> kind eslemesi.
+ * LOG_MARKERS'tan turetilir; kanonik metin tek yerde yasar.
+ */
+const KIND_BY_MEANS: ReadonlyMap<string, LogSignalKind> = new Map(
+  LOG_MARKERS.map((m) => [m.means, m.kind] as const),
+);
+
+/**
+ * E11: karar katmaninin okudugu STABIL kimlik.
+ *
+ * `kind` doluysa dogrudan o doner (means metninden bagimsiz). Eski
+ * `{ line, means }` sinyallerinde `kind` yoktur; o durumda kanonik
+ * means metninden eslenir, eslenemezse `undefined` ("bilinmiyor")
+ * doner. Kararlar `undefined`'i kanit yok sayar — eski davranisla
+ * ayni sonuc.
+ */
+export function signalKind(s: Partial<LogSignal> & { means: string }): LogSignalKind | undefined {
+  if (s.kind != null) return s.kind;
+  return KIND_BY_MEANS.get(s.means);
+}
 
 /**
  * Log dosyalarindan uretim sinyali. TEK yerde okunur: kok loglarini
@@ -1140,7 +1163,8 @@ async function readLogFile(f: string, p: Probe): Promise<void> {
       // satiri hem cihaz tipi hem saglayici bilgisi tasiyor.
       for (const m of LOG_MARKERS) {
         if (m.re.test(line)) {
-          p.logSignals.push({ line: line.trim().slice(0, 180), means: m.means });
+          // E11: kind karar kimligi her zaman dolu; means gosterim metni.
+          p.logSignals.push({ line: line.trim().slice(0, 180), kind: m.kind, means: m.means });
         }
       }
     }
