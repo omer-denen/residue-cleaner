@@ -20,7 +20,8 @@ export type IconName =
   | 'schedules'
   | 'vault'
   | 'settings'
-  | 'panel';
+  | 'panel'
+  | 'check';
 
 const PATHS: Record<IconName, ReactElement> = {
   menu: <path d="M2 4h12M2 8h12M2 12h12" />,
@@ -97,6 +98,7 @@ const PATHS: Record<IconName, ReactElement> = {
       <path d="M10 2.5v11" />
     </>
   ),
+  check: <path d="M3 8.5l3.5 3.5L13 4.5" />,
 };
 
 export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {

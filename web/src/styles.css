@@ -329,7 +329,7 @@ code,
 
 .shell {
   display: grid;
-  grid-template-columns: 208px minmax(0, 1fr) 320px;
+  grid-template-columns: 208px minmax(0, 1fr) 8px var(--right-w, 380px);
   min-height: 0;
 }
 
@@ -686,6 +686,14 @@ code,
   margin-bottom: 18px;
 }
 
+.page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .page-head h1 {
   margin: 0 0 2px;
   font-size: 22px;
@@ -1035,14 +1043,27 @@ code,
   }
 
   .right-panel,
-  .rp-toggle {
+  .rp-toggle,
+  .panel-resizer {
     display: none;
+  }
+}
+
+/* Kis ekranlar: sayfa kayabilir, liste sabit yukseklikte kalir. */
+@media (max-height: 700px) {
+  .main-fill {
+    overflow: auto;
+  }
+
+  .cluster-scroll {
+    flex: none;
+    height: 45vh;
   }
 }
 
 /* Menu daraltilmis: yalniz ikon sutunu (yer kazanilir). */
 .app.rail-collapsed .shell {
-  grid-template-columns: 52px minmax(0, 1fr) 320px;
+  grid-template-columns: 52px minmax(0, 1fr) 8px var(--right-w, 380px);
 }
 
 .app.rail-collapsed .shell.shell-wide {
@@ -1077,15 +1098,55 @@ code,
   grid-template-columns: 208px minmax(0, 1fr);
 }
 
+/* --- Sag panel ayiricisi: 8px sutun; hover/odak/suruklemede cizgi ------- */
+
+.panel-resizer {
+  cursor: col-resize;
+  background: transparent;
+  min-width: 0;
+  touch-action: none;
+}
+
+.panel-resizer:hover,
+.panel-resizer:focus-visible,
+body.resizing .panel-resizer {
+  box-shadow: inset 2px 0 0 var(--info);
+}
+
+.panel-resizer:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: -2px;
+}
+
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* --- Dikey dolgu yerlesimi: yalniz Disk'te liste kaydirir --------------- */
+
+.main-fill {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .disk {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 0;
+  flex: 1;
+  gap: 10px;
 }
 
 .disk-main {
   min-width: 0;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .disk-detail {
@@ -1219,6 +1280,57 @@ code,
 
 .filters {
   margin: 12px 0 8px;
+}
+
+/* --- Disk arac cubugu: en cok 2 satir ---------------------------------- */
+
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toolbar-row .search {
+  flex: 1;
+  min-width: 180px;
+}
+
+.toolbar-row .env-row-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex: none;
+}
+
+/* Ortam cipleri: TEK satirda yatay kayar. */
+.toolbar-row .env-chips {
+  flex: 1;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  min-width: 0;
+  padding-bottom: 2px;
+}
+
+/* Gelişmiş filtreler: katlanir; acilinca tek satir (gerekirse sarar). */
+.filters-advanced {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 8px;
+}
+
+/* `hidden` ozniteligi UA kuralini ezer; kapaliyken gercekten gizle. */
+.filters-advanced[hidden] {
+  display: none;
 }
 
 .env-chips,
@@ -1386,13 +1498,17 @@ code,
 .cluster-head,
 .cluster-row {
   display: grid;
-  grid-template-columns: 26px 12px minmax(0, 1fr) 104px 112px 86px 76px 62px;
+  grid-template-columns: 24px 10px minmax(0, 1fr) 104px 108px 88px 72px 96px;
   align-items: center;
   gap: 7px;
 }
 
 .cluster-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   padding: 6px 9px;
+  background: var(--panel);
   color: var(--faint);
   font-size: 10.5px;
   text-transform: uppercase;
@@ -1404,8 +1520,9 @@ code,
 }
 
 .cluster-scroll {
-  height: 52vh;
-  min-height: 240px;
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 180px;
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1413,8 +1530,8 @@ code,
 }
 
 .cluster-row {
-  height: 46px;
-  padding: 6px 9px;
+  height: 40px;
+  padding: 4px 9px;
   border-bottom: 1px solid var(--line-soft);
   cursor: pointer;
   font-size: 12.5px;
@@ -1426,6 +1543,11 @@ code,
 
 .cluster-row.active {
   background: color-mix(in srgb, var(--info) 10%, var(--panel));
+}
+
+.cluster-row.in-plan {
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .cluster-title-wrap {
@@ -1467,6 +1589,17 @@ code,
 .badge.git {
   color: var(--vault);
   border-color: color-mix(in srgb, var(--vault) 40%, var(--line));
+}
+
+/* "Planda" rozeti: metin tasiyir; yalniz renk degil. */
+.badge.planda {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  white-space: nowrap;
 }
 
 .badge.warn {

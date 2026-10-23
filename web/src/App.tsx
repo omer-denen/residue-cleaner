@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type {
+  CSSProperties,
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+} from 'react';
 import type {
   DashboardResponse,
   MetaResponse,
@@ -83,6 +87,15 @@ function modulesFor(screen: Screen): RightPanelModuleId[] {
   }
 }
 
+const PANEL_MIN = 300;
+const PANEL_MAX = 560;
+const PANEL_DEFAULT = 380;
+
+/** Panel genisligini 300-560 araligina kirp. */
+function clampPanelWidth(w: number): number {
+  return Math.min(PANEL_MAX, Math.max(PANEL_MIN, Math.round(w)));
+}
+
 export function App() {
   const [lang, setLang] = useState<Lang>(() =>
     localStorage.getItem('residue.lang') === 'en' ? 'en' : 'tr',
@@ -113,6 +126,12 @@ export function App() {
   const [rightCollapsed, setRightCollapsed] = useState(
     () => localStorage.getItem('residue.panel') === 'collapsed',
   );
+  /** Sag panel genisligi: localStorage'dan; gecersizse 380; 300-560 kirpilir. */
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const raw = Number(localStorage.getItem('residue.panelWidth'));
+    if (!Number.isFinite(raw) || raw <= 0) return PANEL_DEFAULT;
+    return clampPanelWidth(raw);
+  });
   const [rightTab, setRightTab] = useState<RightPanelModuleId>('evidence');
   /** Dar ekran mi? (820px alti) */
   const [isNarrow, setIsNarrow] = useState(
@@ -212,6 +231,10 @@ export function App() {
   useEffect(() => {
     localStorage.setItem('residue.panel', rightCollapsed ? 'collapsed' : 'expanded');
   }, [rightCollapsed]);
+
+  useEffect(() => {
+    localStorage.setItem('residue.panelWidth', String(panelWidth));
+  }, [panelWidth]);
 
   // Plan TTL: suresi dolan plan sag panelde kalmasin (sunucu da 410 verir).
   useEffect(() => {
@@ -329,6 +352,46 @@ export function App() {
             : (index - 1 + buttons.length) % buttons.length;
     e.preventDefault();
     buttons[next]?.focus();
+  };
+
+  // Sag panel ayiricisi: pointer surukleme (300-560) + klavye + cift tik sifirlama.
+  const onResizerPointerDown = (e: ReactPointerEvent<HTMLDivElement>): void => {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    document.body.classList.add('resizing');
+  };
+
+  const onResizerPointerMove = (e: ReactPointerEvent<HTMLDivElement>): void => {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    setPanelWidth(clampPanelWidth(window.innerWidth - e.clientX));
+  };
+
+  const onResizerPointerUp = (e: ReactPointerEvent<HTMLDivElement>): void => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    document.body.classList.remove('resizing');
+  };
+
+  const onResizerKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>): void => {
+    switch (e.key) {
+      case 'ArrowLeft':
+        e.preventDefault();
+        setPanelWidth((w) => clampPanelWidth(w + 16));
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        setPanelWidth((w) => clampPanelWidth(w - 16));
+        break;
+      case 'Home':
+        e.preventDefault();
+        setPanelWidth(PANEL_MIN);
+        break;
+      case 'End':
+        e.preventDefault();
+        setPanelWidth(PANEL_MAX);
+        break;
+    }
   };
 
   // Hamburger etiketi BUTONUN YAPTIGI ISLEMI anlatir (durumu degil).
@@ -485,7 +548,10 @@ export function App() {
       </header>
 
       <RightPanelProvider active={rightTab} onActivate={setRightTab}>
-        <div className={`shell${rightCollapsed ? ' shell-wide' : ''}`}>
+        <div
+          className={`shell${rightCollapsed ? ' shell-wide' : ''}`}
+          style={{ '--right-w': `${panelWidth}px` } as CSSProperties}
+        >
         <nav
           className="rail"
           id="app-rail"
@@ -512,7 +578,13 @@ export function App() {
           ))}
         </nav>
 
-        <main className="main" id="main" tabIndex={-1} aria-label={t('a11y.main')} aria-busy={loading}>
+        <main
+          className={`main${screen === 'disk' ? ' main-fill' : ''}`}
+          id="main"
+          tabIndex={-1}
+          aria-label={t('a11y.main')}
+          aria-busy={loading}
+        >
           {loading && <div className="state">{t('common.loading')}</div>}
 
           {!loading && error && (
@@ -537,11 +609,16 @@ export function App() {
               scanRequest={scanRequest}
               onStatus={() => void load()}
               onOpenScanStatus={() => setScanReport(true)}
+              plannedKeys={planned?.panel.keys ?? []}
               onPlan={(nextPlan) => {
+                // Sayfa DEGISMEZ: plan sag panelde + Plan ekraninda guncellenir.
                 setPlan(nextPlan);
                 setPlanned(nextPlan);
                 setPlanError(null);
-                setScreen('plan');
+              }}
+              onPlanStale={() => {
+                setPlan(null);
+                setPlanned(null);
               }}
             />
           )}
@@ -603,6 +680,24 @@ export function App() {
             ].includes(screen) && <div className="state">{t('common.soon')}</div>}
         </main>
 
+        {!rightCollapsed && (
+          <div
+            className="panel-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t('rightPanel.resize')}
+            aria-valuemin={300}
+            aria-valuemax={560}
+            aria-valuenow={panelWidth}
+            tabIndex={0}
+            onPointerDown={onResizerPointerDown}
+            onPointerMove={onResizerPointerMove}
+            onPointerUp={onResizerPointerUp}
+            onPointerCancel={onResizerPointerUp}
+            onDoubleClick={() => setPanelWidth(PANEL_DEFAULT)}
+            onKeyDown={onResizerKeyDown}
+          />
+        )}
         {!rightCollapsed && (
           <RightPanel
             lang={lang}

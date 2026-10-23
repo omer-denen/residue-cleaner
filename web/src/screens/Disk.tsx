@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type {
   ClusterDetailView,
@@ -14,6 +14,7 @@ import { openEvents } from '../sse.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { formatBytes } from '../format.ts';
 import { ScanStatusChip } from '../components/ScanStatus.tsx';
+import { Icon } from '../components/icons.tsx';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
 import {
   CATEGORY_LABEL,
@@ -40,7 +41,11 @@ interface Props {
   scanRequest: number;
   onStatus: () => void;
   onOpenScanStatus: () => void;
+  /** Motorun guncel planindaki kume anahtarlari (panel.keys); satir rozeti icin. */
+  plannedKeys: readonly string[];
   onPlan: (plan: PlanResponse) => void;
+  /** Plan 404/410 dondugunde App plan durumunu temizler. */
+  onPlanStale: () => void;
 }
 
 /**
@@ -56,7 +61,9 @@ export function Disk({
   scanRequest,
   onStatus,
   onOpenScanStatus,
+  plannedKeys,
   onPlan,
+  onPlanStale,
 }: Props) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
@@ -80,6 +87,12 @@ export function Disk({
   const [error, setError] = useState<string | null>(null);
   const [detailKey, setDetailKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<ClusterDetailView | null>(null);
+
+  /** Gelişmiş filtreler (profil/yas/kategori/siralama) varsayilan KAPALI. */
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  /** "Plana ekle" istegi: secim korunur; sayfa degismez. */
+  const [planBusy, setPlanBusy] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
 
   const [envs, setEnvs] = useState<string[]>([]);
   const [profile, setProfile] = useState('');
@@ -267,14 +280,25 @@ export function Disk({
     setSelected(new Set());
   };
 
-  const createPlan = async (): Promise<void> => {
-    if (!view || selected.size === 0) return;
+  const addToPlan = async (): Promise<void> => {
+    if (selected.size === 0 || planBusy) return;
+    setPlanBusy(true);
+    setPlanError(null);
     try {
-      setError(null);
-      const plan = await api.plan([...selected]);
-      onPlan(plan);
+      // Motorun panel.keys alanindaki mevcut plan anahtarlari + secim birlesir.
+      const merged = [...new Set([...plannedKeys, ...selected])];
+      const next = await api.plan(merged);
+      setSelected(new Set());
+      // Sag panel "Planlananlar" sekmesine gecer; sayfa degismeZ.
+      panel?.activate('planned');
+      onPlan(next);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err));
+      setPlanError(err instanceof ApiError ? err.message : String(err));
+      if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
+        onPlanStale();
+      }
+    } finally {
+      setPlanBusy(false);
     }
   };
 
@@ -282,9 +306,12 @@ export function Disk({
   const virtualizer = useVirtualizer({
     count: view?.clusters.length ?? 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 46,
+    estimateSize: () => 40,
     overscan: 8,
   });
+
+  /** "Planda" rozeti icin kume uyeligi (gosterim; filtre/siralama kurali DEGIL). */
+  const plannedSet = useMemo(() => new Set<string>(plannedKeys), [plannedKeys]);
 
   const detailTargets = detail?.cluster.deleteTargets ?? [];
 
@@ -296,65 +323,152 @@ export function Disk({
             <h1>{t('disk.title')}</h1>
             <p className="dim">{t('disk.subtitle')}</p>
           </div>
-          {status && (
-            <ScanStatusChip
-              view={status.view}
-              lang={lang}
-              onOpen={onOpenScanStatus}
-            />
-          )}
+          <div className="page-actions">
+            {status && (
+              <ScanStatusChip
+                view={status.view}
+                lang={lang}
+                onOpen={onOpenScanStatus}
+              />
+            )}
+            <button type="button" className="primary" onClick={() => void startScan()}>
+              {status?.state === 'never' ? t('disk.scan') : t('disk.rescan')}
+            </button>
+          </div>
         </header>
 
         <a className="skip-inline" href="#cluster-list">
           {t('a11y.skipList')}
         </a>
 
-        <div className="scan-controls">
-          <div className="env-chips">
-            {(meta?.envs ?? []).map((env) => (
-              <button
-                key={env.id}
-                type="button"
-                className={`chip${envs.includes(env.id) ? ' active' : ''}`}
-                onClick={() =>
-                  setEnvs((prev) =>
-                    prev.includes(env.id)
-                      ? prev.filter((id) => id !== env.id)
-                      : [...prev, env.id],
-                  )
-                }
-              >
-                {env.id}
-              </button>
-            ))}
-          </div>
-          <select
-            className="control"
-            value={profile}
-            onChange={(e) => setProfile(e.target.value)}
-            aria-label={t('disk.filter.profile')}
-          >
-            <option value="">—</option>
-            {(meta?.profiles ?? []).map((p) => (
-              <option key={p.name} value={p.name}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <label className="control-label">
-            {t('disk.minAge')}
+        <div className="toolbar">
+          <div className="toolbar-row">
             <input
-              className="control num"
-              type="number"
-              min={0}
-              max={3650}
-              value={minAgeDays}
-              onChange={(e) => setMinAgeDays(Math.max(0, Number(e.target.value) || 0))}
+              className="control search"
+              type="search"
+              placeholder={t('disk.search')}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              aria-label={t('disk.search')}
+              data-search
             />
-          </label>
-          <button type="button" className="primary" onClick={() => void startScan()}>
-            {status?.state === 'never' ? t('disk.scan') : t('disk.rescan')}
-          </button>
+            <div className="kind-tabs">
+              {KINDS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`chip${kind === item.id ? ' active' : ''}`}
+                  onClick={() => setKind(item.id)}
+                >
+                  {t(item.label)}
+                  {view && <span className="chip-count">{view.counts[item.id]}</span>}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="chip"
+              aria-expanded={filtersOpen}
+              aria-controls="disk-filters-advanced"
+              onClick={() => setFiltersOpen((v) => !v)}
+            >
+              {filtersOpen ? t('disk.filters.hide') : t('disk.filters')}
+            </button>
+          </div>
+
+          <div className="toolbar-row env-row">
+            <span className="dim env-row-label">{t('disk.scanOptions')}</span>
+            <div className="env-chips">
+              {(meta?.envs ?? []).map((env) => (
+                <button
+                  key={env.id}
+                  type="button"
+                  className={`chip${envs.includes(env.id) ? ' active' : ''}`}
+                  onClick={() =>
+                    setEnvs((prev) =>
+                      prev.includes(env.id)
+                        ? prev.filter((id) => id !== env.id)
+                        : [...prev, env.id],
+                    )
+                  }
+                >
+                  {env.id}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div id="disk-filters-advanced" className="filters-advanced" hidden={!filtersOpen}>
+            <select
+              className="control"
+              value={profile}
+              onChange={(e) => setProfile(e.target.value)}
+              aria-label={t('disk.filter.profile')}
+            >
+              <option value="">—</option>
+              {(meta?.profiles ?? []).map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <label className="control-label">
+              {t('disk.minAge')}
+              <input
+                className="control num"
+                type="number"
+                min={0}
+                max={3650}
+                value={minAgeDays}
+                onChange={(e) => setMinAgeDays(Math.max(0, Number(e.target.value) || 0))}
+              />
+            </label>
+            <select
+              className="control"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              aria-label={t('disk.filter.category')}
+            >
+              <option value="all">{t('disk.filter.category')}: —</option>
+              {(view?.categories ?? []).map((cat) => (
+                <option key={cat.key} value={cat.key}>
+                  {t(CATEGORY_LABEL[cat.key] ?? 'category.unknown')} ({cat.count})
+                </option>
+              ))}
+            </select>
+            <select
+              className="control"
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              aria-label={t('disk.filter.sort')}
+            >
+              <option value="size">{t('disk.sort.size')}</option>
+              <option value="risk">{t('disk.sort.risk')}</option>
+              <option value="recent">{t('disk.sort.recent')}</option>
+              <option value="name">{t('disk.sort.name')}</option>
+            </select>
+            <button
+              type="button"
+              className={`chip${big ? ' active' : ''}`}
+              onClick={() => setBig((v) => !v)}
+            >
+              {t('disk.triage.big')}
+            </button>
+            <button
+              type="button"
+              className={`chip${risky ? ' active' : ''}`}
+              onClick={() => setRisky((v) => !v)}
+            >
+              {t('disk.triage.risky')}
+            </button>
+            <button
+              type="button"
+              className={`chip${zombie ? ' active' : ''}`}
+              onClick={() => setZombie((v) => !v)}
+            >
+              {t('disk.triage.zombie')}
+            </button>
+          </div>
         </div>
 
         {scan && (
@@ -397,76 +511,11 @@ export function Disk({
 
         {scanError && <div className="banner danger" role="alert">{t('disk.scanFailed')}: {scanError}</div>}
         {error && <div className="banner danger" role="alert">{error}</div>}
-
-        <div className="filters">
-          <input
-            className="control search"
-            type="search"
-            placeholder={t('disk.search')}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            aria-label={t('disk.search')}
-            data-search
-          />
-          <div className="kind-tabs">
-            {KINDS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`chip${kind === item.id ? ' active' : ''}`}
-                onClick={() => setKind(item.id)}
-              >
-                {t(item.label)}
-                {view && <span className="chip-count">{view.counts[item.id]}</span>}
-              </button>
-            ))}
+        {planError && (
+          <div className="banner danger" role="alert">
+            {t('disk.plan.failed')}: {planError}
           </div>
-          <select
-            className="control"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            aria-label={t('disk.filter.category')}
-          >
-            <option value="all">{t('disk.filter.category')}: —</option>
-            {(view?.categories ?? []).map((cat) => (
-              <option key={cat.key} value={cat.key}>
-                {t(CATEGORY_LABEL[cat.key] ?? 'category.unknown')} ({cat.count})
-              </option>
-            ))}
-          </select>
-          <select
-            className="control"
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            aria-label={t('disk.filter.sort')}
-          >
-            <option value="size">{t('disk.sort.size')}</option>
-            <option value="risk">{t('disk.sort.risk')}</option>
-            <option value="recent">{t('disk.sort.recent')}</option>
-            <option value="name">{t('disk.sort.name')}</option>
-          </select>
-          <button
-            type="button"
-            className={`chip${big ? ' active' : ''}`}
-            onClick={() => setBig((v) => !v)}
-          >
-            {t('disk.triage.big')}
-          </button>
-          <button
-            type="button"
-            className={`chip${risky ? ' active' : ''}`}
-            onClick={() => setRisky((v) => !v)}
-          >
-            {t('disk.triage.risky')}
-          </button>
-          <button
-            type="button"
-            className={`chip${zombie ? ' active' : ''}`}
-            onClick={() => setZombie((v) => !v)}
-          >
-            {t('disk.triage.zombie')}
-          </button>
-        </div>
+        )}
 
         <div className="selection-bar">
           <span className="sr-only" role="status" aria-live="polite">
@@ -499,10 +548,10 @@ export function Disk({
           <button
             type="button"
             className="primary"
-            disabled={selected.size === 0}
-            onClick={() => void createPlan()}
+            disabled={selected.size === 0 || planBusy}
+            onClick={() => void addToPlan()}
           >
-            {t('disk.plan')}
+            {t('disk.plan.add')}
           </button>
         </div>
 
@@ -537,10 +586,11 @@ export function Disk({
               {virtualizer.getVirtualItems().map((item) => {
                 const c = view.clusters[item.index];
                 if (!c) return null;
+                const inPlan = plannedSet.has(c.key);
                 return (
                   <div
                     key={c.key}
-                    className={`cluster-row${detailKey === c.key ? ' active' : ''}`}
+                    className={`cluster-row${detailKey === c.key ? ' active' : ''}${inPlan ? ' in-plan' : ''}`}
                     style={{
                       position: 'absolute',
                       top: 0,
@@ -590,6 +640,12 @@ export function Disk({
                     <span className="badges-right">
                       {c.gitTracked && <span className="badge git">git</span>}
                       {c.targetCount > 0 && <span className="badge">{c.targetCount}</span>}
+                      {inPlan && (
+                        <span className="badge planda">
+                          <Icon name="check" size={11} />
+                          {t('disk.plan.inPlan')}
+                        </span>
+                      )}
                     </span>
                   </div>
                 );
