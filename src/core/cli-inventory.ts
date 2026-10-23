@@ -428,28 +428,61 @@ async function annotateNpmShims(tools: CliTool[], prefix: string): Promise<void>
 }
 
 /**
+ * Observer hijyeni: okuma sonrasi Windows atime'i gunceller ve sonraki
+ * tarama dosyayi "az once kullanildi" sanir (E1/E2). Okuma oncesi
+ * atime/mtime alinir, `fn()` bittikten sonra (hata firlatsa bile)
+ * ikisi geri yazilir. Zaman damgalari okunamiyorsa veya geri
+ * yazilamiyorsa (dosya yok, erisim reddi) sessizce gecilir; yalnizca
+ * `fn()` hatalari cagirana yansitilir.
+ */
+export async function withPreservedFileTimes<T>(
+  path: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const fp = longPath(path);
+  let times: { atimeMs: number; mtimeMs: number } | null = null;
+  try {
+    const st = await stat(fp);
+    times = { atimeMs: st.atimeMs, mtimeMs: st.mtimeMs };
+  } catch {
+    /* okuma oncesi zamanlar alinamadi; geri yazilacak bir sey yok */
+  }
+  try {
+    return await fn();
+  } finally {
+    if (times) {
+      // NOT: sayi milisaniye argumani Windows'ta EINVAL verebilir
+      // (orijinal readShimTarget davranisi); bu yuzden Date ile geri
+      // yazilir — tum surumlerde desteklenir.
+      await utimes(fp, new Date(times.atimeMs), new Date(times.mtimeMs)).catch(() => {
+        /* geri yazilamadi; atime kaniti etkilenmis olabilir */
+      });
+    }
+  }
+}
+
+/** `readExeInfo`'nun observer etkisiz hali: atime kanitini bozmaz (E1). */
+export async function readExeInfoPreservingTimes(path: string) {
+  return withPreservedFileTimes(path, () => readExeInfo(path));
+}
+
+/**
  * `.cmd` / `.ps1` shim'inin hedef yolunu cikarir. npm shim'i
  * `%dp0%\node_modules\<paket>\<dosya>` bicimindedir; paket scoped
  * olabilir (`@scope\paket`).
  */
 async function readShimTarget(shim: string, prefix: string): Promise<string | null> {
-  const before = await stat(longPath(shim)).catch(() => null);
-  try {
-    const txt = await readFile(longPath(shim), 'utf8');
-    const m = /node_modules[\\/]((?:@[^\\/\s"']+[\\/])?[^\\/\s"']+)[\\/]([^\s"']+)/i.exec(txt);
-    if (!m?.[1] || !m[2]) return null;
-    const rel = `node_modules\\${m[1]}\\${m[2]}`.replace(/[\\/]+/g, '\\');
-    return join(prefix, rel);
-  } catch {
-    return null;
-  } finally {
-    // Observer etkisi: shim'i okumak atime'i gunceller; geri koy.
-    if (before) {
-      await utimes(longPath(shim), before.atime, before.mtime).catch(() => {
-        /* geri yazilamadi; atime kaniti etkilenmis olabilir */
-      });
+  return withPreservedFileTimes(shim, async () => {
+    try {
+      const txt = await readFile(longPath(shim), 'utf8');
+      const m = /node_modules[\\/]((?:@[^\\/\s"']+[\\/])?[^\\/\s"']+)[\\/]([^\s"']+)/i.exec(txt);
+      if (!m?.[1] || !m[2]) return null;
+      const rel = `node_modules\\${m[1]}\\${m[2]}`.replace(/[\\/]+/g, '\\');
+      return join(prefix, rel);
+    } catch {
+      return null;
     }
-  }
+  });
 }
 
 /**
@@ -468,7 +501,7 @@ async function readShimTarget(shim: string, prefix: string): Promise<string | nu
  * Onarim kaynaga gore uretilir; standalone yalnizca raporlanir
  * (paket yoneticisi yok).
  */
-async function annotateHealth(tools: CliTool[]): Promise<void> {
+export async function annotateHealth(tools: CliTool[]): Promise<void> {
   for (const tool of tools) {
     // Platform araclari (npm, npx, pip, uv...) yanlislikla "bozuk"
     // isaretlenmemeli; onarim komutu da tehlikeli olur.
@@ -478,7 +511,8 @@ async function annotateHealth(tools: CliTool[]): Promise<void> {
       const st = await stat(longPath(binPath)).catch(() => null);
       if (!st?.isFile() || st.size === 0 || st.size >= 4096) continue;
 
-      const info = await readExeInfo(binPath);
+      // Observer etkisi: stub okumasi atime'i kirletmemeli (E2).
+      const info = await readExeInfoPreservingTimes(binPath);
       if (info.valid) continue;
 
       const scriptEvidence = await installScriptEvidence(tool);
@@ -1067,7 +1101,8 @@ async function scanStandaloneShims(
       });
 
       // T38: surum, ikiliyi CALISTIRMADAN VersionInfo'dan okunur.
-      const exe = await readExeInfo(p);
+      // Observer etkisi: bu okuma atime'i kirletmemeli (E1).
+      const exe = await readExeInfoPreservingTimes(p);
 
       const tool: CliTool = {
         id: `standalone:${cmd}`,
