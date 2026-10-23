@@ -323,6 +323,30 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
   başlamaz. Sıradaki: **T37** (yarım güncelleme artıkları) ve **F5**
   (web onayı bekliyor).
 
+## 23.10.2026 — T74 profil modeli netleştirildi (kod değişikliği yok)
+
+- **Kullanıcı sorusu:** "3 kullanıcı profili" hız / derin analiz veya zorluk
+  seviyesi olarak mı modellendi?
+- **Kodda doğrulama (salt okunur):**
+  - `src/core/discover.ts` → `BUILTIN_PROFILES`: `lean`, `audit`, `full`.
+    Bunlar **tarama kapsamı**dır; `audit.readOnly` bir güvenlik modudur,
+    hız/derinlik/zorluk değildir.
+  - `web/src/screens/Disk.tsx` → `profile` alanı tarama kapsamı seçicisidir;
+    i18n etiketi "Ortam profili".
+  - `web/src/screens/Graph.tsx` → `protect` / `experiment` **bakış profili**;
+    yalnız bölüm sırasını değiştirir.
+  - Kullanıcı personası için henüz kod yok (T74 planned).
+  - **"Hızlı temizlik" / "derin temizlik" modu yok.** `docs/T44-PLAN.md`
+    §1'deki "ayda bir derin temizlik" yalnız kullanım sıklığı ifadesidir.
+- **Karar:** standart kullanım korunur. Üç kullanıcı profili bir mod veya
+  zorluk değil, **sunum + varsayılan görünüm** eksenidir.
+  Kanonik tanım: `docs/PROFILE-MODEL.md` (üç eksen, izinli/yasak listeler,
+  T74 kabul testleri).
+- `docs/T44-PLAN.md` §1 tarihsel iki-profil taslağı olarak işaretlendi.
+- Baseline: typecheck temiz · **310/310**.
+- **Sıradaki:** W0-a `docs/READINESS-MATRIX.md` + E2E kataloğu; sonra
+  W0-b (F5 + parity + web E2E) ve W1 (T74).
+
 
 
 

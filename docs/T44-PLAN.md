@@ -8,10 +8,17 @@
 > listeleneceği, neyin seçilebilir olduğu, onay ifadesi, toplamlar, kartlar
 > ve sıralama **Karar Motoru**'ndan (`src/core/*`) gelir. Arayüz kendi
 > kararını üretmez; yalnızca kimlikleri metne çevirir ve biçimlendirir.
+>
+> **Güncelleme 23.10.2026 (T74):** Kullanıcı profili **üçtür**:
+> `developer` / `vibe` / `hybrid` (varsayılan `hybrid`). Kanonik tanım:
+> `docs/PROFILE-MODEL.md`. Aşağıdaki §1 **tarihsel iki-profil taslağıdır**;
+> "ayda bir derin temizlik" ifadesi kullanım sıklığını anlatır, zorluk veya
+> tarama derinliği modu değildir. Profil yalnız sunum + varsayılan görünüm
+> seçer; karar motoru ve güvenlik kapıları değişmez.
 
 ---
 
-## 1. İki kullanıcı profili
+## 1. Kullanıcı profilleri (tarihsel iki-profil taslağı)
 
 | | **A — Emeğini koruyan proje sahibi** | **B — Sürekli deneyen vibe coder** |
 |---|---|---|
