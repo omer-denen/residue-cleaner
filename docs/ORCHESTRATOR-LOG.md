@@ -190,6 +190,23 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
   taranmadan önce elle taşınmalı.
 - Kapı: typecheck temiz · **246/246** (+4) · `src/` içinde eski ad 0 eşleşme.
 
+### E11 — TAMAMLANDI
+
+- Commit `06f8be2` · `classifier.ts` + `analyze.ts` + `types.ts` +
+  `tests/log-signal-kind.test.ts` (**11 test**).
+- `LogSignal.kind?: LogSignalKind` eklendi (opsiyonel: eski kanıtlar
+  bozulmasın). `LOG_MARKERS` her girişte `kind` taşıyor; `means` artık
+  yalnız gösterim metni.
+- Kararlar `kind`e bağlandı: `logGpuVerdict` (`gpu-provider`),
+  `detectArchetype` model/npm/nuget dalları, `decideBase.npmManaged`.
+  `signalKind()` kind yoksa kanonik `means`ten eşler (geriye dönük uyum).
+  `dedupeLogSignals` anahtarı `kind ?? means`.
+- **Bilinçli sınır:** `cpuLine` ham log satırından okunmaya devam ediyor
+  (eski kanıt/testler means içinde "Device: CPU" taşıyor); E11 kapsamı
+  yalnız `means` bağımlılığı. `merge.ts` dedupe beyaz liste dışında
+  bırakıldı; nihai kanıt `analyze.ts` içinde kind ile tekilleşiyor.
+- Kapı: typecheck temiz · **257/257** (+11) · mevcut GPU/log testleri yeşil.
+
 
 
 
