@@ -75,10 +75,8 @@ alabilirsin (`residue undo --restore`).
 > ve planlar motordan gelir. Silme yine iki aşamalıdır.
 >
 > **2.0.0 notu:** Proje yeniden adlandırıldı: **Residue** (npm paketi
-> `residue-cleaner`, komut `residue`).
->
-> Eski ad `clicleaner` idi. Verilerin (kasa, günlük) taşındığı yer:
-> `%LOCALAPPDATA%\residue`.
+> `residue-cleaner`, komut `residue`). Veriler (kasa, günlük)
+> `%LOCALAPPDATA%\residue` altında yaşar.
 
 ### Hiç terminal kullanmadıysan
 

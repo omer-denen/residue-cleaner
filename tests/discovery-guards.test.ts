@@ -50,7 +50,8 @@ test('D6: kasa yolu egik cizgi, buyuk harf, trailing slash ile taninir', () => {
   assert.equal(isOwnDataPath('c:\\users\\X\\appdata\\local\\RESIDUE', ENV), true);
   assert.equal(isOwnDataPath('C:\\Users\\x\\AppData\\Local\\residue\\', ENV), true);
   assert.equal(isOwnDataPath('C:\\Users\\x\\.residue\\logs', ENV), true);
-  assert.equal(isOwnDataPath('C:\\Users\\x\\AppData\\Local\\clicleaner\\vault', ENV), true);
+  // Eski veri dizini adi artik "kendi veri" olarak taninmaz (23.10.2026).
+  assert.equal(isOwnDataPath('C:\\Users\\x\\AppData\\Local\\clicleaner\\vault', ENV), false);
 });
 
 test('D6: .. ile dolasan yol ve \\\\?\\ oneki cozulur', () => {

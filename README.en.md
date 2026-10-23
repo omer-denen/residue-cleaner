@@ -76,10 +76,8 @@ decision is reversible (`residue undo --restore`).
 > two-step, written-approval flow.
 >
 > **2.0.0 note:** The project was renamed: **Residue** (npm package
-> `residue-cleaner`, command `residue`).
->
-> The old name was `clicleaner`. Your data (vault, journal) now lives in
-> `%LOCALAPPDATA%\residue`.
+> `residue-cleaner`, command `residue`). Your data (vault, journal) lives
+> in `%LOCALAPPDATA%\residue`.
 
 ### Never used a terminal before?
 

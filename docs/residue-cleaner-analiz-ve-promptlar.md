@@ -43,8 +43,8 @@ Akış: `discover` → `classifyPath` (`probeDir` + `walk` + `detectArchetype` +
 - Hassas sınıflar (`--clear-history`, `--reset-rules`, `--nuke-models`) açık bayrakla açılır.
 - Parça parça, gerçek yoldan ölçüm (CUDA, GPU varyantı, eski uzantı/uygulama sürümü).
 - Karar gerekçeleri `debug` ile kaydedilir; kanıt yetersizse `warn` verilir.
-- `isOwnDataPath` sınır kontrolünü (`dir + '\\'`) doğru yapıyor; eski `clicleaner`
-  veri dizini de korunuyor.
+- `isOwnDataPath` sınır kontrolünü (`dir + '\\'`) doğru yapıyor; aracın
+  kendi veri dizini korunuyor.
 
 ## 3. Bulgular
 

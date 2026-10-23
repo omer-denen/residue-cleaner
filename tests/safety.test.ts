@@ -22,7 +22,6 @@ test('kendi veri dizini korunur', () => {
   const local = process.env.LOCALAPPDATA;
   if (!local) return;
   assert.notEqual(unsafeTargetReason(`${local}\\residue\\vault\\b-1`), null);
-  assert.notEqual(unsafeTargetReason(`${local}\\clicleaner\\vault`), null);
 });
 
 test('kategori onceligi: protected > old-version > unused', () => {

@@ -161,10 +161,10 @@ Tespit (21.10.2026, salt okunur):
 | Kalıntı | Durum | Karar |
 |---|---|---|
 | `C:\Users\Code\source\repos\CLICleaner` | **Duruyor** (boş/kilitli) | Kilit bırakınca sil; içerik doğrulaması yapılmadan silinmez |
-| `%LOCALAPPDATA%\clicleaner` | Yok | — |
+| `%LOCALAPPDATA%\clicleaner` | **Yok** (doğrulandı) | Dizin yok; kod koruması **kaldırıldı** (23.10.2026 kullanıcı kararı) |
 | npm `clicleaner@1.0.0` | **Deprecate** edildi, mesaj doğru | Korunur (tarihsel) |
 | GitHub `omer-denen/CLICleaner` | Yeni repoya **yönleniyor** | Ek işlem yok |
-| `src/core/data-dir.ts`, `discover.ts`, `guard.ts`, testler | Eski ad **koruma** amaçlı | **Silinmez** (geçiş güvenliği) |
+| `src/core/data-dir.ts`, `discover.ts`, `guard.ts`, testler | Eski ad **koruma** amaçlıydı | **Koruma kaldırıldı** (23.10.2026 kullanıcı kararı; yalnız güncel ad korunur) |
 | Tarihsel `docs/HANDOVER-*`, `CHANGELOG` | Tarihsel kayıt | Korunur |
 | README/CHANGELOG eski ad geçişleri | Kullanıcıya görünen metin | Yalnız gerekliyse "eski ad" notuna çevrilir |
 

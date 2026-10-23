@@ -118,9 +118,8 @@
 
 ## 3. Bilinçli olarak korunan mevcut davranışlar
 
-- **Eski `clicleaner` veri dizini** (`%LOCALAPPDATA%\clicleaner`) korunur;
-  `LEGACY_DATA_DIR_NAME` silinmedi.
 - **Windows Geri Dönüşüm Kutusu kullanılmaz**; kasa kullanılır.
+- **Tek veri dizini: `%LOCALAPPDATA%\residue`.**
 - **`clean --purge`** geriye uyumluluk için hâlâ var (aşağıdaki çelişki).
 - **Web arayüzü yok**; `residue api` yalnız HTTP/SSE API sunar.
 - **Windows Görev Zamanlayıcı yok**; planlar yalnız süreç açıkken çalışır.
