@@ -71,14 +71,14 @@ const BASE_COMMANDS = new Set([
 
 const BASE_PACKAGES = new Set(['npm', 'corepack', 'pip', 'setuptools', 'wheel', 'uv']);
 
-interface HistoryData {
+export interface HistoryData {
   files: string[];
   lines: string[];
   lastWrite: number;
   available: boolean;
 }
 
-interface StateEvidence {
+export interface StateEvidence {
   dirs: string[];
   lastMtime: number;
   lastAtime: number;
@@ -135,6 +135,15 @@ export async function scanCliInventory(opts: CliInventoryOptions = {}): Promise<
   }
 
   const uniqueTools = [...byId.values()];
+  // T69/F3 (E9): toplu atime — ayni ~5 sn penceresinde en az 3 aracin
+  // shim atime'i guncellendiyse bu indeksleyici/yedekleme dokunmasidir,
+  // kullanim degildir. uniqueTools olustuktan SONRA, saglik etiketinden
+  // once yerinde uygulanir; daha once emit edilmis nesne ayni nesnedir.
+  applyAtimeBurstFilter(
+    uniqueTools,
+    findAtimeBursts(uniqueTools.map((t) => ({ id: t.id, atime: t.lastAccessAt }))),
+    { now, unusedDays },
+  );
   // Tum kaynaklarda (npm, uv, dotnet, pip, standalone) yarim kurulum
   // tespiti: stub bin + calistirma hatasi. Onarim komutu kaynaga gore
   // uretilir; standalone icin yalnizca raporlanir.
@@ -1137,7 +1146,7 @@ async function scanStandaloneShims(
 // Kullanim kaniti
 // ---------------------------------------------------------------------------
 
-interface UsageInput {
+export interface UsageInput {
   now: number;
   unusedDays: number;
   command: string;
@@ -1150,52 +1159,85 @@ interface UsageInput {
   atimeReliable: boolean;
 }
 
-function usageVerdict(input: UsageInput): {
+export interface UsageVerdict {
   mentions: number;
   lastRatio: number;
   idleDays: number;
   status: CliStatus;
   confidence: 'high' | 'medium' | 'low';
   evidence: string[];
-} {
+}
+
+/**
+ * Kullanim karari (T69/F3, kural 21). Zaman damgasi TEK BASINA karar
+ * uretmez:
+ *  - E6: shim atime'i kurulum anina esitse (<2 sn) okuma kulanticisidir,
+ *    kullanici degil; atime kanit olarak kullanilmaz.
+ *  - K17: atime'i dogrulayan bir sinyal (kabuk gecmisi veya durum
+ *    klasoru) yoksa `recent` uretilmez.
+ *  - K20: gecmiste geciyorsa "en az bir kez kullanildi"dir; satir sirasi
+ *    zaman olmadigindan "son kullanildi" denemez → `unknown`.
+ */
+export function usageVerdict(input: UsageInput): UsageVerdict {
   const { now, unusedDays, command } = input;
   const usage = findHistoryMentions(input.history, command);
   const lastStateAt = input.state.lastMtime;
-  const lastSignal = Math.max(input.lastAccessAt, lastStateAt);
-  const reference = lastSignal > 0 ? lastSignal : input.installedAt;
-  const idleDays = reference > 0 ? daysSince(reference, now) : Number.POSITIVE_INFINITY;
   const unusedMs = unusedDays * DAY;
 
+  // E6: kurulum-atime ayrimi — shim okumasi kurulum anindaysa atime
+  // kullanilamaz (kullaniciya bagli degil, kurulumun sonucudur).
+  const installAtime =
+    input.installedAt > 0 &&
+    input.lastAccessAt > 0 &&
+    Math.abs(input.lastAccessAt - input.installedAt) <= 2000;
+  const atimeUsable = input.atimeReliable && input.lastAccessAt > 0 && !installAtime;
+
+  // Yas/yararlilik yalnizca guvenilir sinyallerden olculur:
+  // kullanilabilen atime, durum yazma zamani ve kurulum zamani.
+  const reference = Math.max(
+    atimeUsable ? input.lastAccessAt : 0,
+    lastStateAt,
+    input.installedAt,
+  );
+  const idleDays = reference > 0 ? daysSince(reference, now) : Number.POSITIVE_INFINITY;
+
   const stateRecent = lastStateAt > 0 && now - lastStateAt < unusedMs;
-  const historyRecent = usage.mentions > 0 && usage.lastRatio >= 0.6;
-  const accessRecent = input.lastAccessAt > 0 && now - input.lastAccessAt < unusedMs;
+  const accessRecent = atimeUsable && now - input.lastAccessAt < unusedMs;
   const protectedCmd = BASE_COMMANDS.has(command.toLowerCase()) || BASE_PACKAGES.has(input.packageName.toLowerCase());
 
   let status: CliStatus;
   let confidence: 'high' | 'medium' | 'low';
+  let onlyAtime = false;
 
   if (protectedCmd) {
     status = 'protected';
     confidence = 'high';
-  } else if (stateRecent || historyRecent) {
+  } else if (stateRecent) {
     status = 'recent';
-    confidence = stateRecent ? 'high' : 'medium';
+    confidence = 'high';
+  } else if (accessRecent && usage.mentions > 0) {
+    // Atime + gecmis birbirini dogrular (K17): iki bagimsiz sinyal.
+    status = 'recent';
+    confidence = 'medium';
   } else if (usage.mentions > 0) {
-    status = idleDays >= unusedDays ? 'unknown' : 'recent';
+    // K20: gecmis var = en az bir kez kullanilmistir; "son kullanilma"
+    // zamanı satir sirasindan cikamaz.
+    status = 'unknown';
     confidence = 'medium';
-  } else if (accessRecent && input.atimeReliable) {
-    status = 'recent';
-    confidence = 'medium';
+  } else if (accessRecent) {
+    // K17: atime tek basina dogrulayiciya sahip degil.
+    status = 'unknown';
+    confidence = 'low';
+    onlyAtime = true;
   } else if (idleDays >= unusedDays) {
     status = 'unused';
-    confidence =
-      input.atimeReliable && input.lastAccessAt > 0
-        ? lastStateAt > 0
-          ? 'high'
-          : 'medium'
-        : lastStateAt > 0
-          ? 'medium'
-          : 'low';
+    confidence = atimeUsable
+      ? lastStateAt > 0
+        ? 'high'
+        : 'medium'
+      : lastStateAt > 0
+        ? 'medium'
+        : 'low';
   } else {
     status = 'unknown';
     confidence = 'low';
@@ -1210,10 +1252,80 @@ function usageVerdict(input: UsageInput): {
   } else if (input.history.available) {
     evidence.push('kabuk gecmisinde hic gecmiyor');
   }
-  if (!input.atimeReliable) evidence.push('atime guvenilmez; karar durum klasoru/gecmise dayali');
+  if (installAtime) {
+    evidence.push('shim atime kurulum aniyla ayni; kullanim kaniti olarak sayilmadi');
+  }
+  if (!input.atimeReliable) {
+    evidence.push('atime guvenilmez; karar durum klasoru/gecmise dayali');
+  }
+  if (status === 'unknown' && usage.mentions > 0) {
+    evidence.push('gecmiste kullanilmis ama zaman bilinmiyor (satir sirasi zaman degildir)');
+  }
+  if (onlyAtime) {
+    evidence.push('yalniz shim atime guncel; dogrulayici sinyal yok');
+  }
   if (idleDays !== Number.POSITIVE_INFINITY && idleDays < 3650) evidence.push(`son sinyalden ${Math.floor(idleDays)} gun gecti`);
 
   return { mentions: usage.mentions, lastRatio: usage.lastRatio, idleDays, status, confidence, evidence };
+}
+
+/**
+ * E9: toplu atime patlamasi. Ayni ~5 sn penceresinde en az 3 farkli
+ * aracin shim atime'i guncellendiyse ( antivirus/indeksleyici/yedekleme
+ * toplu okur ) bu kullanim kaniti DEGILDIR; pencere icindeki tum
+ * id'ler isaretlenir.
+ */
+export function findAtimeBursts(
+  items: Array<{ id: string; atime: number }>,
+  windowMs = 5000,
+  min = 3,
+): Set<string> {
+  const bursts = new Set<string>();
+  const sorted = items.filter((it) => it.atime > 0).sort((a, b) => a.atime - b.atime);
+  const windowCounts = new Map<string, number>();
+  let distinct = 0;
+  let j = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    const entry = sorted[i]!;
+    const before = windowCounts.get(entry.id) ?? 0;
+    windowCounts.set(entry.id, before + 1);
+    if (before === 0) distinct++;
+    // Pencereyi soldan daralt.
+    while (entry.atime - sorted[j]!.atime > windowMs) {
+      const left = sorted[j]!;
+      const leftCount = windowCounts.get(left.id) ?? 0;
+      windowCounts.set(left.id, leftCount - 1);
+      if (leftCount === 1) distinct--;
+      j++;
+    }
+    if (distinct >= min) {
+      for (let k = j; k <= i; k++) bursts.add(sorted[k]!.id);
+    }
+  }
+  return bursts;
+}
+
+/**
+ * E9: burst icerisindeki YALNIZCA-atime `recent` kararlarini `unknown`
+ * (low) ihrac ederek duzeltir. Durum klasoru guncel olan etikler
+ * ETKILENMEZ (kullanim kanitidir). Araclar YERINDE guncellenir:
+ * daha once emit edilmis nesne, ayni nesnedir.
+ */
+export function applyAtimeBurstFilter(
+  tools: CliTool[],
+  burst: Set<string>,
+  opts: { now: number; unusedDays: number },
+): void {
+  if (burst.size === 0) return;
+  const unusedMs = Math.max(1, opts.unusedDays) * DAY;
+  for (const tool of tools) {
+    if (!burst.has(tool.id)) continue;
+    const stateFresh = tool.lastStateAt > 0 && opts.now - tool.lastStateAt < unusedMs;
+    if (tool.status !== 'recent' || stateFresh) continue;
+    tool.status = 'unknown';
+    tool.confidence = 'low';
+    tool.evidence.push('atime toplu guncelleme (burst); kanit sayilmadi');
+  }
 }
 
 async function loadShellHistory(): Promise<HistoryData> {
