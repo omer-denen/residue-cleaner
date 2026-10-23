@@ -430,6 +430,12 @@ export interface PlanRequest {
   scanId?: string;
   keys: string[];
   mode: DeleteMode;
+  /**
+   * Istege bagli plan adi (W2-c): verilirse trim + ayni uzunluk kurallari;
+   * verilmezse bos string. Gorunen ad arayuzde uretilir; kaynak kodda
+   * varsayilan metin YOKTUR.
+   */
+  name?: string;
 }
 
 /**
@@ -454,8 +460,21 @@ export interface PlanRemoveRequest {
   targetId?: string;
 }
 
+/**
+ * W2-c: plan adi degistirme istegi (`PATCH /api/plan/:id`).
+ * Yalnizca ad; plan kimligi, kapsam ve TTL degismez.
+ */
+export interface PlanRenameRequest {
+  name: string;
+}
+
 export interface PlanResponse {
   planId: string;
+  /**
+   * Plan adi (W2-c): sunucudaki plan kaydinda tutulur (tek kaynak);
+   * bos string ad verilmedi demektir (gorunen ad arayuzde uretilir).
+   */
+  name: string;
   plan: PlanView;
   /** Sag panel "Planlananlar" verisi; MOTOR kurar (`core/plan-panel.ts`). */
   panel: PlanPanelView;

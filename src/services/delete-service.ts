@@ -35,6 +35,7 @@ export interface ExecuteJob {
 
 interface StoredPlan {
   planId: string;
+  name: string;
   plan: DeletePlan;
   createdAt: number;
   expiresAt: number;
@@ -46,6 +47,17 @@ export type DeleteEmit = (jobId: string, event: ExecuteEvent) => void;
 
 const PLAN_TTL_MS = 10 * 60_000;
 
+/**
+ * W2-c: plan adi normalizasyonu (tek kaynak).
+ * Turkish kullanici metni burada YOKTUR; yalnizca hata kodlari.
+ */
+function normalizePlanName(name: string): string {
+  const trimmed = typeof name === 'string' ? name.trim() : '';
+  if (trimmed.length === 0) throw new ServiceError(400, 'Plan adi gerekli');
+  if (trimmed.length > 60) throw new ServiceError(400, 'Plan adi cok uzun');
+  return trimmed;
+}
+
 export class DeleteService {
   private readonly plans = new Map<string, StoredPlan>();
   private readonly jobs = new Map<string, ExecuteJob>();
@@ -55,7 +67,17 @@ export class DeleteService {
     this.emit = emit;
   }
 
-  createPlan(scan: ScanResult | null, keys: string[], mode: 'recycle' | 'purge'): PlanResponse {
+  /**
+   * `name` verilmezse bos string; verilirse trim + uzunluk kurallari
+   * uygulanir (normalizePlanName) — mevcut cagrilari (name yok) aynen
+   * davranir (W2-c).
+   */
+  createPlan(
+    scan: ScanResult | null,
+    keys: string[],
+    mode: 'recycle' | 'purge',
+    name?: string,
+  ): PlanResponse {
     if (!scan) throw new ServiceError(400, 'Once tarama yapilmali');
     if (keys.length === 0) throw new ServiceError(400, 'Kume secilmedi');
 
@@ -80,6 +102,7 @@ export class DeleteService {
     const requiresHighAck = ApprovalRules.requiresHighAck(risks);
     const stored: StoredPlan = {
       planId,
+      name: name === undefined ? '' : normalizePlanName(name),
       plan,
       createdAt: Date.now(),
       expiresAt,
@@ -105,6 +128,7 @@ export class DeleteService {
     };
     return {
       planId: stored.planId,
+      name: stored.name,
       plan: view,
       requiresPhrase: stored.requiresPhrase,
       approvalKind,
@@ -133,6 +157,27 @@ export class DeleteService {
     }
     if (!latest) return null;
     return this.viewOf(latest);
+  }
+
+  /**
+   * W2-c: plan adi DEGISTIRME — yalnizca ad; plan kimligi, kapsam,
+   * createdAt ve TTL (`expiresAt`) KORUNUR. `updatedAt` benzeri alan
+   * eklenmez; ad tek kaynakta (plan kaydi) tutulur, arayuz ad uydurmaz.
+   *
+   * Hata kurallari `removeFromPlan` ile aynidir: plan yoksa 404,
+   * suresi dolmussa 410 (kayit silinir). Ad bos/60 karakterden uzunsa 400
+   * ve plan DEGISMEDEN kalir.
+   */
+  renamePlan(planId: string, name: string): PlanResponse {
+    const stored = this.plans.get(planId);
+    if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
+    if (Date.now() > stored.expiresAt) {
+      this.plans.delete(stored.planId);
+      throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
+    }
+    const next: StoredPlan = { ...stored, name: normalizePlanName(name) };
+    this.plans.set(next.planId, next);
+    return this.viewOf(next);
   }
 
   /**

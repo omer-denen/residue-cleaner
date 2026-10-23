@@ -65,6 +65,7 @@ import type {
   LatestResponse,
   MetaResponse,
   PlanAddRequest,
+  PlanRenameRequest,
   PlanRemoveRequest,
   PlanRequest,
   ProjectSort,
@@ -758,6 +759,20 @@ async function handleRequest(
     return;
   }
 
+  // W2-c: plan adi degistirme. Istemci kimligi yollar; ad sunucuda,
+  // plan kaydinda tutulur (tek kaynak). Hatalar ServiceError adaptoruyle
+  // JSON olarak doner; plan kimligi/TTL degismez.
+  if (req.method === 'PATCH' && pathname.startsWith('/api/plan/')) {
+    const id = pathname.split('/')[3] ?? '';
+    if (!id) {
+      sendJson(res, 400, { error: 'planId gerekli' });
+      return;
+    }
+    const body = await readJson<PlanRenameRequest>(req);
+    sendJson(res, 200, ctx.remove.renamePlan(id, typeof body.name === 'string' ? body.name : ''));
+    return;
+  }
+
   // Sag panel "Planlananlar" plana EKLEME: checkbox isaretlenen ogeler
   // TEK plana eklenir — mevcut planda `addToPlan` (kimlik + TTL korunur);
   // `planId` yokken tek ogeli yeni plan (`createPlan`, bugunku POST
@@ -1203,7 +1218,17 @@ async function handleCreatePlan(
     ? body.keys.filter((k): k is string => typeof k === 'string' && k.length > 0)
     : [];
   const mode = body.mode === 'purge' ? 'purge' : 'recycle';
-  sendJson(res, 200, ctx.remove.createPlan(scan ?? null, keys, mode));
+  // W2-c: istege bagli plan adi; verilmezse bos string (ayni davranis).
+  sendJson(
+    res,
+    200,
+    ctx.remove.createPlan(
+      scan ?? null,
+      keys,
+      mode,
+      typeof body.name === 'string' ? body.name : undefined,
+    ),
+  );
 }
 
 function openJobStream(
