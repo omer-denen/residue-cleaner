@@ -365,6 +365,36 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
 - **Sıradaki:** W0-b — önce CLI E2E + parity + perf (alpha), sonra F5 +
   web E2E + a11y; ardından W1 (T74 profilleri).
 
+## 23.10.2026 — web arayüzü yönü + plan paneli API (T74)
+
+**Kullanıcı kararı:** aynı web arayüzü geliştirilecek; sağ panel dinamik
+olacak; plana alınan dosya/klasörler panelde görünecek ve çıkarılabilecek;
+liste satırında `Planda` yazacak. "İnternetten karşılığını araştır, güzel
+bir arayüz çıkar" — tasarım serbestliği verildi.
+
+- **Arayüz denetimi (headless Edge/CDP, kullanıcı onayı):** 1440×900'de
+  rail 208 px, liste 886 px, panel 320 px; Disk'te liste yalnız ~420 px
+  yükseklikte ve sayfa ile liste iç içe kayıyor; `bilinmiyor` değeri kartta
+  taşıyor. Ekran görüntüleri `scratch/cdp/`.
+- **ego-browser engeli:** oturumun tamamı (Explorer dahil) **High
+  integrity**. `ego-browser` medium-integrity relay ister; sınırlı görev de
+  High çalıştı. Çözüm: sonraki oturumu **yönetici olmayan** terminalde açmak.
+  Bu oturumda görsel doğrulama headless Edge/CDP ile yapıldı.
+- **Tasarım:** `docs/UI-REDESIGN-2026-10-23.md` — geniş liste, yalnız liste
+  kaydırma, 300–560 px yeniden boyutlandırılabilir panel, gruplu plan,
+  `Planda` rozeti, "Plana ekle".
+- **Motor/API (işçi + orkestratör denetimi):**
+  - `PlanPanelView` + `planTargetId` (`src/core/plan-panel.ts`); gruplama,
+    sıralama, sayım motorda.
+  - `DeleteService.removeFromPlan` + `POST /api/plan/remove`; istemci yol
+    göndermez, yalnız `key` / `targetId`.
+  - İşçi testleri `api.test.ts` içine koyduğu için tarama önbelleği sonraki
+    disk testini kirletiyordu. Orkestratör plan testlerini ayrı dosyaya
+    taşıdı (`tests/api-plan-panel.test.ts`); **319/319**.
+- Commit `061c1fe` (tasarım), `2e6d506` (motor/API); `main`e fast-forward.
+- **Web UI uygulaması başlamadı.** Sıradaki: `docs/HANDOVER-2026-10-23d.md`
+  §3 beyaz listesi; normal yetkili oturumda ego-browser ile doğrulama.
+
 
 
 
