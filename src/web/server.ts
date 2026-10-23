@@ -64,6 +64,8 @@ import type {
   FindingsResponse,
   LatestResponse,
   MetaResponse,
+  PlanAddRequest,
+  PlanRemoveRequest,
   PlanRequest,
   ProjectSort,
   ProjectTab,
@@ -756,12 +758,42 @@ async function handleRequest(
     return;
   }
 
+  // Sag panel "Planlananlar" plana EKLEME: checkbox isaretlenen ogeler
+  // TEK plana eklenir — mevcut planda `addToPlan` (kimlik + TTL korunur);
+  // `planId` yokken tek ogeli yeni plan (`createPlan`, bugunku POST
+  // /api/plan davranisi). Istemci yol gondermez; yalnizca kume
+  // anahtari yollar. Hatalar ServiceError adaptoruyle JSON olarak doner.
+  if (route === 'POST /api/plan/add') {
+    const body = await readJson<PlanAddRequest>(req);
+    await ctx.scan.ensureCacheLoaded();
+    const scan = ctx.scan.last()?.scan ?? null;
+
+    let keys: string[] = [];
+    if (Array.isArray(body.keys)) {
+      keys = body.keys.filter((k): k is string => typeof k === 'string' && k.length > 0);
+    } else if (typeof body.key === 'string' && body.key.length > 0) {
+      keys = [body.key];
+    }
+    if (keys.length === 0) {
+      sendJson(res, 400, { error: 'Eklenecek oge belirtilmedi' });
+      return;
+    }
+
+    const planId = typeof body.planId === 'string' ? body.planId : '';
+    if (planId) {
+      sendJson(res, 200, ctx.remove.addToPlan(planId, keys, scan));
+      return;
+    }
+    sendJson(res, 200, ctx.remove.createPlan(scan, keys, 'recycle'));
+    return;
+  }
+
   // Sag panel "Planlananlar" plandan cikarma: istemci YOL GONDERMEZ;
-  // yalnizca kume anahtari (`key`) veya hedef kimligi (`targetId`)
-  // yollar. Sonuc PlanResponse | null (200); hatalar mevcut
-  // ServiceError adaptoruyle JSON olarak doner.
+  // yalnizca kume anahtari (`key` / `keys`) veya hedef kimligi
+  // (`targetId`) yollar. Sonuc PlanResponse | null (200); hatalar
+  // mevcut ServiceError adaptoruyle JSON olarak doner.
   if (route === 'POST /api/plan/remove') {
-    const body = await readJson<{ planId?: string; key?: string; targetId?: string }>(req);
+    const body = await readJson<PlanRemoveRequest>(req);
     const planId = typeof body.planId === 'string' ? body.planId : '';
     if (!planId) {
       sendJson(res, 400, { error: 'planId gerekli' });
@@ -769,7 +801,10 @@ async function handleRequest(
     }
     const key = typeof body.key === 'string' ? body.key : undefined;
     const targetId = typeof body.targetId === 'string' ? body.targetId : undefined;
-    const out = ctx.remove.removeFromPlan(planId, { key, targetId });
+    const keys = Array.isArray(body.keys)
+      ? body.keys.filter((k): k is string => typeof k === 'string' && k.length > 0)
+      : undefined;
+    const out = ctx.remove.removeFromPlan(planId, { key, targetId, keys });
     sendJson(res, 200, out);
     return;
   }

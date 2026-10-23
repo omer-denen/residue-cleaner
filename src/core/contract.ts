@@ -432,6 +432,28 @@ export interface PlanRequest {
   mode: DeleteMode;
 }
 
+/**
+ * Sag panel "Planlananlar" plana EKLEME istegi.
+ *
+ * `planId` verilmisse mevcut plana ekler (kimlik/TTL korunur);
+ * verilmemisse tek ogeli yeni plan kurulur (`createPlan`).
+ * Istemci YOL GONDERMEZ; yalnizca kume anahtari yollar.
+ */
+export interface PlanAddRequest {
+  planId?: string;
+  keys?: string[];
+  /** Tek oge kisa yolu; `keys` verilmezse tek elemanli dizi olarak okunur. */
+  key?: string;
+}
+
+/** Sag panel planindan cikarma istegi; `keys` coklu cikarma icin. */
+export interface PlanRemoveRequest {
+  planId?: string;
+  key?: string;
+  keys?: string[];
+  targetId?: string;
+}
+
 export interface PlanResponse {
   planId: string;
   plan: PlanView;

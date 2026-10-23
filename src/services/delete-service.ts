@@ -147,10 +147,15 @@ export class DeleteService {
    * Cikarma sonrasi onay gereksinimleri KALAN risklerden yeniden
    * hesaplanir; plan kimligi ve suresi korunur. Plan tamamen bosaldiysa
    * kayit silinir ve `null` doner.
+   *
+   * `selector.keys` coklu cikarma destekler: verilen anahtarlarin hepsi
+   * TEK cagrida cikarilir ("Plani bosalt" tek istek uretir). Hicbiri
+   * planda degilse 404; `targetId` yolu tek hedef cikarmada degismeden
+   * korunur.
    */
   removeFromPlan(
     planId: string,
-    selector: { key?: string; targetId?: string },
+    selector: { key?: string; keys?: string[]; targetId?: string },
   ): PlanResponse | null {
     const stored = this.plans.get(planId);
     if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
@@ -158,9 +163,12 @@ export class DeleteService {
       this.plans.delete(stored.planId);
       throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
     }
-    const key = typeof selector.key === 'string' ? selector.key.trim() : '';
+    const singleKey = typeof selector.key === 'string' ? selector.key.trim() : '';
     const targetId = typeof selector.targetId === 'string' ? selector.targetId.trim() : '';
-    if (!key && !targetId) {
+    const keys = Array.isArray(selector.keys)
+      ? selector.keys.filter((k): k is string => typeof k === 'string' && k.trim().length > 0)
+      : [];
+    if (!singleKey && keys.length === 0 && !targetId) {
       throw new ServiceError(400, 'Cikarilacak oge belirtilmedi');
     }
 
@@ -184,7 +192,9 @@ export class DeleteService {
       if (!found) throw new ServiceError(404, 'Hedef planda bulunamadi');
     } else {
       const before = clusters.length;
-      clusters = clusters.filter((c) => c.key !== key);
+      const wanted = new Set<string>(keys);
+      if (singleKey) wanted.add(singleKey);
+      clusters = clusters.filter((c) => !wanted.has(c.key));
       if (clusters.length === before) {
         throw new ServiceError(404, 'Kume planda bulunamadi');
       }
@@ -196,6 +206,77 @@ export class DeleteService {
       return null;
     }
 
+    const targets = clusters.flatMap((c) => c.targets);
+    const totalBytes = clusters.reduce((a, c) => a + c.bytes, 0);
+    const risks = clusters.map((c) => c.risk);
+    const next: StoredPlan = {
+      ...stored,
+      plan: { mode: plan.mode, clusters, targets, totalBytes },
+      requiresPhrase: ApprovalRules.requiresPhrase(risks),
+      requiresHighAck: ApprovalRules.requiresHighAck(risks),
+    };
+    this.plans.set(next.planId, next);
+    return this.viewOf(next);
+  }
+
+  /**
+   * Sag panel "Planlananlar" plana EKLEME (`removeFromPlan` simitigi).
+   *
+   * Checkbox isaretlenen her oge tek plana eklenir: plan kimligi,
+   * `createdAt` ve TTL (`expiresAt`) KORUNUR — TTL uzatilmaz; aksi
+   * halde her ekleme sanki yeni onay binmis gibi plani yenilerdi.
+   *
+   * Kurallar:
+   *  - Planda zaten olan anahtarlar sessizce atlanir (idempotent); hic
+   *    yeni anahtar kalmazsa plan DEGISMEDEKIN ayni yanit doner.
+   *  - Yeni anahtarlar icin `buildPlan` GUVENLIK KAPISI ATLANMAZ:
+   *    once dogrulanir, sonra yazilir; `buildPlan` firlatirsa 400 doner
+   *    ve plan degismeden kalir.
+   *  - Onay gereksinimleri (`requiresPhrase`/`requiresHighAck`) TUM
+   *    (eski + yeni) kumelerin risklerinden yeniden hesaplanir.
+   *  - Plan kumeleri `bytes` azalan duzende birlestirilir; hedefler ve
+   *    panel yeniden hesaplanir (`viewOf` -> `PlanPanel.from`).
+   *
+   * HTTP/SSE bilgisi yoktur; plan yurutme yolu buraya girmez.
+   */
+  addToPlan(planId: string, keys: string[], scan: ScanResult | null): PlanResponse {
+    if (!scan) throw new ServiceError(400, 'Once tarama yapilmali');
+    const stored = this.plans.get(planId);
+    if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
+    if (Date.now() > stored.expiresAt) {
+      this.plans.delete(stored.planId);
+      throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
+    }
+    const fresh = keys.filter((k) => typeof k === 'string' && k.trim().length > 0);
+    if (fresh.length === 0) throw new ServiceError(400, 'Eklenecek oge belirtilmedi');
+
+    const plan = stored.plan;
+    const existing = new Set(plan.clusters.map((c) => c.key));
+    const notPlanned = fresh.filter((k) => !existing.has(k));
+
+    // Idempotent: planda zaten olan anahtarlar atlanir; kalan yoksa
+    // mevcut plan aynen dondurulur (kimlik, sure, baytlar ayni).
+    if (notPlanned.length === 0) return this.viewOf(stored);
+
+    // Once dogrula, sonra yaz: guvenlik kapisi hatalarinda plan
+    // degismeden kalir.
+    const selected = scan.clusters.filter((c) => notPlanned.includes(c.key));
+    if (selected.length === 0) throw new ServiceError(400, 'Secilen kumeler bulunamadi');
+
+    let built: DeletePlan;
+    try {
+      built = buildPlan(selected, plan.mode);
+    } catch (err) {
+      // Guvenlik kapisi burada hata firlatir; plana hicbir zaman girmez.
+      throw new ServiceError(400, describeError(err));
+    }
+    if (built.targets.length === 0) {
+      throw new ServiceError(400, 'Secilen kumeler icin silinecek yol yok');
+    }
+
+    // Bayt azalan birlestirme: panel gruplari zaten sirali; plan.clusters
+    // sirasi da totalBytes azalan olsun.
+    const clusters = [...plan.clusters, ...built.clusters].sort((a, b) => b.bytes - a.bytes);
     const targets = clusters.flatMap((c) => c.targets);
     const totalBytes = clusters.reduce((a, c) => a + c.bytes, 0);
     const risks = clusters.map((c) => c.risk);
