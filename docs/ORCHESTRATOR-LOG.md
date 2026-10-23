@@ -276,6 +276,32 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
   olanlar korunur.
 - Kapı: typecheck temiz · **282/282** (+12).
 
+### F4 — TAMAMLANDI
+
+- Commit `ec9478d` · `cli-inventory.ts` + `tests/inventory-history.test.ts`
+  (**18 test**).
+- `findHistoryMentions(history, command, packageName?)`: paket
+  çalıştırıcıları (`npx/pnpx/bunx/uvx/pipx`, `pnpm/yarn dlx|exec`,
+  `npm exec`, `pnpm/yarn/bun <ad>`, `dotnet tool run <ad>`) tanınıyor;
+  kurulum satırları (`npm install|add|remove` vb.) kullanım sayılmıyor.
+- Orkestratör denetiminde yanlış pozitif bulundu: çalıştırıcının **argümanı**
+  paket sanılıyordu (`npx bir-arac ornek`). F4b ile yalnız **ilk** bayraksız
+  belirteç değerlendiriliyor; `--from/--with` değer bayrakları eklendi.
+- Kapı: typecheck temiz · **300/300** (+18).
+
+### F5 — AÇIK (web onayı bekliyor · kullanıcı kararı 23.10.2026)
+
+- Mevcut Tools ekranı zaten **durum + güven + kanıt listesi**ni gösteriyor
+  (`Tools.tsx`: `cli-status-*`, `confidence.*`, `detail.evidence`).
+- F3 ile atime tek başına `recent` üretmediği için "Yakında" yalnız
+  doğrulanmış sinyalde çıkıyor; aksi halde `Bilinmiyor`.
+- Eksik kalan **görsel "kanıt türü" rozetleri** (state/history/atime/
+  install ayrımı) web tarafında bir değişiklik gerektirir.
+- **Kullanıcı kararı:** web arayüzüne (T74) **onay alınmadan geçilmez**.
+  Bu yüzden F5 kapatılmadı, açık bırakıldı; web onayı verilince T74 ile
+  birlikte ele alınacak.
+- **T69 durumu:** F1–F4 tamam; **F5 açık**. T30/T37 (web dışı) devam eder.
+
 
 
 
