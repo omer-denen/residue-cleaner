@@ -3250,3 +3250,90 @@ kbd {
     scroll-behavior: auto !important;
   }
 }
+
+/* ------------------------------------- W2-e2: kanit icinde bagimliliklar */
+
+/* Secili ogenin ayrintisi: oge kaniti -> bagimliliklar -> (baglam). */
+.rp-deps {
+  border-top: 1px solid var(--line-soft);
+  margin-top: 14px;
+  padding-top: 12px;
+  min-width: 0;
+}
+
+.rp-deps h2 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 600;
+}
+
+.rp-deps-note,
+.rp-deps-body p {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.rp-deps-note {
+  color: var(--dim);
+}
+
+.rp-deps-toggle {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+/* 300 px panelde tasma yok: label kirpilir, rozet yerinde kalir. */
+.rp-deps-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rp-deps-group h4 {
+  margin: 0 0 5px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+
+.rp-deps-rows li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rp-deps-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-deps-state {
+  flex: none;
+  font-size: 10.5px;
+  padding: 1px 6px;
+}
+
+.rp-deps .badge.danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+}
+
+.rp-deps-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+.rp-deps button:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+}

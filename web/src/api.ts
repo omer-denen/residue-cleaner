@@ -8,6 +8,7 @@ import type {
   CliViewResponse,
   ClusterDetailView,
   DashboardResponse,
+  DependenciesResponse,
   DiskViewResponse,
   EnvAnalysis,
   EnvApplyResult,
@@ -190,6 +191,13 @@ export const api = {
 
   graphWhatIfNode: (nodeId: string): Promise<GraphWhatIfResponse> =>
     post<GraphWhatIfResponse>('/api/graph/what-if', { nodeId }),
+
+  /**
+   * Secili ogenin bagimlilik kaydi (dependents/needs; SALT OKUNUR).
+   * Eslestirme/tekillestirme MOTORDA; arayuz yalniz gosterir (W2-e2).
+   */
+  dependencies: (q: string): Promise<DependenciesResponse> =>
+    request<DependenciesResponse>(`/api/dependencies?q=${encodeURIComponent(q)}`),
 
   schedules: (): Promise<ScheduleListResponse> =>
     request<ScheduleListResponse>('/api/schedules'),

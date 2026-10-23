@@ -16,6 +16,7 @@ import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.t
 import { formatAge, formatBytes } from '../format.ts';
 import { CLI_SOURCE_LABEL, CLI_STATUS_LABEL, CONFIDENCE_LABEL } from '../labels.ts';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
+import { DependenciesSection } from '../components/DependenciesSection.tsx';
 
 const STATUS_TABS: Array<{ id: CliStatusFilter; label: MessageKey }> = [
   { id: 'all', label: 'disk.kind.all' },
@@ -747,6 +748,9 @@ export function Tools({ lang, onChanged }: Props) {
                 )}
               </>
             )}
+
+            {/* W2-e2: arac kaniti -> bagimliliklar -> (panel footer'da) baglam. */}
+            <DependenciesSection query={detail?.command ?? null} lang={lang} />
           </aside>
       </RightPanelPortal>
 

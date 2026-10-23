@@ -14,6 +14,7 @@ import { openEvents } from '../sse.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { formatBytes } from '../format.ts';
 import { ScanStatusChip } from '../components/ScanStatus.tsx';
+import { DependenciesSection } from '../components/DependenciesSection.tsx';
 import { Icon } from '../components/icons.tsx';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
 import {
@@ -823,6 +824,12 @@ export function Disk({
             )}
           </>
         )}
+
+        {/* W2-e2: oge kaniti -> bagimliliklar -> (panel footer'da) baglam. */}
+        <DependenciesSection
+          query={detail?.cluster.parts[0]?.path ?? null}
+          lang={lang}
+        />
       </aside>
       </RightPanelPortal>
     </div>
