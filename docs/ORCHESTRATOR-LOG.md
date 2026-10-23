@@ -155,6 +155,41 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
 - **Davranış notu (bilinçli):** yalnız log satırı taşıyan klasör artık
   `agent-workspace` değil `unknown`; iki karar da silme hedefi üretmez.
 
+### E10c — TAMAMLANDI
+
+- Commit `2c40f21` · `analyze.ts` + `scan.ts` + `tui.ts` + `doctor.ts` +
+  `tests/gpu-state-injection.test.ts` (**8 test**).
+- `GPU_STATE`/`setGpuState` kaldırıldı; GPU kanıtı `ClassifyOptions.gpu`
+  ile parametre. `detectGpu()` üçlü durum: kanıt / kesin yok (ENOENT) /
+  `null` (erişim engellendi = bilinmiyor). `null` iken `gpuAbsent=false`.
+- **Orkestratör denetimi:** işçi beyaz listeyi 3 dosyada aştı
+  (`doctor.ts`, `gpu-detect.test.ts`, `version-boundaries.test.ts`) —
+  `detectGpu` imza değişikliğinin zorunlu mekanik sonucu; assertion
+  silinmedi/zayıflatılmadı, yalnız null daraltması ve `setGpuState`
+  kurulumu kaldırıldı. Kabul edildi.
+- Kapı: typecheck temiz · **242/242** (+8) · global sızıntı testi
+  (ardışık `classifyPath`) geçiyor.
+
+### T54 — TAMAMLANDI (kullanıcı kararı, 23.10.2026)
+
+- Commit `893331c` · `data-dir.ts`, `discover.ts`, `guard.ts`,
+  `tests/discovery-guards.test.ts`, `tests/safety.test.ts`,
+  `tests/legacy-name-removed.test.ts` (**4 test**), README TR/EN,
+  `ENGINE-ROADMAP`, `T44-PLAN`, analiz belgesi.
+- Eski ad (`clicleaner`) **kod + test + güncel belgelerden** tamamen
+  kaldırıldı: `LEGACY_DATA_DIR_NAME`, `legacyDataDir()`, `ownDataDirs()`
+  eski yolları, `guard.ts` eski ad koruması yok. Tek veri dizini
+  `%LOCALAPPDATA%\residue` (ve `~/.residue`).
+- **Disk doğrulaması:** `%LOCALAPPDATA%\clicleaner` YOK; eski repo
+  klasörleri YOK → silinecek veri yok. npm `clicleaner@1.0.0` registry'de
+  kalır (geri çekilemez; deprecate durumunda).
+- **Kapsam (kullanıcı seçimi):** tarihsel `docs/HANDOVER-*` ve `CHANGELOG`
+  kayıtları arşiv olarak korunur.
+- **Güvenlik notu:** eski dizin artık "kendi veri" sayılmıyor; bu makinede
+  dizin olmadığı için veri riski yok. Başka bir makinede eski kasa varsa
+  taranmadan önce elle taşınmalı.
+- Kapı: typecheck temiz · **246/246** (+4) · `src/` içinde eski ad 0 eşleşme.
+
 
 
 
