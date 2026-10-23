@@ -227,6 +227,28 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
   E11, C11 tamam. Test 226 → **259**.
 - **Sıradaki:** T69 (kanıt hijyeni) → T30 → T37 → web (T74, 3 profil).
 
+## 23.10.2026 — T69 başladı (kanıt hijyeni)
+
+- İşçi model notu: `opencode/glm-5.3-flash-free` kotası doldu
+  (`Free usage limit reached`); kullanıcı onayıyla **`opencode-go/glm-5.3-flash`**
+  kanalına dönüldü. `ORKESTRATOR.md` güncellendi (`d26371c`).
+
+### F1 — TAMAMLANDI
+
+- Commit `8d9610a` · `cli-inventory.ts` + `tests/inventory-atime.test.ts`
+  (**5 test**).
+- Ortak `withPreservedFileTimes` + `readExeInfoPreservingTimes` eklendi;
+  `scanStandaloneShims`, `annotateHealth` ve `readShimTarget` aynı yardımcıyı
+  kullanıyor. Okuma öncesi atime/mtime saklanıp `finally` ile geri yazılıyor.
+- **Yeni bulgu (K21):** Bu ortamda (win32 + Node 24) `fs.utimes` **sayı ms**
+  argümanıyla `EINVAL` veriyor; eski `readShimTarget` geri yazımı bu yüzden
+  sessizce başarısızdı. Yardımcı `Date` nesnesi kullanıyor; gerçek geri
+  yazım artık çalışıyor.
+- Kapı: typecheck temiz · **264/264** (+5). Duyarlılık provası: restore
+  olmadan `readExeInfo` atime'i bugüne çekiyor; test regresyonu yakalıyor.
+- **Sıradaki:** F2 (durum kanıtı: log/Programs) → F3 (karar) → F4 (geçmiş)
+  → F5 (görünürlük).
+
 
 
 
