@@ -442,3 +442,45 @@ bir arayüz çıkar" — tasarım serbestliği verildi.
 
 
 
+
+## 23.10.2026 — W1 kabulü + Plan Durumu (W2) — orkestratör
+
+- **W1 görsel kabulü (ego-browser, 1440×900):** 8/8 madde geçti. Ölçümler:
+  .panel-resizer 300–560 / varsayılan 380 / aria-valuenow, ArrowLeft +16,
+  Home/End, çift tık, sürükleme sınır kırpması, localStorage kalıcılığı,
+  ≤1180 px gizleme; Disk'te sayfa kaymıyor (scrollHeight == clientHeight),
+  .cluster-scroll 464/4320 kayıyor; "Planda" rozeti + accent; plan birleşmesi
+  6→7 küme / 5.5→15.4 GB; TTL sayacı; tek hedef ve küme çıkarma (planId sabit);
+  boş durum; Plan ekranı senkronu. Konsol hatası yok.
+  Kayıt: scratch/w1-kabul-sonuc.md.
+- **W2-a** (6c1b2c2): addToPlan — planId/createdAt/TTL korunur, idempotent,
+  buildPlan kapısı atlanmaz; POST /api/plan/add; POST /api/plan/remove keys[].
+  **+8 test → 327/327**.
+- **W2-c** (55c80ad): PlanResponse.name + renamePlan + PATCH /api/plan/:id;
+  ad trim 1..60, kimlik/TTL korunur. **+5 → 332/332**.
+- **W2-b** (36534dc): Plan Durumu paneli; checkbox = plana ekleme (tek yön),
+  satırda **Plana Eklendi** + accent + kilit + **Plandan çıkar**; üstte
+  Planı uygula / Kaydet / Yeni plan / Tümünü boşalt; gruplu içerik;
+  **geçerlilik** satırı (kalan mm:ss · HH:mm'e kadar + ipucu); süre dolunca
+  role=alert uyarısı; **Mevcut plan var (N öğe · X GB)** onayı; Araçlar
+  bölümü; Plan ekranında ad + geçerlilik. Plan **boş başlar** (otomatik
+  varsayılan seçimi kaldırıldı). Build **128.05 kB gzip**, smoke **35/35**.
+- **Orkestratör düzeltmeleri (W2-b):** Araçlar bölümü boş planda da görünür;
+  geçersiz plan uyarısı her ekranda (sekme açıkken panelde, değilse main
+  içinde — çift uyarı yok); .cluster-row ızgarası esnek minmax kolonlara
+  çevrildi + scrollbar-gutter: stable → son kolondaki **Plandan çıkar**
+  düğmesi artık tıklanabilir (önce kaydırma çubuğu engelliyordu;
+  elementFromPoint = .cluster-scroll).
+- **Model kararı** (d780834, docs/PLAN-STATUS-MODEL.md): kalıcı çoklu plan
+  yapılmadı; **tek aktif plan** (10 dk TTL) + değiştirme onayı; "bir öğe iki
+  planda olamaz" yapısal olarak sağlanır; plan **kalıcı değil**; yürütme
+  planı her zaman güncel taramadan buildPlan+guard ile kurulur.
+- **Kullanıcı geri bildirimi (aynı oturum):** "Kaydet" kaldırılıyor (10 dk
+  TTL'li planda saklama anlamsız); **Bağlam sekmesi** Kanıtlar içine bölüm
+  olarak taşınıyor (öğe kanıtı ≠ uygulama bağlamı ayrımı korunarak);
+  **Bağımlılıklar** ayrı sekme değil, Kanıtlar içinde "Bağımlılıkları göster"
+  düğmesiyle seçili öğenin ayrıntısı olarak gösterilecek (eşleştirme motorda).
+- **Devam eden:** W2-d (web: Kaydet kaldır + Bağlam'ı Kanıtlar'a taşı),
+  W2-e1 (src: GET /api/dependencies + saf eşleştirici), W2-e2 (web: düğme +
+  bölüm).
+- **Gerçek silme/plan çalıştırma YAPILMADI.** Kasa değişmedi.
