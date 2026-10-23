@@ -1272,8 +1272,17 @@ function findHistoryMentions(history: HistoryData, command: string): { mentions:
   return { mentions, lastRatio: last >= 0 ? (last + 1) / history.lines.length : 0 };
 }
 
-async function findStateDirs(command: string, packageBase: string): Promise<StateEvidence> {
-  const env = process.env;
+/**
+ * Durum kaniti: aracin kendi config/state klasorleri. `env` yalnizca
+ * test enjeksiyonu icindir; mevcut cagilar varsayilan process.env
+ * kullanir. Not: `%LOCALAPPDATA%\Programs\<ad>` bir KURULUM dizinidir;
+ * guncelleme mtime'i kullanim sanildigindan aday listesine ALINMAZ (E4).
+ */
+export async function findStateDirs(
+  command: string,
+  packageBase: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<StateEvidence> {
   const home = env.USERPROFILE;
   const appData = env.APPDATA;
   const local = env.LOCALAPPDATA;
@@ -1288,7 +1297,7 @@ async function findStateDirs(command: string, packageBase: string): Promise<Stat
     candidates.push(join(home, `.${n}`));
     candidates.push(join(home, '.config', n));
     if (appData) candidates.push(join(appData, n));
-    if (local) candidates.push(join(local, n), join(local, 'Programs', n));
+    if (local) candidates.push(join(local, n));
   }
 
   const dirs: string[] = [];
@@ -1308,7 +1317,16 @@ async function findStateDirs(command: string, packageBase: string): Promise<Stat
   return { dirs, lastMtime, lastAtime };
 }
 
-async function boundedStats(root: string): Promise<{ lastMtime: number; lastAtime: number }> {
+/** Durum kaniti OLMAYAN dosyalar: log/arka plan yazimi kullanim degildir (Kural 21, E3). */
+const STATE_NOISE_FILE_RE = /\.(log|jsonl|tmp|pid)$/i;
+
+/** Icine girilmeyen ve kendi mtime'i sayilmayan klasorler: servis loglari/onbellek. */
+const STATE_NOISE_DIR_RE = /^(logs?|caches?|tmp|temp)$/i;
+
+/** Icine girilmeyen klasorler: bagimlilik/derleme agaclari (kendi mtime'i yine de sayilir). */
+const STATE_SKIP_TREE_RE = /^(node_modules|\.git|dist)$/i;
+
+export async function boundedStats(root: string): Promise<{ lastMtime: number; lastAtime: number }> {
   let lastMtime = 0;
   let lastAtime = 0;
   let seen = 0;
@@ -1323,6 +1341,9 @@ async function boundedStats(root: string): Promise<{ lastMtime: number; lastAtim
     }
     for (const e of ents) {
       if (seen++ >= MAX_STATE_ENTRIES) break;
+      const isDir = e.isDirectory();
+      // Log/onbellek gurultusu: ne sayilir ne de gezilir.
+      if (isDir ? STATE_NOISE_DIR_RE.test(e.name) : STATE_NOISE_FILE_RE.test(e.name)) continue;
       const p = join(dir, e.name);
       try {
         const st = await stat(longPath(p));
@@ -1331,7 +1352,8 @@ async function boundedStats(root: string): Promise<{ lastMtime: number; lastAtim
       } catch {
         /* yok */
       }
-      if (e.isDirectory()) stack.push(p);
+      // Bagimlilik/derleme agaclarinin icerigine girilmez.
+      if (isDir && !STATE_SKIP_TREE_RE.test(e.name)) stack.push(p);
     }
   }
   return { lastMtime, lastAtime };
