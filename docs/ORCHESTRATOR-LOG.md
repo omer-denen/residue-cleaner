@@ -302,6 +302,27 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
   birlikte ele alınacak.
 - **T69 durumu:** F1–F4 tamam; **F5 açık**. T30/T37 (web dışı) devam eder.
 
+## 23.10.2026 — T30 tamamlandı (global AI model artıkları)
+
+- Commit `58fa537` · `classifier.ts`, `analyze.ts`, `types.ts` +
+  `tests/global-ai-artifacts.test.ts` (**10 test**).
+- `FileKind` → `model-weight`; `.gguf` / `.safetensors` dosya türü.
+- Kök seviyede **kombinasyon kanıtı**: model ağırlığı (`.onnx`, `.gguf`,
+  `.safetensors`, `pytorch_model.bin`, `model.bin`) **+** manifest
+  (`config.json`, `tokenizer.json`, `tokenizer_config.json`,
+  `genai_config.json`) → `model-store`. Tek başına ağırlık/manifest yetmez;
+  genel `data.bin` sayılmaz (kural 13).
+- `model-store` varsayılan **0 hedef**; yalnız `allow.models`
+  (`--nuke-models`) ile hedef, `high` risk + `ask` (yazılı onay).
+- Log klasörleri T30 kapsamı dışında; yalnız `logs/app.log` → `unknown`.
+- **Orkestratör denetimi:** diff beyaz listede; `model-weight` kind'i
+  tek başına karar üretmiyor, yalnız `probe.modelStore` kombinasyonu
+  okunuyor; proje/ajan koruması model kanıtından önce geliyor.
+- Kapı: typecheck temiz · **310/310** (+10).
+- **Web kapısı yürürlükte:** T74 / web arayüzü kullanıcı onayı olmadan
+  başlamaz. Sıradaki: **T37** (yarım güncelleme artıkları) ve **F5**
+  (web onayı bekliyor).
+
 
 
 

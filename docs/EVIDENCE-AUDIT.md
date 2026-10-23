@@ -62,7 +62,7 @@ Aynı sınıfın disk tarafındaki durumu:
 |---|---|---|---|
 | `walker.ts` | `mtime` (lastTouched), boyut, dosya sayısı | Yok; mtime arka plan yazımıyla değişebilir ama **muhafazakâr** yönde | Sağlam |
 | `node_modules` / proje | `package.json`, lockfile, `node_modules`, `patches`, `file:`/`link:` | Yok | Rapor modu; silme hedefi yok |
-| model store | `model.onnx`, `tokenizer.json`, `models/` | Yok | **Eksik:** `gguf`/`safetensors` tanınmıyor (T30) |
+| model store | `model.onnx`, `model.gguf`, `model.safetensors`, `tokenizer.json`, `pytorch_model.bin` | Yok | **T30 ile tamamlandı:** kök ağırlık + manifest kombinasyonu `model-store`; rapor-only |
 | log sinyalleri | Log satırı metni | Yok | Kanıt metni; `break` kaldırıldı (K7) |
 | vektör DB | `.faiss/.lance/.npy` + UUID klasörler | Yok | Yapısal |
 | ajan alanı | `SKILL.md`, `.skill-lock.json` | Yok | Kullanıcı değeri; silme yok |
