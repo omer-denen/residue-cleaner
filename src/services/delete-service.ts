@@ -41,6 +41,8 @@ interface StoredPlan {
   expiresAt: number;
   requiresPhrase: boolean;
   requiresHighAck: boolean;
+  /** W2-g: "Planı uygula" ile yeniden kuruldu mu (TTL o anda baslar). */
+  armed: boolean;
 }
 
 export type DeleteEmit = (jobId: string, event: ExecuteEvent) => void;
@@ -108,6 +110,9 @@ export class DeleteService {
       expiresAt,
       requiresPhrase,
       requiresHighAck,
+      // W2-g: checkbox ile kurulan plan uygulanmamistir; "Planı uygula"
+      // aninda `rebuildPlan` ile yeniden kurulur ve TTL o anda baslar.
+      armed: false,
     };
     this.plans.set(planId, stored);
     return this.viewOf(stored);
@@ -135,6 +140,7 @@ export class DeleteService {
       phrase: ApprovalRules.phrase(approvalKind),
       requiresHighAck: stored.requiresHighAck,
       expiresAt: stored.expiresAt,
+      armed: stored.armed,
       panel: PlanPanel.from(view),
     };
   }
@@ -259,6 +265,9 @@ export class DeleteService {
       plan: { mode: plan.mode, clusters, targets, totalBytes },
       requiresPhrase: ApprovalRules.requiresPhrase(risks),
       requiresHighAck: ApprovalRules.requiresHighAck(risks),
+      // W2-g: icerik degisti -> uygulanmamis sayilir + TTL yenilenir.
+      armed: false,
+      expiresAt: Date.now() + PLAN_TTL_MS,
     };
     this.plans.set(next.planId, next);
     return this.viewOf(next);
@@ -267,9 +276,11 @@ export class DeleteService {
   /**
    * Sag panel "Planlananlar" plana EKLEME (`removeFromPlan` simitigi).
    *
-   * Checkbox isaretlenen her oge tek plana eklenir: plan kimligi,
-   * `createdAt` ve TTL (`expiresAt`) KORUNUR — TTL uzatilmaz; aksi
-   * halde her ekleme sanki yeni onay binmis gibi plani yenilerdi.
+   * Checkbox isaretlenen her oge tek plana eklenir: plan kimligi ve
+   * `createdAt` KORUNUR. W2-g: icerik degistigi icin plan UYGULANMAMIS
+   * sayilir (`armed: false`) ve TTL YENILENIR
+   * (`expiresAt = now + PLAN_TTL_MS`) — sure baskisi uygulamaya
+   * tasindigi icin secim sirasinda planin suresi dolmaz.
    *
    * Kurallar:
    *  - Planda zaten olan anahtarlar sessizce atlanir (idempotent); hic
@@ -330,9 +341,85 @@ export class DeleteService {
       plan: { mode: plan.mode, clusters, targets, totalBytes },
       requiresPhrase: ApprovalRules.requiresPhrase(risks),
       requiresHighAck: ApprovalRules.requiresHighAck(risks),
+      // W2-g: icerik degisti -> uygulanmamis sayilir + TTL yenilenir.
+      armed: false,
+      expiresAt: Date.now() + PLAN_TTL_MS,
     };
     this.plans.set(next.planId, next);
     return this.viewOf(next);
+  }
+
+  /**
+   * W2-g: "Planı uygula" — plan GUNCEL taramadan YENIDEN kurulur
+   * (taze hedefler + guard) ve 10 dakikalik TTL O ANDA baslar
+   * (`armed: true`). Secim sirasinda sure baskisi yoktur; kanit taze
+   * olmalidir (taramada bulunmayan anahtar reddedilir).
+   *
+   * Kurallar:
+   *  - Plan yoksa 404, suresi dolmussa 410 (`removeFromPlan` ile ayni
+   *    metin).
+   *  - Scan yoksa 400 (`createPlan` ile ayni metin).
+   *  - Plan ogelerinin anahtarlarindan biri guncel taramada yoksa 409:
+   *    "Guncel taramada bulunamayan ogeler: <k1>, <k2>" (deterministik
+   *    siralama: plan anahtari sirasi).
+   *  - Aksi halde YENI plan kurulur (`buildPlan` + guard; yeni planId,
+   *    `expiresAt = now + 10 dk`, `armed: true`); ESKI kayit silinir
+   *    (bellek sizintisi yok).
+   *
+   * Zamanlanmis is akisi bu yolu kullanmaz (`createPlan` + `execute`);
+   * `execute` DEGISMEZ — `armed` yalnizca onay/bekleme dilidir.
+   */
+  rebuildPlan(planId: string, scan: ScanResult | null): PlanResponse {
+    const stored = this.plans.get(planId);
+    if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
+    if (Date.now() > stored.expiresAt) {
+      this.plans.delete(stored.planId);
+      throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
+    }
+    if (!scan) throw new ServiceError(400, 'Once tarama yapilmali');
+
+    const keys = stored.plan.clusters.map((c) => c.key);
+    const scanKeys = new Set(scan.clusters.map((c) => c.key));
+    const missing = keys.filter((k) => !scanKeys.has(k));
+    if (missing.length > 0) {
+      throw new ServiceError(409, `Guncel taramada bulunamayan ogeler: ${missing.join(', ')}`);
+    }
+
+    // Yeni plan taze hedeflerle kurulur; eski kayit, yeni plan basariyla
+    // kurulduktan SONRA silinir (createPlan firlatirsa eski plan korunur).
+    const rebuilt = this.createPlan(scan, keys, stored.plan.mode, stored.name || undefined);
+    const rebuiltStored = this.plans.get(rebuilt.planId);
+    if (rebuiltStored) {
+      rebuiltStored.armed = true;
+      rebuilt.expiresAt = rebuiltStored.expiresAt;
+      rebuilt.armed = true;
+    }
+    this.plans.delete(stored.planId);
+    return rebuilt;
+  }
+
+  /**
+   * W2-g: uygulanmamis plani ATMA (`POST /api/plan/discard`).
+   * `createPlan` baska planlari silmedigi icin "her acilista kaybolur"
+   * kurali bu uc noktayla saglanir: istemci acilista `GET /api/plan`
+   * yapar; donen plan `armed === false` ise atilir, `armed === true` ise
+   * 10 dk boyunca gosterilir.
+   *
+   * Uygulanmis (armed) plan atilamaz (409) — 10 dk kurali; sure dolan
+   * plan zaten 410 ile yerini silinmis hale getirir.
+   */
+  discardPlan(planId: string): { ok: true } {
+    const stored = this.plans.get(planId);
+    if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
+    if (Date.now() > stored.expiresAt) {
+      this.plans.delete(stored.planId);
+      throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
+    }
+    if (stored.armed) {
+      throw new ServiceError(409, 'Uygulanmis plan atilamaz');
+    }
+    this.plans.delete(planId);
+    return { ok: true };
   }
 
   execute(planId: string, phrase: string | undefined, acknowledgeHigh: boolean): ExecuteStartResponse {

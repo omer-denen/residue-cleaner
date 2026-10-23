@@ -134,7 +134,9 @@ test('POST /api/plan/add sonrasi ad korunur', async () => {
   );
   assert.ok(added);
   assert.equal(added.planId, planId);
-  assert.equal(added.expiresAt, expiresAt);
+  // W2-g: ekleme icerigi degistirdigi icin TTL yenilenir (>= onceki
+  // deger); "expiresAt degismez" eski kosulu yeni kuralla celisir.
+  assert.ok(added.expiresAt! >= expiresAt);
   assert.equal(added.name, 'Haftalik temizlik');
 });
 

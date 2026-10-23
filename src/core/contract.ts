@@ -461,6 +461,24 @@ export interface PlanRemoveRequest {
 }
 
 /**
+ * W2-g: plan UYGULAMA istegi (`POST /api/plan/apply`).
+ * Plan guncel taramadan yeniden kurulur (taze hedefler + guard) ve
+ * 10 dakikalik TTL O ANDA baslar. Istemci YOL GONDERMEZ.
+ */
+export interface PlanApplyRequest {
+  planId: string;
+}
+
+/**
+ * W2-g: uygulanmamis plani atma istegi (`POST /api/plan/discard`).
+ * `armed === true` olan plan atilamaz (10 dk kurali); uygulanmamis plan
+ * acilista atilir ("her acilista kaybolur" kurali).
+ */
+export interface PlanDiscardRequest {
+  planId: string;
+}
+
+/**
  * W2-c: plan adi degistirme istegi (`PATCH /api/plan/:id`).
  * Yalnizca ad; plan kimligi, kapsam ve TTL degismez.
  */
@@ -487,6 +505,14 @@ export interface PlanResponse {
   /** Yuksek risk varsa ayrica acik isaretleme zorunlu */
   requiresHighAck: boolean;
   expiresAt: number;
+  /**
+   * W2-g: plan UYGULANDI mi. `createPlan` (checkbox) ile kurulan plan
+   * uygulanmamistir (`armed: false`); "Planı uygula" aninda plan guncel
+   * taramadan yeniden kurulur ve `armed: true` olur — 10 dakikalik TTL
+   * o anda baslar. Plan icerigi degisir/add/cikar olursa `armed: false`
+   * olur (yeniden uygulanmali).
+   */
+  armed: boolean;
 }
 
 export interface ExecuteRequest {

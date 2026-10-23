@@ -69,7 +69,7 @@ async function getPlan(): Promise<PlanBody | null> {
   return (await r.json()) as PlanBody | null;
 }
 
-test('ekleme plan kimligini ve suresini korur; toplamlar yeniden hesaplanir', async () => {
+test('ekleme plan kimligini korur; TTL yenilenir; toplamlar yeniden hesaplanir', async () => {
   const finishedAt = Date.now();
   const scan = {
     startedAt: finishedAt,
@@ -126,9 +126,11 @@ test('ekleme plan kimligini ve suresini korur; toplamlar yeniden hesaplanir', as
     200,
   );
   assert.ok(added);
-  // Plan kimligi ve suresi KORUNUR (TTL uzatilmaz).
+  // Plan kimligi KORUNUR; TTL YENILENIR (W2-g: icerik degisir ->
+  // armed:false + expiresAt = now + 10 dk; sure baskisi uygulamaya
+  // tasindi, secim sirasinda planin suresi dolmaz).
   assert.equal(added.planId, planId);
-  assert.equal(added.expiresAt, expiresAt);
+  assert.ok(added.expiresAt! >= expiresAt);
   assert.equal(added.plan?.totalBytes, 1400);
   assert.deepEqual(added.panel?.keys, ['panel-a', 'panel-b']);
   const cloned = await getPlan();
@@ -136,11 +138,12 @@ test('ekleme plan kimligini ve suresini korur; toplamlar yeniden hesaplanir', as
   assert.equal(cloned?.plan?.totalBytes, 1400);
 });
 
-test('ekleme idempotenttir: ayni anahtar plani degistirmez', async () => {
+test('ekleme idempotenttir: ayni anahtar planda kalmaya devam eder', async () => {
   const again = await post('/api/plan/add', { planId, keys: ['panel-b'] }, 200);
   assert.ok(again);
   assert.equal(again.planId, planId);
-  assert.equal(again.expiresAt, expiresAt);
+  // Idempotent ekleme planda kalir; TTL suresi asagiyi cekmez (>=).
+  assert.ok(again.expiresAt! >= expiresAt);
   assert.equal(again.plan?.totalBytes, 1400);
   assert.deepEqual(again.panel?.keys, ['panel-a', 'panel-b']);
 });

@@ -65,6 +65,8 @@ import type {
   LatestResponse,
   MetaResponse,
   PlanAddRequest,
+  PlanApplyRequest,
+  PlanDiscardRequest,
   PlanRenameRequest,
   PlanRemoveRequest,
   PlanRequest,
@@ -828,6 +830,35 @@ async function handleRequest(
       : undefined;
     const out = ctx.remove.removeFromPlan(planId, { key, targetId, keys });
     sendJson(res, 200, out);
+    return;
+  }
+
+  // W2-g: "Planı uygula" — plan GUNCEL taramadan yeniden kurulur (taze
+  // hedefler + guard) ve 10 dk o anda baslar. Istemci kimlik yollar;
+  // YOL GONDERMEZ. Onay iki asamali olanda kalir (execute + yazili TASI/SIL).
+  if (route === 'POST /api/plan/apply') {
+    const body = await readJson<PlanApplyRequest>(req);
+    const planId = typeof body.planId === 'string' ? body.planId : '';
+    if (!planId) {
+      sendJson(res, 400, { error: 'planId gerekli' });
+      return;
+    }
+    await ctx.scan.ensureCacheLoaded();
+    const scan = ctx.scan.last()?.scan ?? null;
+    sendJson(res, 200, ctx.remove.rebuildPlan(planId, scan));
+    return;
+  }
+
+  // W2-g: uygulanmamis plani atma — "her aciliste kaybolur" kurali.
+  // armed === true ise 409 (10 dk kurali); armed === false ise kayit silinir.
+  if (route === 'POST /api/plan/discard') {
+    const body = await readJson<PlanDiscardRequest>(req);
+    const planId = typeof body.planId === 'string' ? body.planId : '';
+    if (!planId) {
+      sendJson(res, 400, { error: 'planId gerekli' });
+      return;
+    }
+    sendJson(res, 200, ctx.remove.discardPlan(planId));
     return;
   }
 
