@@ -207,6 +207,26 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
   bırakıldı; nihai kanıt `analyze.ts` içinde kind ile tekilleşiyor.
 - Kapı: typecheck temiz · **257/257** (+11) · mevcut GPU/log testleri yeşil.
 
+### C11 — TAMAMLANDI · P4 KAPANDI
+
+- Commit `3efccbc` · `classifier.ts`, `analyze.ts`, `merge.ts`, `types.ts`,
+  `cli-references.ts`, `cli-remove.ts`, `explain.ts`,
+  `tests/log-signal-kind.test.ts`, `tests/source-hygiene.test.ts` (**2 test**).
+- Yorumlar ve görünen metinler nötrleştirildi (`ornek-uygulama`, `ornek CLI`,
+  `bulut model katalogu`); `.vscode/tasks.json` sabiti yerine herhangi bir
+  alt dizindeki `tasks.json` aranıyor (referans kontrolü gevşemedi; üst
+  sınırlar `MAX_DIRS=40`, `MAX_CANDIDATES=120` aynı).
+- Yeni hijyen testi `src/**/*.ts` içinde yasaklı adları `dosya:satır` ile
+  raporluyor; `MuhasibPro`, `opencode`, `claude`, `vscode`, `clicleaner`
+  dahil 11 ad yasaklı, `Residue` serbest.
+- **Orkestratör bağımsız doğrulama:** `src/` içinde yasaklı ad 0 eşleşme;
+  `cli-references` yalnız kapsamı genişletti (aynı derinlik + alt dizin),
+  hiçbir güvenlik kapısı değişmedi.
+- Kapı: typecheck temiz · **259/259** (+2) · `git diff --check` temiz.
+- **P4 (T73) KAPANDI:** C7, C8, C8b, C9, C10, E6, E7, E10a/b, E10c, E10d,
+  E11, C11 tamam. Test 226 → **259**.
+- **Sıradaki:** T69 (kanıt hijyeni) → T30 → T37 → web (T74, 3 profil).
+
 
 
 

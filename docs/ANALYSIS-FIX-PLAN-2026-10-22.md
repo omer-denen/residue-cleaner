@@ -16,7 +16,7 @@
 | 1 | **T70 / P1** | Yanlış silme riski: E1, E2, E3, E9, C1–C5 | ✅ 22.10.2026 (19 test) |
 | 2 | **T71 / P3** | Keşif ve koruma: D6, D7, D8, D1–D5, D9 | ✅ 22.10.2026 (16 test) |
 | 3 | **T72 / P2** | Ölçüm doğruluğu: W1–W6, E4, E8 | ✅ 22.10.2026 (9 test) |
-| 4 | **T73 / P4** | Sağlamlık ve temizlik: C7–C10, E6, E7, E10, E11 | 🟡 kısmi: C7, C8, C8b, C9, C10, E7, E6, E10d ✔ · E10a/b, E10c, E11, C11 açık |
+| 4 | **T73 / P4** | Sağlamlık ve temizlik: C7–C10, E6, E7, E10, E11, C11 | ✅ 23.10.2026 (E10a/b, E10c, E11, C11 dahil) |
 
 **T69 (kanıt hijyeni / CLI kullanım kanıtı) bu sıranın dışında kalır**, ayrı
 kalem olarak durur: o iş `cli-inventory.ts` + `usageVerdict` ile ilgilidir,
@@ -162,6 +162,38 @@ PowerShell toplamıyla **birebir aynı**, 139 ms.
 
 ---
 
+## 5b. P4 uygulama sonucu (T73 — TAMAMLANDI, 23.10.2026)
+
+Orkestratör oturumu; her paket ayrı commit + ayrı kapı. İşçi model:
+`opencode/glm-5.3-flash-free`.
+
+| Paket | Commit | Yapılan | Test |
+|---|---|---|---|
+| C7 | `1ef0998` | `probeLogs` sağlamlığı (yedek dal, önek, log dizini) | +7 |
+| C8 | `1f4b202` | Python ortam kanıtları (`pyvenv.cfg`, `venv`, `Scripts`) | +8 |
+| C8b | `6478828` | `runtime-pool` proje korumasından önce gelmesin | +7 |
+| C9 | `af229dc` | SDK kombinasyon kanıtı + ölü `hasSdkMarker` | +9 |
+| C10 | `776946f` | `deepProbe` determinizmi + benzersiz tür eşiği | +4 |
+| E7 | `f6219cd` | Yol sınırı (`Temp2`, `Local2`, `UserProfile2`) | +8 |
+| E6 | `0bb2aac` | Sınır görünürlüğü + semver ön sürüm + güncel kanıtı | +11 |
+| E10d | `d5587ee` | `SystemRoot` / GPU algılama sabit yolu | +5 |
+| **E10a/b** | `e95c50b` | Ölü `editor-workspace` kaldırıldı; 3b/7 tekrarı ve log-only `agent-workspace` temizlendi; adımlar 1..19 | +8 |
+| **E10c** | `2c40f21` | `GPU_STATE` globali → `ClassifyOptions.gpu`; üçlü GPU durumu (`null` = bilinmiyor) | +8 |
+| **E11** | `06f8be2` | `LogSignal.kind` stabil kimlik; kararlar `means` metninden ayrıldı | +11 |
+| **C11** | `3efccbc` | Kaynakta ürün/uygulama adı temizliği + `tests/source-hygiene.test.ts` | +2 |
+
+**Toplam:** 167 → **259/259**; typecheck her adımda temiz.
+**Bilinçli sınırlar:** `cpuLine` ham log satırından okunmaya devam ediyor
+(E11 kapsamı `means` bağımlılığı); `merge.ts` dedupe anahtarı değişmedi,
+nihai kanıt `analyze.ts` içinde `kind` ile tekilleşiyor; eski `clicleaner`
+veri dizini artık "kendi veri" sayılmıyor (T54 kullanıcı kararı, diskte
+dizin yok).
+**Kapsam genişlemesi (orkestratör onayı):** E10c'de işçi 3 dosyada
+(`doctor.ts` + iki mevcut test) `detectGpu` imza değişikliği için zorunlu
+mekanik düzenleme yaptı; assertion silinmedi/zayıflatılmadı.
+
+---
+
 ## 6. Uygulama notları
 
 - **Motor kuralı:** `classifier.ts` + `analyze.ts` saf kanıt katmanıdır;
@@ -180,11 +212,12 @@ PowerShell toplamıyla **birebir aynı**, 139 ms.
 - Bu belge güncellenir: her prompt bitiminde durum sütunu ve "doğrulama"
   tablosu işlenir.
 - `state.json`: T70 (P1, done), T71 (P3, done), T72 (P2, done),
-  **T73 (P4) kısmi**, **T74 (3 profilli web, planned)**.
+  **T73 (P4, done 23.10.2026)**, **T74 (3 profilli web, planned)**.
   `SESSION_LOG.md` + `docs/HANDOVER-2026-10-23.md`: oturum özeti.
-- **P4 kalanı:** E10a/b → E10c → E11 → C11. Sonra **T69 → T30 → T37 → T54**
-  ve en son **web (T74, 3 profil)**. Kullanıcı kararı 23.10.2026: önce tüm
-  kritik altyapı, web en son.
+- **P4 tamamlandı.** Sıradaki: **T69** (kanıt hijyeni) → **T30**
+  (global AI artıkları) → **T37** (yarım güncelleme artıkları) →
+  **web (T74, 3 profil)**. Kullanıcı kararı 23.10.2026: önce tüm kritik
+  altyapı, web en son.
 - **P4 başlarken:** C7–C11, E6, E7, E10, E11 maddelerini önce kodda
   doğrula; özellikle E10'da `GPU_STATE` globalini `ClassifyOptions`'a
   taşımak imzaları değiştirir (web/server çağrıları kontrol edilmeli).
