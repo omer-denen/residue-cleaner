@@ -484,3 +484,39 @@ bir arayüz çıkar" — tasarım serbestliği verildi.
   W2-e1 (src: GET /api/dependencies + saf eşleştirici), W2-e2 (web: düğme +
   bölüm).
 - **Gerçek silme/plan çalıştırma YAPILMADI.** Kasa değişmedi.
+
+## 24.10.2026 — Doğrulama: "eski tarama" hatası ve plan ömrü
+
+**Kullanıcı bulgusu:** "eski tarama listeleniyor; nuget boyutu değişmiş
+olabilir; bu bir hata" + "plan uygulanmazsa her açılışta silinsin,
+uygulanırsa 10 dk".
+
+**Ölçülen kanıt (gerçek disk):**
+
+- last-scan.json finishedAt **2026-10-21T11:54:43Z** (2 gün).
+- 37 hedeften **6 tanesi diskte YOK** → **5.47 GB** hayalet alan
+  (rattler 2.58 / uv 2.36 GB / 3 updater / FreeLLMAPI). Klasörler kasaya
+  taşınmış (vault/b-17926917…), liste hâlâ boyut gösteriyor.
+- .nuget gerçek **9.97 GB** = önbellekteki 10.0 GB → sorun "yanlış sayı"
+  değil, **doğrulama yok**.
+- dirty.json var (22.10) → rozet uyarıyor ama liste düzelmiyor;
+  markScanDirty yalnız /api/execute sonrası yazılıyor.
+- GET /api/disk doğrudan ctx.scan.last() döndürüyor; scan-cache yalnız
+  24 saatlik yaş süzgeci uyguluyor (scan-cache.ts:15).
+- App açılışta api.planned() çağırıyor → **uygulanmamış plan geri geliyor**.
+
+**Karar:**
+
+- Plan: armed alanı; GET /api/plan yalnız armed planı döndürür; içerik
+  değişince armed=false; **Planı uygula** güncel taramadan yeniden kurar
+  (taze hedef + guard) ve 10 dk başlatır; sayaç yalnız armed iken.
+- Tarama: **POST /api/scan/verify** — hedef başına yalnız klasör yürüyüşü
+  (dosya başına stat yok), şüpheli hedef tam ölçülür, kaybolan hedef
+  listeden düşer, sonuç önbelleğe yazılır; UI açılışta çağırır ve bant
+  gösterir ("6 hedef artık diskte yok (5.47 GB) — liste güncellendi").
+- 24 saat kuralı **kaldırılmadı**; üzerine **karşılaştırma** eklendi
+  (kullanıcının izin verdiği iki yoldan güvenli olanı).
+
+**Paketler:** W2-g (plan armed/apply/GET süzgeci), W3-a (verify motoru +
+uç + testler), W2-f+W3-b (web: panel × kaldırma, boşluk, sayaç yalnız
+armed, doğrulama bandı).
