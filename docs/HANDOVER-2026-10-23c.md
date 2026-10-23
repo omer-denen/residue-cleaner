@@ -142,8 +142,16 @@ npm run smoke                # 34 kontrol
 
 ## 7. Sıradaki oturumun ilk adımları
 
-1. `AGENTS.md`, bu devir, `ORKESTRATOR-LOG.md` oku; baseline `npm test` doğrula.
-2. **Faz 1:** `docs/READINESS-MATRIX.md` + E2E senaryo kataloğu.
-3. **W0:** F5 + CLI/API parity + web E2E.
-4. **W1:** T74 3 profil.
-5. T37’yi web oturumundan sonra veya paralel web dışı iş olarak ele al.
+1. `AGENTS.md`, bu devir, `ORCHESTRATOR-LOG.md` oku; baseline `npm test`
+   (**310/310**) doğrula.
+2. **W0-a — Faz 1 (web oturumunun ilk teslimi):**
+   `docs/READINESS-MATRIX.md` + E2E senaryo kataloğu (sınıf × boyut × seviye,
+   alpha/beta kapıları, CLI/SAFE/ERR/SEC/API/PARITY/PERF/LOAD/WEB ID’leri).
+3. **W0-b — Web readiness:** F5 kanıt türü rozetleri + CLI/API parity +
+   web E2E (auth, SSE, TTL, onay, vault) + a11y.
+4. **W1 — T74:** 3 profilli dinamik arayüz (developer / vibe coder / melez).
+5. **T37** web oturumundan sonra veya paralel web dışı iş olarak ele alınır.
+
+> Kullanıcı kararı (23.10.2026): web arayüzü olmadan yayın düzeyinde tam test
+> mümkün değil; bu yüzden sıradaki oturum **web** ile başlar. Faz 1 matrisi
+> web oturumunun ilk adımıdır, ayrı bir oturum beklemez.
