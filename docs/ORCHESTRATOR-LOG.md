@@ -263,6 +263,19 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
   kurulum-atime ayrımı, toplu atime filtresi, geçmiş tek başına `recent`
   üretmesin) → F4 → F5.
 
+### F3 — TAMAMLANDI
+
+- Commit sonrası: `cli-inventory.ts` + `tests/inventory-usage-verdict.test.ts`
+  (**12 test**).
+- `usageVerdict` yeniden yazıldı: atime yalnız **doğrulayıcı sinyalle**
+  (durum klasörü veya geçmiş) `recent` üretir; tek başına atime → `unknown`
+  (low). Kurulum-atime ≤2 sn ise atime yok sayılır. Geçmiş tek başına →
+  `unknown` (medium, "zaman bilinmiyor"). `historyRecent` kaldırıldı.
+- `findAtimeBursts` + `applyAtimeBurstFilter`: 5 sn içinde ≥3 araç atime'ı
+  → yalnız-atime `recent` kararları `unknown` (low); durum klasörü güncel
+  olanlar korunur.
+- Kapı: typecheck temiz · **282/282** (+12).
+
 
 
 
