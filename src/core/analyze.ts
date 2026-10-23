@@ -1321,30 +1321,30 @@ export function detectArchetype(
   const markers = new Set((ev.markers ?? []).map((m) => m.toLowerCase()));
   const logs = (ev.logSignals ?? []).map((s) => s.means).join(' | ');
 
-  // 0. Gecici klasorler: buradaki HICBIR sey anlamli degildir.
+  // 1. Gecici klasorler: buradaki HICBIR sey anlamli degildir.
   //    Tem klasorunde tesadufen bulunan bir cuDNN .dll dosyasi, klasoru
   //    "GPU runtime" yapmaz. Oyun/sifre verisi de olabilir.
   if (isTempPath(root)) return 'temp-scratch';
 
-  // 1. Gercek sanal disk (WSL, docker, vm) -> asla otomatik silme
+  // 2. Gercek sanal disk (WSL, docker, vm) -> asla otomatik silme
   if (kinds.has('wsl-disk')) return 'virtual-disk';
 
-  // 1b. SDK / runtime KURULUMU. Bunlar silinmez: proje derlemeleri
+  // 3. SDK / runtime KURULUMU. Bunlar silinmez: proje derlemeleri
   //     bozulur. Ornek: ~/.dotnet 1.37 GB -> SDK, onbellek DEGIL.
   if (probe?.sdkInstall) return 'os-user-data';
 
-  // 1c. Editor uzanti deposu: extensions/ + extensions.json.
+  // 4. Editor uzanti deposu: extensions/ + extensions.json.
   //     Bu bir depodur; eski surumler ayri parca olarak secilir,
   //     klasorun tamami ASLA hedeflenmez. AI eklentileri model
   //     dosyasi tasisa bile birincil tip uzanti deposudur.
   if (probe?.editorExtensions) return 'editor-extension-store';
 
-  // 1d. Surumlu uygulama deposu: app-<surum> kardesleri + updater.
+  // 5. Surumlu uygulama deposu: app-<surum> kardesleri + updater.
   //     Guncelleyici eski surumu birakabilir; yalnizca eski surum
   //     klasorleri hedeflenir, guncel surum korunur.
   if (probe?.appVersions) return 'versioned-app-store';
 
-  // 2. Model deposu, CUDA'dan ONCE gelir.
+  // 6. Model deposu, CUDA'dan ONCE gelir.
   //    Onemli: .MuhasibPro gibi klasorlerde hem CUDA runtime hem model
   //    vardir. Birincil tip "model deposu" olmali; kullanilamayan CUDA
   //    parcasi alt parca olarak ayrica degerlendirilir. Aksi halde
@@ -1359,19 +1359,20 @@ export function detectArchetype(
     kinds.has('onnx-model') || markers.has('models') || /model katalogu|model calistirma/i.test(logs);
   if (modelEvidence && !probe?.projectManifest && !agentWorkspace) return 'model-store';
 
-  // 3. CUDA/cuDNN runtime yigini (model icermeyen)
+  // 7. CUDA/cuDNN runtime yigini (model icermeyen)
   if (kinds.has('cuda-runtime')) return 'accelerator-runtime';
 
-  // 3b. AJAN CALISMA ALANI (kesin kanit): skills/*/SKILL.md veya beceri kilidi.
+  // 8. AJAN CALISMA ALANI (kesin beceri kaniti): skills/*/SKILL.md veya
+  //    beceri kilidi.
   //
   // Ajanlar eklenti bagimliliklarini (package.json + node_modules) ya da
   // Python ortamlarini KENDI klasorlerine kurabilir. Bu, klasoru "kullanici
   // projesi" yapmaz: plan ve beceri dosyalari kullanici degeridir. Bagimlilik
   // klasorleri alt parca olarak "yeniden uretilebilir" raporlanir; silme
-  // hedefi URETILMEZ. (Proje koku ayrimi icin bkz. 4e.)
+  // hedefi URETILMEZ. (Proje koku ayrimi icin bkz. 12.)
   if (markers.has('skill-store') || markers.has('skill-lock')) return 'agent-workspace';
 
-  // 4. Ortam HAVUZU, paket ONBELLEGI'nden once gelir.
+  // 9. Ortam HAVUZU, paket ONBELLEGI'nden once gelir.
   //    Ikisi de "paket" icerir ama riski farklidir: onbellek yeniden
   //    indirilir, sanal ortam yeniden DERLENIR ve projeyi bozabilir.
   //
@@ -1382,9 +1383,9 @@ export function detectArchetype(
   //    C8b: kaynak manifesti olan bir kok (package.json, pyproject.toml,
   //    ...) venv / site-packages / pyvenv.cfg kanidi tasisa bile PROJE'dir;
   //    bu zayif havuz kanitlari tek basina kumu runtime-pool yapamaz.
-  //    Karar 4e'ye (proje calisma alani) kalir — ayni sinif hatasi step 2'de
-  //    model-store icin duzeltilmisti. Guclu havuz kaniti (envs/, runtimed/)
-  //    manifest olsa bile havuz sayilmaya devam eder.
+  //    Karar 12'ye (proje calisma alani) kalir — ayni sinif hatasi
+  //    6. adimda model-store icin duzeltilmisti. Guclu havuz kaniti
+  //    (envs/, runtimed/) manifest olsa bile havuz sayilmaya devam eder.
   if (
     markers.has('envs') || markers.has('runtimed') ||
     (!probe?.projectManifest &&
@@ -1393,7 +1394,7 @@ export function detectArchetype(
     return 'runtime-pool';
   }
 
-  // 4c. PROJE ICI BAGIMLILIK KLASORU (T31).
+  // 10. PROJE ICI BAGIMLILIK KLASORU (T31).
   //
   // node_modules / .venv tek basina "global paket kurulumu" gibi gorunur.
   // Ust dizinde kaynak manifesti varsa bu, kullanicinin projesine ait bir
@@ -1402,15 +1403,17 @@ export function detectArchetype(
   // proje ici tarama zorunlu olarak rapor modudur (AGENTS kural 9).
   if (probe?.projectArtifact) return 'project-artifact';
 
-  // 4d. GLOBAL PAKET KURULUMU: komut shim'i + node_modules.
+  // 11. GLOBAL PAKET KURULUMU: komut shim'i + node_modules.
   //
   // npm prefix (or. %APPDATA%\\npm) node_modules + shim'ler icerir; bu
-  // bir KURULUMDUR, onbellek DEGIL. Paket onbelleginden ONCE gelir.
+  // bir KURULUMDUR, onbellek DEGIL. Paket onbelleginden (14) ONCE
+  // gelmeli: aksi halde global prefix yalnizca "cache" icerigiyle
+  // gorundugu icin yanlis siniflanir.
   if (markers.has('node_modules') && (markers.has('shim-dir') || markers.has('.bin'))) {
     return 'global-packages';
   }
 
-  // 4e. PROJE CALISMA ALANI: kaynak manifesti + bagimlilik klasoru.
+  // 12. PROJE CALISMA ALANI: kaynak manifesti + bagimlilik klasoru.
   //
   // Bu bir ARTIK DEGIL, kullanicinin kendi projesidir. Kaynak kod ve
   // bagimliliklar kullanici emegidir; hicbir kosulda silme hedefi
@@ -1425,10 +1428,10 @@ export function detectArchetype(
     return 'project-workspace';
   }
 
-  // 4f. Yalnizca node_modules/.bin (manifest yok): kurulu paketler.
+  // 13. Yalnizca node_modules/.bin (manifest yok): kurulu paketler.
   if (markers.has('.bin') || markers.has('node_modules')) return 'global-packages';
 
-  // 5. Paket yoneticisi ONBELLEGI (yeniden indirilebilir, guvenli)
+  // 14. Paket yoneticisi ONBELLEGI (yeniden indirilebilir, guvenli)
   //
   // CACHEDIR.TAG en guvenilir isaret: paket yoneticileri (npm, conda,
   // rattler, uv, pip) bu klasoru standart olarak "cache" olarak isaretler.
@@ -1444,27 +1447,30 @@ export function detectArchetype(
     return 'pkg-manager-cache';
   }
 
-  // 6. Electron/Chromium masaustu uygulama verisi.
+  // 15. Electron/Chromium masaustu uygulama verisi.
   //    Icerisinde hem yeniden uretilir onbellek hem kalici durum vardir
   //    (Local Storage, Preferences). Klasorun TAMAMI silinmez; sadece
   //    onbellek alt klasorleri hedeflenir.
   if (probe?.electronCache) return 'electron-app-data';
 
-  // 7. Ajan calisma alani
+  // 16. Ajan calisma alani (oturum/hafiza marker'lari)
   //
-  // Kesin kanit: SKILL.md iceren skills/ deposu veya beceri kilidi.
-  // sessions/memories/agents klasorleri de ajan verisidir; bunlar
+  // Kesin beceri kaniti (SKILL.md / .skill-lock.json) 8. adimda
+  // yakalandi; burada tekrar kontrol edilmez. Bu adim yalnizca
+  // oturum/beceri/hafiza/ajan dizin MARKER'larina bakar: bunlar
   // "artik" degil, kullanicinin ajanla urettigi degerdir.
+  //
+  // E10b (C1): yalniz log satiri yetmez. Herhangi bir uygulama gunlugu
+  // "notebook", "gunlendirme gunlugu" ya da "arka plan servisi" sozleri
+  // icerebilir; log tek basina yapisal kanit degildir.
   if (
-    /notebook|gunlendirme gunlugu|arka plan servisi/i.test(logs) ||
-    markers.has('skill-store') || markers.has('skill-lock') ||
     markers.has('sessions') || markers.has('skills') ||
     markers.has('memories') || markers.has('agents')
   ) {
     return 'agent-workspace';
   }
 
-  // 7. Guncelleyici artigi
+  // 17. Guncelleyici artigi
   //    DIKKAT: her installer bir ARTIK degildir. Bir kurulum dizinindeki
   //    uygulama exe'leri de installer sayilir. Gercek artik, yolun
   //    kendisinin "updater" olmasidir.
@@ -1472,14 +1478,10 @@ export function detectArchetype(
   // Program Files / Programs altindaki exe'ler KURULUMDUR, artik degil
   if (/\\programs?\\|\\app-[^\\]+\\/i.test(root)) return 'os-user-data';
 
-  // 8. (Global paket dizini kontrolu 4e adimina tasindi: paket
-  //     onbelleginden ONCE gelmeli, aksi halde global prefix yanlis
-  //     siniflanir.)
-
-  // 9. Gecici / cokme
+  // 18. Gecici / cokme
   if (kinds.has('crash-dump')) return 'crash-artifacts';
 
-  // 10. Kullanici verisi sinyalleri (dokunma)
+  // 19. Kullanici verisi sinyalleri (dokunma)
   if (kinds.has('vpn-config')) return 'os-user-data';
 
   void extCounts;
@@ -1571,7 +1573,6 @@ export function estimateReclaimable(
       // Oturum gecmisi, beceriler ve hafiza kullanici degeridir;
       // "bosta kalan bayt" gibi raporlanmasi yaniltici olur.
       return 0;
-    case 'editor-workspace':
     case 'os-user-data':
     case 'unknown':
     case 'electron-app-data':
@@ -1600,7 +1601,6 @@ const REGENERABILITY: Record<Archetype, Regenerability> = {
   'editor-extension-store': 'unknown',
   'versioned-app-store': 'unknown',
   'electron-app-data': 'unknown',
-  'editor-workspace': 'user-data',
   'agent-workspace': 'user-data',
   'project-workspace': 'user-data',
   'project-artifact': 'regenerable',
@@ -1622,7 +1622,6 @@ const CONFIDENCE: Record<Archetype, Confidence> = {
   'editor-extension-store': 'high',
   'versioned-app-store': 'high',
   'electron-app-data': 'medium',
-  'editor-workspace': 'medium',
   'agent-workspace': 'medium',
   'project-workspace': 'high',
   'project-artifact': 'medium',

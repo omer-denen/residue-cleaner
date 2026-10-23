@@ -32,7 +32,6 @@ const ARCHETYPE_TEXT: Record<string, string> = {
   'crash-artifacts': 'Cokme dumpleri: hata ayiklama icin tutulur.',
   'updater-staging': 'Guncelleyici artigi: yarim kalmis guncelleme dosyalari.',
   'global-packages': 'Global paket kurulumu: komut shimleri bu klasorde yasar.',
-  'editor-workspace': 'Editor calisma alani: proje ve ayar dosyalari bulunur.',
   'project-workspace': 'Proje calisma alani: kullanici emegi, ASLA silinmez.',
   'project-artifact': 'Proje ici bagimlilik: lockfile ile yeniden kurulabilir, yalniz raporlanir.',
   'os-user-data': 'Kullanici verisi: geri gelmez.',

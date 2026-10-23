@@ -60,7 +60,6 @@ const UNUSED_ARCHETYPES = new Set([
   'temp-scratch',
   'crash-artifacts',
   'editor-extension-store',
-  'editor-workspace',
   'electron-app-data',
 ]);
 

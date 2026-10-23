@@ -70,7 +70,6 @@ const ARCHETYPE_RANK: Record<string, number> = {
   'project-workspace': 90,
   'project-artifact': 88,
   'agent-workspace': 80,
-  'editor-workspace': 70,
   'global-packages': 65,
   'model-store': 50,
   'runtime-pool': 45,

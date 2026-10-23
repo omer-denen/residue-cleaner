@@ -87,7 +87,6 @@ export type Archetype =
   | 'crash-artifacts'
   | 'updater-staging'
   | 'global-packages'
-  | 'editor-workspace'
   /** Kaynak projesi: manifest + bagimlilik klasoru. Kullanici emegi; asla silinmez. */
   | 'project-workspace'
   /** Proje ici bagimlilik klasoru (node_modules / .venv). Yeniden uretilebilir; yalniz raporlanir. */
