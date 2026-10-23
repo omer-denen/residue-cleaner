@@ -2,7 +2,7 @@
 
 **Sürüm:** `0.3.0-alpha.0` (npm'e yayınlanmadı)
 **Dal:** `orkestrator` → `main` (fast-forward)
-**Son commit:** `0685eee` (devir) · W1-b `f194eb2` · W1-a `4cc1ed5`
+**Son commit:** devir commit'i · W1-b `f194eb2` · W1-a `4cc1ed5`
 **Test:** **319/319** · typecheck temiz · `npm run smoke` **35/35** ·
 `npm run build:web` **126.44 kB gzip**
 **Protokol:** `ORKESTRATOR.md` · **Kayıt:** `docs/ORCHESTRATOR-LOG.md`
@@ -189,8 +189,9 @@ ego-browser nodejs -e "console.log('ego ok')"
 node bin/residue.mjs ui --web --no-browser --port 4411
 ```
 
-`main` bu oturum sonunda `0685eee`'ye fast-forward edildi; ana repoda
-typecheck + test yeniden çalıştırıldı. Kod iki dalda da aynı.
+`main` bu oturum sonunda devir commit'ine fast-forward edildi (W1-b
+`f194eb2` + bu belge); ana repoda typecheck + test yeniden çalıştırıldı.
+Kod iki dalda da aynı.
 
 **Devir belgesi:** bu dosya · **Kayıt:** `docs/ORCHESTRATOR-LOG.md` ·
 **Önceki:** `docs/HANDOVER-2026-10-23d.md`
