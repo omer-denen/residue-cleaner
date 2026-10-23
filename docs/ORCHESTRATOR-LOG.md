@@ -130,6 +130,31 @@ E10 tek package sığmayacak kadar farklı riskler içeriyor; üç ayrı commit.
 - **Açık risk:** erişim hatasında `hasNvidia:false` dönüyor; motor üçlü
   durumu bilmiyor. E10c'de `gpu: null` (bilinmiyor) ayrımı yapılacak.
 
+## 23.10.2026 — işçi model değişikliği (kullanıcı kararı)
+
+- Yeni işçi modeli: **`opencode/glm-5.3-flash-free`** (GLM-5.3-Flash Free).
+- E10a/b ilk denemesi `opencode-go/glm-5.3-flash` ile başlatıldı; kullanıcı
+  kararı üzerine süreç durduruldu, yarım dosya değişiklikleri geri alındı
+  (`git checkout -- src`), görev temiz ağaçtan yeniden çalıştırıldı.
+- Log: `scratch/logs/e10ab-glm53flash.log` (eski), `scratch/logs/e10ab.log` (yeni).
+
+### E10a/b — TAMAMLANDI
+
+- Commit `e95c50b` · `src/core/analyze.ts`, `types.ts`, `categories.ts`,
+  `evidence-text.ts`, `merge.ts` + `tests/archetype-hygiene.test.ts` (**8 test**).
+- `editor-workspace` archetype'ı tip birliğinden ve 7 tablodan tamamen
+  kaldırıldı; `src/` altında eşleşme yok.
+- Adım 7'deki `skill-store`/`skill-lock` tekrarı ve yalnız-log dalı
+  (`notebook|gunlendirme gunlugu|arka plan servisi`) kaldırıldı; adım 16
+  yalnız `sessions/skills/memories/agents` marker'larıyla `agent-workspace`
+  üretiyor. Adım numaraları tek sıraya (1..19) döküldü.
+- **Orkestratör denetimi:** diff yalnız beyaz listede; mevcut test
+  dosyaları değişmedi; `agent-workspace` hedefsizliği ve `report-only`
+  korunuyor; uygulama adı eklenmedi.
+- Kapı: typecheck temiz · **234/234** (+8) · `git diff --check` temiz.
+- **Davranış notu (bilinçli):** yalnız log satırı taşıyan klasör artık
+  `agent-workspace` değil `unknown`; iki karar da silme hedefi üretmez.
+
 
 
 
