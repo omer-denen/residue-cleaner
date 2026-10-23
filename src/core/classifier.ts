@@ -8,8 +8,8 @@ import type { FileKind, LogSignal, LogSignalKind, OwnerSignal } from './types.ts
 /**
  * Kanit toplayici.
  *
- * KRITIK KURAL: Bu dosya hicbir uygulama adi icermez. "MuhasibPro",
- * "opencode", "claude" gibi isimler burada veya alt cagrilarda gecer.
+ * KRITIK KURAL: Bu dosya hicbir uygulama adi icermez. "ornek-uygulama",
+ * "ornek-cli" gibi isimler burada veya alt cagrilarda gecmez.
  * Yalnizca "ne tur sey" sorusuna bakar: dosya turleri, dizin yapisi,
  * manifest icerigi, log satirlari.
  *
@@ -443,7 +443,7 @@ export async function probeDir(path: string): Promise<Probe> {
 
   // --- Editor uzanti deposu: extensions/ + extensions.json ---
   //
-  // VS Code ve turevleri kurulu uzantilari bir manifestte tutar.
+  // Editorler ve turevleri kurulu uzantilari bir manifestte tutar.
   // Manifest, hangi surumun AKTIF oldugunun tek guvenilir kaynagidir.
   const extensionsDir = entries.find(
     (e) => e.isDirectory() && e.name.toLowerCase() === 'extensions',
@@ -454,7 +454,7 @@ export async function probeDir(path: string): Promise<Probe> {
 
   // --- Ic ice onkleme ---
   //
-  // .MuhasibPro'da yalnizca "logs" gorunur ama asil
+  // Ornek uygulama dizininde yalnizca "logs" gorunur ama asil
   // onemli isaretler (CUDA DLL'leri ep/cuda-ep altinda, model agirligi
   // cache/models altinda) daha derinde. Bu yuzden "anlamli" bir isaret
   // bulunana kadar derinlemesine arama yapilir — "logs" tek basina
@@ -529,7 +529,7 @@ const NEVER_PROBE = new Set([
 
 /**
  * Kok seviyesindeki isaret gercekten bir tur bildiriyor mu?
- * "logs" tek basina yeterli degil: .MuhasibPro'da asil varlik
+ * "logs" tek basina yeterli degil: ornek uygulamada asil varlik
  * (CUDA runtime, model agirligi) iki seviye asagida.
  */
 function hasSubstantiveSignal(p: Probe): boolean {
@@ -1075,7 +1075,7 @@ async function probePackageJson(dir: string): Promise<OwnerSignal | null> {
 
 // E11: `means` yalnizca gosterim metnidir; karar katmani `kind`e baglanir.
 const LOG_MARKERS: Array<{ re: RegExp; kind: LogSignalKind; means: string }> = [
-  { re: /Azure\s+Foundry|azure\.com\/api\/.*catalog|ai\.azure\.com/i, kind: 'model-catalog', means: 'Azure AI Foundry model katalogu' },
+  { re: /Azure\s+Foundry|azure\.com\/api\/.*catalog|ai\.azure\.com/i, kind: 'model-catalog', means: 'bulut model katalogu' },
   { re: /CUDAExecutionProvider|DirectMLExecutionProvider|OrtGpuExecutionProvider/i, kind: 'gpu-provider', means: 'GPU saglayicisi kullanildi' },
   { re: /\bDevice:\s*CPU\b|CPUExecutionProvider/i, kind: 'cpu-device', means: 'cihaz tipi: CPU (GPU kullanilmiyor)' },
   { re: /EPs are not fully registered|DownloadAndRegisterEpsAsync|EP registration deferred/i, kind: 'gpu-ep-missing', means: 'GPU saglayicisi kaydedilmemis' },

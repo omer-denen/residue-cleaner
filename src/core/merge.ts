@@ -3,11 +3,11 @@ import type { Cluster, DeleteTarget, Part, ScanResult, ScanStats, SkippedEntry }
 /**
  * Kumelestirme: ayni uygulamanin/env'in bosta kalan parcalarini birlestirir.
  *
- * Ornek (bu makinede gercek):
- *   ~/.MuhasibPro/cache/models   -> 4.9 GB
- *   ~/.MuhasibPro/ep/cuda-ep     -> 2.3 GB
- *   AppData/Roaming/MuhasibPro   -> 0.8 MB
- *   => tek kume: "MuhasibPro — yerel model deposu"
+ * Ornek (.ornek-uygulama):
+ *   ~/.ornek-uygulama/cache/models   -> 4.9 GB
+ *   ~/.ornek-uygulama/ep/cuda-ep     -> 2.3 GB
+ *   AppData/Roaming/ornek-uygulama   -> 0.8 MB
+ *   => tek kume: "ornek-uygulama — yerel model deposu"
  *
  * Birlestirme anahtari `analyze.ts` icindeki clusterKey() ile ayni mantikla
  * hesaplanir: paket adi, dizin adi veya gunlukteki urun adi.

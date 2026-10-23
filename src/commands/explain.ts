@@ -12,13 +12,13 @@ const C = {
 /**
  * Bir kumenin kararini kanitlariyla birlikte aciklar.
  *
- * Kullanim:  residue explain muhasib
+ * Kullanim:  residue explain ornek-kume
  * Tarama yapip anahtarla eslesen kume(leri) bulur.
  */
 export async function runExplain(query: string | undefined, opts: { json?: boolean } = {}): Promise<void> {
   if (!query) {
     console.log(`Kullanim: residue explain <ad>`);
-    console.log(`Ornek : residue explain muhasib`);
+    console.log(`Ornek : residue explain ornek-kume`);
     console.log(`        residue explain npm-cache`);
     console.log(`        residue explain wsl`);
     return;

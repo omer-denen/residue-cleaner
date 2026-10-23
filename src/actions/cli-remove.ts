@@ -66,7 +66,7 @@ export async function planCliRemoval(
   let totalBytes = 0;
   let backupBytes = 0;
 
-  // Ayni paket birden fazla komut saglayabilir (or. opencode + opencode2).
+  // Ayni paket birden fazla komut saglayabilir (or. ornek-cli + ornek-cli2).
   // Ayni paketi plana iki kez koymak uninstall'i iki kez calistirir.
   const seenPackages = new Set<string>();
 

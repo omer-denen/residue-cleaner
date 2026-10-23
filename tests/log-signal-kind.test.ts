@@ -61,7 +61,7 @@ test('E11-A: ayni kind farkli means ile logGpuVerdict ayni sonucu uretir', () =>
 test('E11-A: ayni kind farkli means ile model birdir (model-catalog)', () => {
   const kindli = (means: string): LogSignal => ({ line: 'foundry catalog hit', means, kind: 'model-catalog' });
   const a = detectArchetype(
-    ev({ logSignals: [kindli('Azure AI Foundry model katalogu')] }),
+    ev({ logSignals: [kindli('bulut model katalogu')] }),
     join(root, 'ml-a'),
     new Map(),
   );
@@ -143,7 +143,7 @@ test('E11-G: signalKind kind yoksa kanonik means metninden esler', () => {
   assert.equal(signalKind({ line: '', means: 'npm paket onbellegi' }), 'npm-cache');
   assert.equal(signalKind({ line: '', means: 'cihaz tipi: CPU (GPU kullanilmiyor)' }), 'cpu-device');
   assert.equal(signalKind({ line: '', means: 'ONNX Runtime model calistirma' }), 'onnx-runtime');
-  assert.equal(signalKind({ line: '', means: 'Azure AI Foundry model katalogu' }), 'model-catalog');
+  assert.equal(signalKind({ line: '', means: 'bulut model katalogu' }), 'model-catalog');
   // kind doluysa kesin kazanir:
   assert.equal(signalKind({ line: '', means: 'GPU saglayicisi kullanildi', kind: 'npm-cache' }), 'npm-cache');
   // Kanonik olmayan means bilinmez olur ("kanit yok"):

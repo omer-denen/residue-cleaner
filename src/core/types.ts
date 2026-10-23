@@ -179,7 +179,7 @@ export interface DeleteTarget {
 
 /**
  * Bir "uygulama" kumesi: ayni uygulamanin/env'in bosta kalan parcalari.
- * MuhasibPro ornegi: ~/.MuhasibPro/cache + ~/.MuhasibPro/ep + Roaming/MuhasibPro
+ * Ornek: ~/.ornek-uygulama/cache + ~/.ornek-uygulama/ep + Roaming/ornek-uygulama
  */
 export interface Cluster {
   /** Kume anahtari: normalize edilmis uygulama adi */

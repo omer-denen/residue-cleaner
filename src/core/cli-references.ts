@@ -143,13 +143,20 @@ export async function scanConfigReferences(
       for (const k of kids) {
         if (k.isFile() && /^(\.mcp\.json|.*mcp.*\.json|tasks\.json|package\.json)$/i.test(k.name)) {
           addFile(join(full, k.name));
+          continue;
         }
-      }
-      const tasks = join(full, '.vscode', 'tasks.json');
-      try {
-        if ((await stat(longPath(tasks))).isFile()) addFile(tasks);
-      } catch {
-        /* yok */
+        // Editor gorev dosyasi ikinci seviyede olabilir: herhangi bir alt
+        // dizindeki tasks.json "gorev referansi" sayilir; klasor adindan
+        // bagimsiz aranir (editor adi kanit degildir). Bu, onceki
+        //(urun belirli) kontrol ile ayni derinligi kapsar ve genisletir.
+        if (k.isDirectory()) {
+          const tasks = join(full, k.name, 'tasks.json');
+          try {
+            if ((await stat(longPath(tasks))).isFile()) addFile(tasks);
+          } catch {
+            /* yok */
+          }
+        }
       }
     }
   }

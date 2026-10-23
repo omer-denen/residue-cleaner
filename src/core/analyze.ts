@@ -710,11 +710,11 @@ function baseName(p: string): string {
 
 /**
  * Bilesik degerlendirme: bir klasorun icinde hem "kullanilir" hem
- * "gereksiz" seyler olabilir. Ornek (bu makinede gercek):
+ * "gereksiz" seyler olabilir. Ornek (.ornek-uygulama):
  *
- *   .MuhasibPro\cache\models           4.9 GB → silinebilir (yeniden indirilir)
- *   .MuhasibPro\ep\cuda-ep            2.3 GB → SILINEBILIR, makinede GPU yok
- *   .MuhasibPro\cache\models\...\gpu  1.2 GB → SILINEBILIR, cihaz CPU
+ *   .ornek-uygulama\cache\models           4.9 GB → silinebilir (yeniden indirilir)
+ *   .ornek-uygulama\ep\cuda-ep            2.3 GB → SILINEBILIR, makinede GPU yok
+ *   .ornek-uygulama\cache\models\...\gpu  1.2 GB → SILINEBILIR, cihaz CPU
  *
  * Kullaniciya "7.1 GB sil" demek dogru olurdu ama "tumunu sil" yanlis
  * olurdu: uygulama CPU modellerini kullaniyor. Bu yuzden her parca
@@ -1263,7 +1263,7 @@ export async function findDirsNamed(
       if (!e.isDirectory()) continue;
       if (e.name === 'node_modules' || e.name === '.git') continue;
       const child = `${dir}\\${e.name}`;
-      // Kokten (depth 0) itibaren kontrol etme: ".MuhasibPro" gibi
+      // Kokten (depth 0) itibaren kontrol etme: ".ornek-uygulama" gibi
       // kok adlar da eslesebilir, ilgilenmedigimiz yerler bunlar.
       if (depth >= 1 && nameRe.test(e.name)) found.push(child);
       queue.push({ dir: child, depth: depth + 1 });
@@ -1417,7 +1417,7 @@ export function detectArchetype(
   if (probe?.appVersions) return 'versioned-app-store';
 
   // 6. Model deposu, CUDA'dan ONCE gelir.
-  //    Onemli: .MuhasibPro gibi klasorlerde hem CUDA runtime hem model
+  //    Onemli: ornek uygulamada (or. .ornek-uygulama) hem CUDA runtime hem model
   //    vardir. Birincil tip "model deposu" olmali; kullanilamayan CUDA
   //    parcasi alt parca olarak ayrica degerlendirilir. Aksi halde
   //    uygulamanin kullandigi CPU modelleri de silinebilir gorunur.
@@ -1592,7 +1592,7 @@ function isPackageStoreDir(
 
 /**
  * Ne kadarinin gercekten silinebilecegini kestirir.
- * Dizenin tamamini silmek cogu zaman dogru degildir: ornek .MuhasibPro'da
+ * Dizenin tamamini silmek cogu zaman dogru degildir: ornek uygulamada
  * 7.1 GB'nin sadece bir kismi gereksiz.
  */
 export function estimateReclaimable(
