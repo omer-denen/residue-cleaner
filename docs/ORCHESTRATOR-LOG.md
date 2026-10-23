@@ -520,3 +520,32 @@ uygulanırsa 10 dk".
 **Paketler:** W2-g (plan armed/apply/GET süzgeci), W3-a (verify motoru +
 uç + testler), W2-f+W3-b (web: panel × kaldırma, boşluk, sayaç yalnız
 armed, doğrulama bandı).
+
+## 24.10.2026 — Plan ömrü (W2-g) + bağımlılıklar Kanıt içinde (W2-e2)
+
+- **W2-e2** (`f994386`): `DependenciesSection` — Kanıtlar içinde kapalı
+  başlayan bölüm; tek istek, aynı sorguda tekrar istek yok,
+  `aria-expanded`, durum rozetleri mevcut `graph.state.*` anahtarlarıyla.
+  Disk `parts[0].path`, Araçlar `detail.command` sorgusu. Ayrı sekme YOK.
+- **W2-g** (`27d0196`): `PlanResponse.armed`; içerik değişince
+  `armed=false` + TTL yenilenir; `POST /api/plan/apply` planı **güncel
+  taramadan yeniden kurar** (yeni planId, 10 dk o anda), taramada olmayan
+  öğe → 409; `POST /api/plan/discard` uygulanmamış planı atar (armed → 409).
+  **347/347**. Orkestratör düzeltmeleri: `rebuildPlan` yeni planı kurmadan
+  eski kaydı silmiyor (hata halinde plan korunur); testte `status` tipi
+  düzeltildi (`code` → `status`); girinti regresyonu.
+- **Kullanıcı kararları (24.10):**
+  · Kasa rozeti = **öğe sayısı**.
+  · **"Son Tarama" tamamen kalkıyor** (yaş gerçeği yansıtmıyor) →
+    **"Son Kasa işlemi"**.
+  · Genel Bakış ölçüsü = **silinebilir tüm alan** (kullanımda olsun
+    olmasın; kullanıcı temiz yapı isteyebilir).
+  · **B kabul**: her açılışta tarama (12.1 s ölçüldü) + Ayarlar'da
+    Her zaman / Günde bir / Elle; son ikisinde hızlı doğrulama.
+  · Kasa **fiziksel taşıma**; aynı disk → kartta "Hâlâ diskte" notu.
+- **Devir:** `docs/HANDOVER-2026-10-24.md`.
+- **Sıradaki:** W5-a (src: scanOnLaunch + toplamlar + kasa sayacı),
+  W5-b (web: açılış taraması, kart/rozet/not, dinamik başlık,
+  "Son Kasa işlemi"), W2-f kalanı (panel `×`, boşluk, bant), W3-a
+  (doğrulama ucu; daily/manual için).
+- **Gerçek silme/plan çalıştırma YAPILMADI.**

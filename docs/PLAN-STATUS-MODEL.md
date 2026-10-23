@@ -73,3 +73,24 @@ Kalıcı plan koleksiyonu bilinçli olarak **yapılmadı** (beta sonrası).
 - Plan **kalıcı değil**: yeniden başlatmada kaybolur.
 - Çoklu plan / plan arşivi yok (istenirse ayrı milestone: `store/plans.ts`).
 - Araçlar planı panelde **özetlenmez**; yalnız yönlendirme vardır.
+
+## 24.10.2026 güncellemesi (yürürlükte)
+
+- **Ömür**: 10 dakika **uygulama anında** başlar. Seçim sırasında süre
+  baskısı yok; içerik değişince `armed = false` ve TTL yenilenir.
+- **Uygulanmamış plan her açılışta silinir**: istemci açılışta
+  `GET /api/plan`; `armed === false` ise `POST /api/plan/discard`.
+  `armed === true` plan 10 dk boyunca geri yüklenebilir.
+- **Planı uygula** = `POST /api/plan/apply`: plan **güncel taramadan
+  yeniden kurulur** (`buildPlan` + `guard`), yeni `planId`, `armed: true`.
+  Taramada bulunmayan öğe varsa `409` (gerekçe metni).
+- **Kaydet/ad** arayüzden kaldırıldı (10 dk TTL'li planda saklama yok).
+  `PATCH /api/plan/:id` sunucuda reserve.
+- **Çıkarma tek yerde**: satırda **Plandan çıkar**; panelde tek tek `×`
+  yok, yalnız **Tümünü boşalt**.
+- **Tarama**: her açılışta tarama (varsayılan); Ayarlar'da
+  `Her zaman / Günde bir / Elle`. "Son Tarama" yaşı kaldırıldı; yerine
+  **Son Kasa işlemi**. Genel Bakış'ta **silinebilir tüm alan** (kullanımda
+  olsun olmasın) ve taranan toplam gösterilir.
+- **Kasa fiziksel taşımadır**; aynı diskte olduğu için boş alan ancak
+  "Kasayı boşalt" ile artar (kartta "Hâlâ diskte" notu).
