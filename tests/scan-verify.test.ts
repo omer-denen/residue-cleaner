@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { cluster } from './helpers.ts';
@@ -233,8 +233,11 @@ test('karışık durum: missing + ok + changed; reclaimableBytes yalnız kalanla
   const changedDir = join(root, 'mixed-changed');
   await mkdir(okDir, { recursive: true });
   await mkdir(changedDir, { recursive: true });
-  const finishedAt = Date.now();
-  await new Promise((r) => setTimeout(r, 60));
+  // Tarama gecmiste bitmis sayilir; okDir'in mtime'i ondan ONCE'ye sabitlenir
+  // (NTFS alt-ms mtime'i yuzunden "suspicious" olup 'changed' uretmesin).
+  const finishedAt = Date.now() - 5_000;
+  const old = new Date(finishedAt - 60_000);
+  await utimes(okDir, old, old);
   await writeFile(join(changedDir, 'f.txt'), 'hello world');
   const targets = [
     { path: join(root, 'mixed-missing'), kind: 'whole', label: 'm', bytes: 5 },
