@@ -9,6 +9,7 @@ import type {
   MetaResponse,
   PlanResponse,
   ScanStatusResponse,
+  ScanVerifyResponse,
 } from '../../src/core/contract.ts';
 import { api, ApiError } from './api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from './i18n.ts';
@@ -118,6 +119,8 @@ export function App() {
    * temizlenir.
    */
   const [planExpired, setPlanExpired] = useState(false);
+  /** Açılış doğrulama bandı (daily mod): kaybolan/değişen hedefler. */
+  const [scanVerify, setScanVerify] = useState<ScanVerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [help, setHelp] = useState(false);
@@ -174,29 +177,6 @@ export function App() {
     setPlanned(null);
     setPlan(null);
     setPlanExpired(true);
-  };
-
-  const removePlanned = async (selector: {
-    key?: string;
-    targetId?: string;
-  }): Promise<void> => {
-    if (!planned || planBusy) return;
-    setPlanBusy(true);
-    setPlanError(null);
-    try {
-      // Sag panel plandan cikarma: AYNI plan kimligi ve TTL korunur;
-      // istemci YOL gondermez, yalnizca kume/hedef kimligi yollar.
-      const next = await api.removeFromPlan(planned.planId, selector);
-      setPlanned(next);
-      setPlan(next);
-    } catch (err) {
-      if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
-        stalePlan();
-      }
-      setPlanError(err instanceof ApiError ? err.message : String(err));
-    } finally {
-      setPlanBusy(false);
-    }
   };
 
   /**
@@ -317,7 +297,10 @@ export function App() {
         await load();
       } else if (mode === 'daily') {
         try {
-          await api.verifyScan();
+          const res = await api.verifyScan();
+          if (res.missing.length > 0 || res.changed.length > 0) {
+            setScanVerify(res);
+          }
         } catch {
           // sessizce yut
         }
@@ -548,8 +531,6 @@ export function App() {
           error={planError}
           expired={planExpired}
           onDismissExpired={() => setPlanExpired(false)}
-          onRemoveKey={(key) => void removePlanned({ key })}
-          onRemoveTarget={(targetId) => void removePlanned({ targetId })}
           onClearAll={() => void clearPlanned()}
           onOpenPlan={() => setScreen('plan')}
           onOpenTools={() => setScreen('tools')}
@@ -733,6 +714,8 @@ export function App() {
               planned={planned}
               planBusy={planBusy}
               plannedKeys={planned?.panel.keys ?? []}
+              verifyNote={scanVerify}
+              onDismissVerify={() => setScanVerify(null)}
               onPlan={(nextPlan) => {
                 // Sayfa DEGISMEZ: plan sag panelde + Plan ekraninda
                 // guncellenir; yeni plan kurulunca suresi-doldu uyarisi

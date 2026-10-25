@@ -77,19 +77,15 @@ export function PlanValidity({
   );
 }
 
-/** Tek kume grubu: katlanabilir sade (varsayilan acik) + kume cikarma. */
+/** Tek kume grubu: katlanabilir sade (varsayilan acik). Cikarma satirda (Disk) yapilir. */
 function PlannedGroup({
   group,
   lang,
   busy,
-  onRemoveKey,
-  onRemoveTarget,
 }: {
   group: PlanPanelGroup;
   lang: Lang;
   busy: boolean;
-  onRemoveKey: (key: string) => void;
-  onRemoveTarget: (targetId: string) => void;
 }) {
   const t = (key: MessageKey) => translate(lang, key);
   const [open, setOpen] = useState(true);
@@ -120,15 +116,6 @@ function PlannedGroup({
             <Icon name="chevronDown" size={12} />
           </span>
         </button>
-        <button
-          type="button"
-          className="ghost rp-item-remove"
-          aria-label={`${t('rightPanel.planned.removeGroup')}: ${group.title}`}
-          disabled={busy}
-          onClick={() => onRemoveKey(group.key)}
-        >
-          <Icon name="close" size={12} />
-        </button>
       </div>
 
       {open && (
@@ -143,15 +130,6 @@ function PlannedGroup({
               <span className="mono dim rp-target-bytes">
                 {formatBytes(item.bytes)}
               </span>
-              <button
-                type="button"
-                className="ghost rp-item-remove"
-                aria-label={`${t('rightPanel.planned.removeTarget')}: ${item.path}`}
-                disabled={busy}
-                onClick={() => onRemoveTarget(item.id)}
-              >
-                <Icon name="close" size={12} />
-              </button>
             </li>
           ))}
         </ul>
@@ -259,8 +237,6 @@ export function PlannedModule({
   error,
   expired,
   onDismissExpired,
-  onRemoveKey,
-  onRemoveTarget,
   onClearAll,
   onOpenPlan,
   onOpenTools,
@@ -272,8 +248,6 @@ export function PlannedModule({
   /** Plan suresi doldu (ya da 410): sessiz kaybolma YOK; uyarida kapanabilir. */
   expired: boolean;
   onDismissExpired: () => void;
-  onRemoveKey: (key: string) => void;
-  onRemoveTarget: (targetId: string) => void;
   /** "Tümünü boşalt" ve onayli "Yeni plan" ayni isi yapar. */
   onClearAll: () => void;
   onOpenPlan: () => void;
@@ -382,8 +356,6 @@ export function PlannedModule({
                 group={group}
                 lang={lang}
                 busy={busy}
-                onRemoveKey={onRemoveKey}
-                onRemoveTarget={onRemoveTarget}
               />
             ))}
           </div>

@@ -8,6 +8,7 @@ import type {
   PlanResponse,
   ScanStatusResponse,
   ScanStreamEvent,
+  ScanVerifyResponse,
 } from '../../../src/core/contract.ts';
 import { api, ApiError } from '../api.ts';
 import { openEvents } from '../sse.ts';
@@ -53,6 +54,9 @@ interface Props {
   onPlanStale: () => void;
   /** "Planı uygula": yalnizca Plan ekranina gecirir; execute cagrilmaz. */
   onOpenPlan: () => void;
+  /** Açılış doğrulama bandı (daily mod): kaybolan/değişen hedefler. */
+  verifyNote?: ScanVerifyResponse | null;
+  onDismissVerify?: () => void;
 }
 
 /**
@@ -77,6 +81,8 @@ export function Disk({
   onPlan,
   onPlanStale,
   onOpenPlan,
+  verifyNote,
+  onDismissVerify,
 }: Props) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
@@ -552,6 +558,26 @@ export function Disk({
         {planError && (
           <div className="banner danger" role="alert">
             {t('disk.plan.failed')}: {planError}
+          </div>
+        )}
+        {verifyNote && (verifyNote.missing.length > 0 || verifyNote.changed.length > 0) && (
+          <div className="banner" role="status">
+            <span>
+              {t('disk.verify.missing', {
+                count: verifyNote.missing.length,
+                bytes: formatBytes(verifyNote.missingBytes),
+              })}
+              {verifyNote.changed.length > 0 &&
+                ` ${t('disk.verify.changed', { count: verifyNote.changed.length })}`}
+            </span>
+            <button
+              type="button"
+              className="ghost"
+              aria-label={t('common.close')}
+              onClick={() => onDismissVerify?.()}
+            >
+              {t('common.close')}
+            </button>
           </div>
         )}
 
