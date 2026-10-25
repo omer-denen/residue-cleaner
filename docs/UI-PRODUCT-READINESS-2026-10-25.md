@@ -11,8 +11,9 @@
 > Sıradaki yine Faz 0'dır.
 > **Kapsam:** web arayüzü (`web/`), görsel sistem ve ekran yerleşimleri.
 > **25.10.2026 3. tur:** **Faz 0 kapandı** (UI-001..UI-003; §9), **Faz 1
-> kapandı** (UI-004..UI-006; §10) ve **Faz 2 kapandı** (UI-007..UI-008; §11).
-> Sıradaki: Faz 3 (UI-009 — ortak ekran cilası).
+> kapandı** (UI-004..UI-006; §10), **Faz 2 kapandı** (UI-007..UI-008; §11) ve
+> **Faz 3 kapandı** (UI-009; §12). Sıradaki: Faz 4 (kapanış — metin denetimi,
+> kapılar, tarayıcı doğrulaması, devir).
 > **Değişmez kurallar:** `AGENTS.md` kural 18 (karar motorda), iki aşamalı
 > onay, `report-only`, `guard.ts`, localhost + çerez kapıları.
 > **İlke:** bu turda **hiçbir karar kuralı değişmez**; yalnız görünüm,
@@ -259,7 +260,7 @@ satırından erişilebilir kalır (bugün çubuk içinde, Disk.tsx 635-641); can
 
 | Kimlik | İş | Durum |
 |---|---|---|
-| UI-009 | Projeler, Araçlar, PATH, Graf, Plan, Ayarlar, Kasa, Zamanlanmış için ortak başlık/panel/form/boş durum stilleri. Denetim listesi: `.advanced-wall` + `.badge.advanced` (Gelişmiş mod duvarı — tehlike tonu korunur) · `.signal-badge` (F5 kanıt rozetleri) · kasa `TASI`/`SIL` duvarları | ⬜ bekliyor |
+| UI-009 | Projeler, Araçlar, PATH, Graf, Plan, Ayarlar, Kasa, Zamanlanmış için ortak başlık/panel/form/boş durum stilleri. Denetim listesi: `.advanced-wall` + `.badge.advanced` (Gelişmiş mod duvarı — tehlike tonu korunur) · `.signal-badge` (F5 kanıt rozetleri) · kasa `TASI`/`SIL` duvarları | ✅ 25.10.2026 |
 
 **Çıkış kapısı:** tüm ekranlar yeni belirteçlerle tutarlı; hiçbir ekran
 okunamaz/kırık değil; TR/EN taşması yok.
@@ -453,3 +454,31 @@ veri yok" durumunda görünür.
 **Sıradaki:** **Faz 3 — UI-009** (Projeler, Araçlar, PATH, Graf, Plan,
 Ayarlar, Kasa, Zamanlanmış için ortak başlık/panel/form/boş durum stilleri;
 `.advanced-wall`, `.badge.advanced`, `.signal-badge` denetimi).
+
+---
+
+## 12. Faz 3 sonucu — 25.10.2026 (kapandı)
+
+**Durum:** UI-009 ✅. Motor/API/onay kuralı değişmedi.
+
+| İş | Uygulama | Kanıt |
+|---|---|---|
+| Ortak boş durum bileşeni | Yeni `web/src/components/EmptyState.tsx`: ikon + başlık + gövde + (isteğe bağlı) **numaralı 3 adım** + eylem; üç boyut (`panel`/`wide`/`fill`) ve üç ton (`info`/`ok`/`warn`). Sağ panel, Genel Bakış, Disk, Plan, Araçlar, Kasa ve Projeler aynı bileşeni kullanır; `.rp-empty-*` / `.dash-empty` / `.disk-empty` kopyaları kaldırıldı. | `.empty-state` tek sınıf ailesi; Plan'da `empty-state h2` + 3 adım + CTA; Araçlar'da "Henüz envanter yok." + "Envanteri tara" |
+| Sağ panel tutarlılığı | `RightPanelPortal` artık `when` prop'u alır: seçim yokken **hiçbir şey basmaz**, panel kendi anlamlı boş durumunu gösterir. Projeler ve Araçlar "Bir proje/araç seçin" tekrarlarından kurtuldu. | Projeler: `panelEmpty="Kanıt burada görünür"`, `legacyDetail=false`; Araçlar aynı |
+| Plan boş ekranı | Düz kutu + altta başıboş "Diske dön" yerine: başlık + alt cümle, "Plan boş" + gövde, **3 adım** (satır seç → onayla → kasaya taşı), birincil CTA. | `title="Plan boş"`, adımlar TR/EN birebir; EN: "Plan is empty" / "Select rows on Disk" … |
+| Kasa boş ekranı | "Kasa boş." cümlesi yerine başlık + açıklama (öğeler bekler, geri yüklenebilir). | `vault.emptyTitle` / `vault.emptyBody` |
+| Korunan tonlar | `.advanced-wall` (GELİŞMİŞ MOD) tehlike tonu **değişmedi**; `.badge.advanced` ve `.signal-badge` yeni belirteçlerle aynı görünür. | Ayarlar: duvar metni + `rgb(255,107,107)` + tehlike kenarı |
+| Temizlik | Ölü anahtarlar silindi (`plan.empty`, `vault.empty`, `projects.detail.empty`, `disk.detail.empty`, `dash.measure.title/deletable`, `dash.cards`, `dash.noScan*`); `disk.defaults` çoğula çevrildi. | tip kontrolü + grep |
+
+**Kapılar:** typecheck (src + web) 0 · `npm test` **388/388** · `smoke`
+temiz · `build:web` CSS 52.74 kB (9.64 gzip) / JS 476.27 kB (134.95 gzip) ·
+1440/1024 · TR/EN · konsol hatası yok. Ekran görüntüleri:
+`scratch/ui-product-2026-10-25/faz3-*.png`.
+
+**Bilerek bırakılan:** tek satırlık panel içi boşluklar (Zamanlanmış kural/
+geçmiş listesi, PATH bulguları) kapsam içi metin olarak kaldı; tam-sayfa
+yükleme iskeleti (UI-013) hâlâ kullanıcı kararında.
+
+**Sıradaki:** **Faz 4 — UI-010..UI-012** (TR/EN metin denetimi + eksik anahtar
+kontrolü, tüm kapılar, 1440 + 1024 tarayıcı doğrulaması, `SESSION_LOG.md` +
+`state.json`, tek commit).

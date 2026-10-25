@@ -6,6 +6,7 @@ import type {
 import { formatBytes } from '../format.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { RISK_LABEL } from '../labels.ts';
+import { EmptyState } from './EmptyState.tsx';
 import { Icon } from './icons.tsx';
 
 /**
@@ -309,21 +310,22 @@ export function PlannedModule({
       )}
 
       {!plan ? (
-        <div className="rp-empty-state rp-empty-planned">
-          <span className="rp-empty-icon" aria-hidden="true">
-            <Icon name="plan" size={18} />
-          </span>
-          <h3>{t('rightPanel.planned.emptyTitle')}</h3>
-          <p>{t('rightPanel.planned.emptyBody')}</p>
-          <button
-            type="button"
-            className="ghost rp-empty-cta"
-            onClick={onOpenDisk}
-          >
-            <span>{t('rightPanel.empty.cta')}</span>
-            <Icon name="arrowRight" size={13} />
-          </button>
-        </div>
+        <EmptyState
+          icon="plan"
+          tone="ok"
+          title={t('rightPanel.planned.emptyTitle')}
+          body={t('rightPanel.planned.emptyBody')}
+          action={
+            <button
+              type="button"
+              className="ghost empty-cta"
+              onClick={onOpenDisk}
+            >
+              <span>{t('rightPanel.empty.cta')}</span>
+              <Icon name="arrowRight" size={13} />
+            </button>
+          }
+        />
       ) : (
         <>
           {/* Üst blok: aksiyon + özet/geçerlilik (sticky). */}

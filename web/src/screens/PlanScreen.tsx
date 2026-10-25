@@ -7,6 +7,7 @@ import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.t
 import { formatBytes } from '../format.ts';
 import { RISK_LABEL } from '../labels.ts';
 import { PlanValidity } from '../components/PlannedModule.tsx';
+import { EmptyState } from '../components/EmptyState.tsx';
 
 interface Props {
   plan: PlanResponse | null;
@@ -66,7 +67,10 @@ export function PlanScreen({
     return (
       <div className="plan">
         <header className="page-head">
-          <h1>{t('plan.title')}</h1>
+          <div>
+            <h1>{t('plan.title')}</h1>
+            <p className="dim">{t('plan.subtitle')}</p>
+          </div>
         </header>
         {expired && (
           <div className="banner danger" role="alert">
@@ -82,10 +86,18 @@ export function PlanScreen({
             )}
           </div>
         )}
-        <div className="state">{t('plan.empty')}</div>
-        <button type="button" className="ghost" onClick={onBack}>
-          {t('plan.back')}
-        </button>
+        <EmptyState
+          variant="wide"
+          icon="plan"
+          title={t('plan.emptyTitle')}
+          body={t('plan.emptyBody')}
+          steps={[t('plan.step.select'), t('plan.step.approve'), t('plan.step.vault')]}
+          action={
+            <button type="button" className="primary" onClick={onBack}>
+              {t('plan.back')}
+            </button>
+          }
+        />
       </div>
     );
   }

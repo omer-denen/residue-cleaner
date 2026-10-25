@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
+import { EmptyState } from './EmptyState.tsx';
 import { Icon } from './icons.tsx';
 
 /**
@@ -95,14 +96,17 @@ export function RightPanelProvider({
 /** Ekran kendi kanit/eylem icerigini sag paneldeki modul slotuna tasir. */
 export function RightPanelPortal({
   module = 'evidence',
+  when = true,
   children,
 }: {
   module?: RightPanelModuleId;
+  /** false ise HICBIR SEY basilmaz: panel kendi anlamli bos durumunu gosterir. */
+  when?: boolean;
   children: ReactNode;
 }) {
   const ctx = useContext(RightPanelContext);
   const slot = ctx?.slots[module] ?? null;
-  return slot ? createPortal(children, slot) : null;
+  return when && slot ? createPortal(children, slot) : null;
 }
 
 /**
@@ -170,48 +174,40 @@ function PanelEmpty({
   action?: { label: MessageKey; onClick: () => void };
 }) {
   const t = (key: MessageKey): string => translate(lang, key);
-  const steps: MessageKey[] =
-    kind === 'evidence'
-      ? [
-          'rightPanel.evidence.step1',
-          'rightPanel.evidence.step2',
-          'rightPanel.evidence.step3',
-        ]
-      : [];
+  const evidence = kind === 'evidence';
 
   return (
-    <div className={`rp-empty-state rp-empty-${kind}`}>
-      <span className="rp-empty-icon" aria-hidden="true">
-        <Icon name={kind === 'evidence' ? 'file' : 'tools'} size={18} />
-      </span>
-      <h3>
-        {t(
-          kind === 'evidence'
-            ? 'rightPanel.evidence.emptyTitle'
-            : 'rightPanel.action.emptyTitle',
-        )}
-      </h3>
-      <p>
-        {t(
-          kind === 'evidence'
-            ? 'rightPanel.evidence.emptyBody'
-            : 'rightPanel.action.emptyBody',
-        )}
-      </p>
-      {steps.length > 0 && (
-        <ol className="rp-empty-steps">
-          {steps.map((step) => (
-            <li key={step}>{t(step)}</li>
-          ))}
-        </ol>
+    <EmptyState
+      icon={evidence ? 'file' : 'tools'}
+      tone={evidence ? 'info' : 'warn'}
+      title={t(
+        evidence
+          ? 'rightPanel.evidence.emptyTitle'
+          : 'rightPanel.action.emptyTitle',
       )}
-      {action && (
-        <button type="button" className="ghost rp-empty-cta" onClick={action.onClick}>
-          <span>{t(action.label)}</span>
-          <Icon name="arrowRight" size={13} />
-        </button>
+      body={t(
+        evidence
+          ? 'rightPanel.evidence.emptyBody'
+          : 'rightPanel.action.emptyBody',
       )}
-    </div>
+      steps={
+        evidence
+          ? [
+              t('rightPanel.evidence.step1'),
+              t('rightPanel.evidence.step2'),
+              t('rightPanel.evidence.step3'),
+            ]
+          : undefined
+      }
+      action={
+        action && (
+          <button type="button" className="ghost empty-cta" onClick={action.onClick}>
+            <span>{t(action.label)}</span>
+            <Icon name="arrowRight" size={13} />
+          </button>
+        )
+      }
+    />
   );
 }
 

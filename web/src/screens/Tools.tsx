@@ -17,6 +17,7 @@ import { formatAge, formatBytes } from '../format.ts';
 import { CLI_SOURCE_LABEL, CLI_STATUS_LABEL, CONFIDENCE_LABEL } from '../labels.ts';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
 import { DependenciesSection } from '../components/DependenciesSection.tsx';
+import { EmptyState } from '../components/EmptyState.tsx';
 
 const STATUS_TABS: Array<{ id: CliStatusFilter; label: MessageKey }> = [
   { id: 'all', label: 'disk.kind.all' },
@@ -317,10 +318,17 @@ export function Tools({ lang, onChanged }: Props) {
         {!loaded && !error && <div className="state">{t('common.loading')}</div>}
 
         {loaded && !view && !job && (
-          <div className="state">
-            <strong>{t('tools.noInventory')}</strong>
-            <span className="dim">{t('tools.noInventoryHint')}</span>
-          </div>
+          <EmptyState
+            variant="wide"
+            icon="tools"
+            title={t('tools.noInventory')}
+            body={t('tools.noInventoryHint')}
+            action={
+              <button type="button" className="primary" onClick={() => void startScan()}>
+                {t('tools.scan')}
+              </button>
+            }
+          />
         )}
 
         {view && (
@@ -426,7 +434,7 @@ export function Tools({ lang, onChanged }: Props) {
             </div>
 
             {view.tools.length === 0 && (
-              <div className="state">{t('tools.empty')}</div>
+              <EmptyState variant="fill" icon="tools" title={t('tools.empty')} />
             )}
 
             {view.tools.length > 0 && (
@@ -632,7 +640,7 @@ export function Tools({ lang, onChanged }: Props) {
         )}
       </RightPanelPortal>
 
-      <RightPanelPortal module="evidence">
+      <RightPanelPortal module="evidence" when={detail !== null}>
           <aside className="tools-detail">
             <h2>{tu('tools.detail')}</h2>
             {!detail ? (

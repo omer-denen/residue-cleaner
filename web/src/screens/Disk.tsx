@@ -18,6 +18,7 @@ import { ScanStatusChip } from '../components/ScanStatus.tsx';
 import { DependenciesSection } from '../components/DependenciesSection.tsx';
 import { Icon } from '../components/icons.tsx';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
+import { EmptyState } from '../components/EmptyState.tsx';
 import {
   CATEGORY_LABEL,
   CONFIDENCE_LABEL,
@@ -748,26 +749,23 @@ export function Disk({
         )}
 
         {view && view.clusters.length === 0 && (
-          <div className="disk-empty">
-            <span className="rp-empty-icon" aria-hidden="true">
-              <Icon name={view.scan.at === null ? 'disk' : 'search'} size={18} />
-            </span>
-            <h2>
-              {view.scan.at === null ? t('disk.noScan.title') : t('disk.empty.title')}
-            </h2>
-            <p className="dim">
-              {view.scan.at === null ? t('disk.noScan.body') : t('disk.empty.body')}
-            </p>
-            {view.scan.at === null ? (
-              <button type="button" className="primary" onClick={() => void startScan()}>
-                {t('disk.scan')}
-              </button>
-            ) : (
-              <button type="button" className="ghost" onClick={clearListFilters}>
-                {t('disk.empty.clear')}
-              </button>
-            )}
-          </div>
+          <EmptyState
+            variant="fill"
+            icon={view.scan.at === null ? 'disk' : 'search'}
+            title={view.scan.at === null ? t('disk.noScan.title') : t('disk.empty.title')}
+            body={view.scan.at === null ? t('disk.noScan.body') : t('disk.empty.body')}
+            action={
+              view.scan.at === null ? (
+                <button type="button" className="primary" onClick={() => void startScan()}>
+                  {t('disk.scan')}
+                </button>
+              ) : (
+                <button type="button" className="ghost" onClick={clearListFilters}>
+                  {t('disk.empty.clear')}
+                </button>
+              )
+            }
+          />
         )}
 
         {view && view.clusters.length > 0 && (

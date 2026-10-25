@@ -10,6 +10,7 @@ import { api, ApiError } from '../api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { formatAge, formatBytes } from '../format.ts';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
+import { EmptyState } from '../components/EmptyState.tsx';
 
 const TABS: Array<{ id: ProjectTab; label: MessageKey }> = [
   { id: 'all', label: 'projects.tab.all' },
@@ -264,7 +265,7 @@ export function Projects({ lang }: Props) {
             </div>
 
             {list.projects.length === 0 && !discovering && (
-              <div className="state">{t('projects.empty')}</div>
+              <EmptyState icon="projects" title={t('projects.empty')} />
             )}
 
             {list.projects.length > 0 && (
@@ -304,11 +305,10 @@ export function Projects({ lang }: Props) {
         )}
       </section>
 
-      <RightPanelPortal>
+      <RightPanelPortal when={selected !== null}>
         <aside className="disk-detail projects-detail">
         <h2>{tu('projects.detail')}</h2>
 
-        {!selected && <p className="dim">{t('projects.detail.empty')}</p>}
         {selected && analyzing && <p className="dim">{t('projects.loading')}</p>}
         {analysisError && <div className="banner danger" role="alert">{analysisError}</div>}
 

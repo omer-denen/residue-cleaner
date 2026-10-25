@@ -16,6 +16,7 @@ import {
 } from '../format.ts';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
 import { ScanStamp } from '../components/ScanStamp.tsx';
+import { EmptyState } from '../components/EmptyState.tsx';
 import { Icon } from '../components/icons.tsx';
 import {
   CARD_TITLE_LABEL,
@@ -164,21 +165,18 @@ export function Dashboard({
       </header>
 
       {data.scan.state === 'never' ? (
-        <section className="dash-empty" aria-labelledby="dash-empty-title">
-          <span className="rp-empty-icon" aria-hidden="true">
-            <Icon name="disk" size={18} />
-          </span>
-          <h2 id="dash-empty-title">{t('dash.noScan.title')}</h2>
-          <p className="dim">{t('dash.noScan.body')}</p>
-          <ol className="rp-empty-steps">
-            <li>{t('dash.step.scan')}</li>
-            <li>{t('dash.step.review')}</li>
-            <li>{t('dash.step.approve')}</li>
-          </ol>
-          <button type="button" className="primary" onClick={onOpenDisk}>
-            {t('dash.openDisk')}
-          </button>
-        </section>
+        <EmptyState
+          variant="wide"
+          icon="disk"
+          title={t('dash.noScan.title')}
+          body={t('dash.noScan.body')}
+          steps={[t('dash.step.scan'), t('dash.step.review'), t('dash.step.approve')]}
+          action={
+            <button type="button" className="primary" onClick={onOpenDisk}>
+              {t('dash.openDisk')}
+            </button>
+          }
+        />
       ) : (
         <section className="dash-hero" aria-labelledby="dash-hero-title">
           <div className="dash-hero-main">

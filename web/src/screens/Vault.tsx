@@ -4,6 +4,7 @@ import { ApprovalRules } from '../../../src/core/approval.ts';
 import { api, ApiError } from '../api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { formatAge, formatBytes } from '../format.ts';
+import { EmptyState } from '../components/EmptyState.tsx';
 
 interface Props {
   lang: Lang;
@@ -121,7 +122,14 @@ export function Vault({ lang, onChanged }: Props) {
       {notice && <div className="banner success">{notice}</div>}
 
       {!data && !error && <div className="state">{t('common.loading')}</div>}
-      {data && data.entries.length === 0 && <div className="state">{t('vault.empty')}</div>}
+      {data && data.entries.length === 0 && (
+        <EmptyState
+          variant="wide"
+          icon="vault"
+          title={t('vault.emptyTitle')}
+          body={t('vault.emptyBody')}
+        />
+      )}
 
       {data && data.entries.length > 0 && (
         <>

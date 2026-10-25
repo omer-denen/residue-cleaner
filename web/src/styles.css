@@ -727,37 +727,54 @@ code,
   margin: 4px 0;
 }
 
-/* --- Bos panel = ogrenme yuzeyi (UI-003) --------------------------------
-   "Bir sey secin" yerine secimden sonra NE olacagi 3 adimda anlatilir.
-   Ayni desen "Plan Durumu" boslugunda da kullanilir. */
+/* --- Bos durum = ogrenme yuzeyi (UI-003 / Faz 3) -----------------------
+   Tek bilesen (`EmptyState`), uc boyut: panel (varsayilan), wide, fill.
+   "Bir sey secin" yerine ne olacagi 3 adimda anlatilir; eylem verilirse
+   tek dugme basilir. Renk tonu yalnizca ust cizgidedir. */
 
-.rp-empty-state {
+.empty-state {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 16px 14px;
   border: 1px solid var(--line);
-  border-top: 2px solid var(--line-strong);
+  border-top: 2px solid var(--info);
   border-radius: var(--r-md);
   background: var(--panel);
 }
 
-.rp-empty-state.rp-empty-action {
+.empty-state.tone-ok {
+  border-top-color: var(--accent);
+}
+
+.empty-state.tone-warn {
   border-top-color: var(--warn);
 }
 
-.rp-empty-state.rp-empty-evidence {
-  border-top-color: var(--info);
+.empty-state h2,
+.empty-state h3 {
+  margin: 0;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text);
 }
 
-.rp-empty-state.rp-empty-planned {
-  border-top-color: var(--accent);
-  margin-top: 6px;
-  padding: 20px 14px;
-  text-align: left;
+.empty-state h2 {
+  font-size: 16px;
 }
 
-.rp-empty-icon {
+.empty-state h3 {
+  font-size: 13.5px;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+.empty-icon {
   display: grid;
   place-items: center;
   width: 32px;
@@ -768,23 +785,8 @@ code,
   color: var(--dim);
 }
 
-.rp-empty-state h3 {
-  margin: 0;
-  font-size: 13.5px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  color: var(--text);
-}
-
-.rp-empty-state p {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--dim);
-}
-
-.rp-empty-steps {
-  counter-reset: rpstep;
+.empty-steps {
+  counter-reset: emptystep;
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -794,8 +796,8 @@ code,
   list-style: none;
 }
 
-.rp-empty-steps li {
-  counter-increment: rpstep;
+.empty-steps li {
+  counter-increment: emptystep;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -804,8 +806,8 @@ code,
   color: var(--dim);
 }
 
-.rp-empty-steps li::before {
-  content: counter(rpstep);
+.empty-steps li::before {
+  content: counter(emptystep);
   flex: none;
   display: grid;
   place-items: center;
@@ -820,25 +822,69 @@ code,
   font-size: 10px;
 }
 
-.rp-empty-cta {
+.empty-action {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   align-self: stretch;
   margin-top: 4px;
+}
+
+.empty-state.wide {
+  max-width: 720px;
+  padding: 26px 24px;
+  border-radius: var(--r-lg);
+}
+
+.empty-state.wide h2 {
+  font-size: 17px;
+}
+
+.empty-state.wide p {
+  max-width: 62ch;
+  font-size: 13px;
+}
+
+.empty-state.wide .empty-steps {
+  width: 100%;
+  max-width: 520px;
+}
+
+.empty-state.wide .primary {
+  margin-top: 2px;
+}
+
+.empty-state.fill {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 200px;
+  padding: 28px 24px;
+}
+
+.empty-state.fill p {
+  max-width: 62ch;
+  font-size: 13px;
+}
+
+/* Panel ici tam genislik eylem (CTA): metin solda, ok sagda. */
+.empty-cta {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 7px 11px;
   font-size: 12.5px;
   font-weight: 600;
   color: var(--text);
 }
 
-.rp-empty-cta:hover {
+.empty-cta:hover {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
   background: var(--panel-2);
 }
 
-.rp-empty-cta .icon {
+.empty-cta .icon {
   color: var(--accent);
 }
 
@@ -1466,42 +1512,6 @@ code,
 
 .verdict-dot-keep {
   background: var(--faint);
-}
-
-/* Tarama yok: kahraman yerine eylemli bos durum. */
-.dash-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  max-width: 720px;
-  padding: 26px 24px;
-  border: 1px solid var(--line);
-  border-top: 2px solid var(--info);
-  border-radius: var(--r-lg);
-  background: var(--panel);
-}
-
-.dash-empty h2 {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-}
-
-.dash-empty p {
-  margin: 0;
-  max-width: 62ch;
-  font-size: 13px;
-}
-
-.dash-empty .rp-empty-steps {
-  width: 100%;
-  max-width: 520px;
-}
-
-.dash-empty .primary {
-  margin-top: 4px;
 }
 
 /* Dikkat kartlari bolumu. */
@@ -2453,34 +2463,6 @@ body.resizing {
   to {
     background-position: -180% 0;
   }
-}
-
-.disk-empty {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 10px;
-  min-height: 200px;
-  padding: 28px 24px;
-  border: 1px solid var(--line);
-  border-top: 2px solid var(--info);
-  border-radius: var(--r-md);
-  background: var(--panel);
-}
-
-.disk-empty h2 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-}
-
-.disk-empty p {
-  margin: 0;
-  max-width: 62ch;
-  font-size: 13px;
 }
 
 .cluster-head,
