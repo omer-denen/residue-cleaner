@@ -31,6 +31,8 @@ interface Props {
   lang: Lang;
   /** Envanter degisti (tarama/execute): dashboard defterlerini tazele. */
   onChanged?: () => void;
+  /** Disk taramasi suruyor: envanter BASLATILAMAZ (tek agir is kurali). */
+  diskScanning?: boolean;
 }
 
 /**
@@ -41,7 +43,7 @@ interface Props {
  * asamalidir: plan -> yazili `SIL` -> paket yoneticisinin kendi komutu.
  * Arayuz kendi filtresini/toplamini HESAPLAMAZ.
  */
-export function Tools({ lang, onChanged }: Props) {
+export function Tools({ lang, onChanged, diskScanning = false }: Props) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
 
@@ -284,11 +286,18 @@ export function Tools({ lang, onChanged }: Props) {
             type="button"
             className="primary"
             onClick={() => void startScan()}
-            disabled={job !== null}
+            disabled={job !== null || diskScanning}
+            title={diskScanning ? t('tools.scan.blocked') : undefined}
           >
             {job ? t('tools.scanning') : view ? t('tools.rescan') : t('tools.scan')}
           </button>
         </div>
+
+        {diskScanning && !job && (
+          <p className="dim tools-blocked-note" role="status">
+            {t('tools.scan.blocked')}
+          </p>
+        )}
 
         {job && (
           <div className="scan-live">
@@ -324,7 +333,13 @@ export function Tools({ lang, onChanged }: Props) {
             title={t('tools.noInventory')}
             body={t('tools.noInventoryHint')}
             action={
-              <button type="button" className="primary" onClick={() => void startScan()}>
+              <button
+                type="button"
+                className="primary"
+                disabled={diskScanning}
+                title={diskScanning ? t('tools.scan.blocked') : undefined}
+                onClick={() => void startScan()}
+              >
                 {t('tools.scan')}
               </button>
             }

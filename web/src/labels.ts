@@ -72,6 +72,7 @@ export const SCAN_REASON_LABEL: Record<ScanStatusReason, MessageKey> = {
 
 /** Detay raporundaki satir etiketleri. */
 export const SCAN_ROW_LABEL: Record<ScanStatusRowId, MessageKey> = {
+  progress: 'scan.row.progress',
   lastScan: 'scan.row.lastScan',
   age: 'scan.row.age',
   nextRecommended: 'scan.row.nextRecommended',

@@ -108,7 +108,8 @@ test('POST /api/plan ad verilmezse bos string döndürür', async () => {
   assert.equal(created.name, '');
   planId = created.planId!;
   expiresAt = created.expiresAt!;
-  assert.ok(expiresAt > 0);
+  // Taslak: sure yok (uygulamada baslar).
+  assert.equal(expiresAt, 0);
 });
 
 test('PATCH ad trim eder; kimlik ve süre KORUNUR', async () => {
@@ -134,9 +135,8 @@ test('POST /api/plan/add sonrasi ad korunur', async () => {
   );
   assert.ok(added);
   assert.equal(added.planId, planId);
-  // W2-g: ekleme icerigi degistirdigi icin TTL yenilenir (>= onceki
-  // deger); "expiresAt degismez" eski kosulu yeni kuralla celisir.
-  assert.ok(added.expiresAt! >= expiresAt);
+  // Taslak; ekleme icerigi degistirdigi icin suresiz kalir.
+  assert.equal(added.expiresAt, 0);
   assert.equal(added.name, 'Haftalik temizlik');
 });
 

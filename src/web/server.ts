@@ -33,6 +33,7 @@ import { currentVersion } from '../util/version.ts';
 import { primaryPath, scanItemId } from '../core/scan-items.ts';
 import { longPath } from '../util/longpath.ts';
 import { ScanService } from '../services/scan-service.ts';
+import { ActivityGate } from '../services/activity.ts';
 import { verifyScanTargets } from '../services/scan-verify-service.ts';
 import { DeleteService } from '../services/delete-service.ts';
 import { CliInventoryService } from '../services/cli-inventory-service.ts';
@@ -174,9 +175,12 @@ export function createApiServer(opts: WebOptions = {}): { server: Server; token:
     }
   };
 
-  const scan = new ScanService(emit, opts.persistScan !== false);
+  // Tek agir is kapisi: disk taramasi ile arac envanteri ayni anda calismaz.
+  const activity = new ActivityGate();
+
+  const scan = new ScanService(emit, opts.persistScan !== false, activity);
   const remove = new DeleteService(emit);
-  const inventory = new CliInventoryService(emit);
+  const inventory = new CliInventoryService(emit, activity);
   const removal = new CliRemovalService(inventory);
   const repair = new CliRepairService(inventory);
   const quarantine = new CliQuarantineService(inventory);

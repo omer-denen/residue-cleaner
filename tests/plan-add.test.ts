@@ -44,6 +44,7 @@ let newPlanId = '';
 interface PlanBody {
   planId?: string;
   expiresAt?: number;
+  armed?: boolean;
   requiresPhrase?: boolean;
   requiresHighAck?: boolean;
   plan?: { clusters?: Array<{ key?: string }>; targets?: unknown[]; totalBytes?: number };
@@ -115,7 +116,9 @@ test('ekleme plan kimligini korur; TTL yenilenir; toplamlar yeniden hesaplanir',
   assert.equal(created.plan?.totalBytes, 900);
   planId = created.planId!;
   expiresAt = created.expiresAt!;
-  assert.ok(expiresAt > 0);
+  // Taslak (secim) SURESIZDIR: geri sayim "Planı uygula" ile baslar.
+  assert.equal(expiresAt, 0);
+  assert.equal(created.armed, false);
   // Yalniz guvenli kume: yazili onay da acik isaretleme de yok.
   assert.equal(created.requiresPhrase, false);
   assert.equal(created.requiresHighAck, false);
@@ -126,11 +129,11 @@ test('ekleme plan kimligini korur; TTL yenilenir; toplamlar yeniden hesaplanir',
     200,
   );
   assert.ok(added);
-  // Plan kimligi KORUNUR; TTL YENILENIR (W2-g: icerik degisir ->
-  // armed:false + expiresAt = now + 10 dk; sure baskisi uygulamaya
-  // tasindi, secim sirasinda planin suresi dolmaz).
+  // Plan kimligi KORUNUR; icerik degisti -> yine TASLAK (suresiz).
+  // Secim sirasinda planin suresi dolmaz; sure uygulamada baslar.
   assert.equal(added.planId, planId);
-  assert.ok(added.expiresAt! >= expiresAt);
+  assert.equal(added.armed, false);
+  assert.equal(added.expiresAt, 0);
   assert.equal(added.plan?.totalBytes, 1400);
   assert.deepEqual(added.panel?.keys, ['panel-a', 'panel-b']);
   const cloned = await getPlan();
@@ -142,8 +145,8 @@ test('ekleme idempotenttir: ayni anahtar planda kalmaya devam eder', async () =>
   const again = await post('/api/plan/add', { planId, keys: ['panel-b'] }, 200);
   assert.ok(again);
   assert.equal(again.planId, planId);
-  // Idempotent ekleme planda kalir; TTL suresi asagiyi cekmez (>=).
-  assert.ok(again.expiresAt! >= expiresAt);
+  // Idempotent ekleme planda kalir; taslak suresizdir.
+  assert.equal(again.expiresAt, 0);
   assert.equal(again.plan?.totalBytes, 1400);
   assert.deepEqual(again.panel?.keys, ['panel-a', 'panel-b']);
 });

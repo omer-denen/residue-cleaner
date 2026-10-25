@@ -156,7 +156,10 @@ export function PlanScreen({
     }
     try {
       setError(null);
-      onReplace(await api.plan(remaining, plan.advanced));
+      // Icerik degisti: once yeni taslak kurulur, sonra YENIDEN arming edilir
+      // (onay ekranindan cikmadan sure yeniden baslar).
+      const created = await api.plan(remaining, plan.advanced);
+      onReplace(await api.applyPlan(created.planId));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     }

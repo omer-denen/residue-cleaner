@@ -1,4 +1,5 @@
 import type {
+  ScanProgressView,
   ScanStatusFacts,
   ScanStatusKind,
   ScanStatusReason,
@@ -94,9 +95,18 @@ export class ScanStatusView {
    * Detay raporunun satirlari. Deger turu de motor secer; arayuz yalnizca
    * bicimlendirir.
    */
-  private rows(): ScanStatusRow[] {
+  private rows(progress: ScanProgressView | null): ScanStatusRow[] {
     const f = this.facts;
     const out: ScanStatusRow[] = [];
+
+    // Suruyorsa ilk satir ilerleme: "42% · 37/89".
+    if (progress) {
+      out.push({
+        id: 'progress',
+        amount: progress.percent ?? 0,
+        unit: 'percent',
+      });
+    }
 
     if (f.lastScanAt !== null) {
       out.push({ id: 'lastScan', amount: f.lastScanAt, unit: 'timestamp' });
@@ -128,15 +138,32 @@ export class ScanStatusView {
     return kind === 'current' || kind === 'scanning' ? 'none' : 'scan';
   }
 
+  /**
+   * Ilerleme: yuzde MOTORDA hesaplanir. `total` kesif bitmeden 0 olabilir;
+   * o durumda `percent` null kalir ("hazirlaniyor") ve arayuz cubugu
+   * belirsiz (indeterminate) cizer.
+   */
+  private progress(): ScanProgressView | null {
+    const raw = this.facts.progress;
+    if (!raw || !this.facts.scanning) return null;
+    const percent =
+      raw.total > 0
+        ? Math.max(0, Math.min(100, Math.round((raw.done / raw.total) * 100)))
+        : null;
+    return { ...raw, percent };
+  }
+
   view(): ScanStatusViewResponse {
     const kind = this.kind();
+    const progress = this.progress();
     return {
       kind,
       tone: this.tone(kind),
       reasons: this.reasons(kind),
-      rows: this.rows(),
+      rows: this.rows(progress),
       action: this.action(kind),
       showAge: this.facts.ageMs !== null,
+      progress,
     };
   }
 }

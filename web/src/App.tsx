@@ -190,10 +190,9 @@ export function App() {
   };
 
   /**
-   * Plani BOSALT ("Tümünü boşalt" + onaylı "Yeni plan"): mevcut plan
-   * anahtarlarinin TAMAMI tek istekte cikarilir; sonuc planda oge
-   * kalmadiginda null'dur (plan bos durum). Onay diyalogu sag panelde
-   * yapilir; buraya onaylanmis istek gelir.
+   * Plani BOSALT ("Seçimi temizle"): mevcut plan anahtarlarinin TAMAMI tek
+   * istekte cikarilir; sonuc planda oge kalmadiginda null'dur (plan bos
+   * durum). Bu bir KAYDETME degildir; secim temizlenir.
    */
   const clearPlanned = async (): Promise<void> => {
     if (!planned || planBusy) return;
@@ -207,6 +206,35 @@ export function App() {
       setPlanExpired(false);
       setPlanned(next);
       setPlan(next);
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
+        stalePlan();
+      }
+      setPlanError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setPlanBusy(false);
+    }
+  };
+
+  /**
+   * "Planı uygula": taslaksa ONCE sunucuda arming eder (`POST /api/plan/apply`)
+   * — 10 dk sure o anda baslar — sonra Plan ekranina gecirir. Zaten armed
+   * plan varsa yalnizca ekrani degistirir (yeniden kurulum yok).
+   */
+  const armPlan = async (): Promise<void> => {
+    if (!planned || planBusy) return;
+    if (planned.armed) {
+      setScreen('plan');
+      return;
+    }
+    setPlanBusy(true);
+    setPlanError(null);
+    try {
+      const next = await api.applyPlan(planned.planId);
+      setPlanExpired(false);
+      setPlan(next);
+      setPlanned(next);
+      setScreen('plan');
     } catch (err) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
         stalePlan();
@@ -286,25 +314,19 @@ export function App() {
       }
       if (currentStatus?.scanning) return;
 
-      // 4. Tarama
+      // 4. Tarama. Ilerleme ve bitis YOKLAMASI artik tek yerden yurur
+      // (asagidaki `status.scanning` efekti); burada yalnizca baslatilir.
       if (mode === 'always') {
         try {
           await api.startScan({});
         } catch {
           // 409 sessizce yut
         }
-        const deadline = Date.now() + 120000;
-        while (Date.now() < deadline) {
-          try {
-            const s = await api.scanStatus();
-            setStatus(s);
-            if (!s.scanning) break;
-          } catch {
-            break;
-          }
-          await new Promise((r) => setTimeout(r, 2000));
+        try {
+          setStatus(await api.scanStatus());
+        } catch {
+          /* durum bir sonraki yoklamada gelir */
         }
-        await load();
       } else if (mode === 'daily') {
         try {
           const res = await api.verifyScan();
@@ -319,6 +341,39 @@ export function App() {
       // manual: hicbir istek yok
     })();
   }, [load]);
+
+  /**
+   * TARAMA SURERKEN canli durum: ust cubuk yuzdesi, Disk ilerlemesi ve
+   * ekran sayilari taze kalsin. Tarama bitince TEK kez `load()` calisir
+   * (sayilar/liste yenilenir). Yoklama araligi 1.2 s; SSE'si olan Disk
+   * ekrani arada daha ince taneli gunceller.
+   */
+  const wasScanningRef = useRef(false);
+  useEffect(() => {
+    if (status?.scanning !== true) {
+      if (wasScanningRef.current) {
+        wasScanningRef.current = false;
+        void load();
+      }
+      return;
+    }
+    wasScanningRef.current = true;
+    let alive = true;
+    const timer = window.setInterval(() => {
+      void (async () => {
+        try {
+          const next = await api.scanStatus();
+          if (alive) setStatus(next);
+        } catch {
+          /* gecici hata: sonraki yoklama dener */
+        }
+      })();
+    }, 1200);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [status?.scanning, load]);
 
   useEffect(() => {
     localStorage.setItem('residue.lang', lang);
@@ -341,7 +396,8 @@ export function App() {
   // (sag panel + Plan ekranı role=alert); diskte hicbir sey degismez.
   // Sayaç yalnizca Date.now() farki; sure doldugunda tek seferlik temizlik.
   useEffect(() => {
-    if (!planned) return;
+    // Taslak (armed=false / expiresAt=0) secimin suresi YOKTUR; sayac yok.
+    if (!planned || !planned.armed || planned.expiresAt <= 0) return;
     const remaining = planned.expiresAt - Date.now();
     if (remaining <= 0) {
       stalePlan();
@@ -588,7 +644,7 @@ export function App() {
           expired={planExpired}
           onDismissExpired={() => setPlanExpired(false)}
           onClearAll={() => void clearPlanned()}
-          onOpenPlan={() => setScreen('plan')}
+          onApply={() => void armPlan()}
           onOpenTools={() => setScreen('tools')}
           onOpenDisk={() => setScreen('disk')}
         />
@@ -646,7 +702,7 @@ export function App() {
               onOpen={() => setScanReport(true)}
             />
           )}
-          {planned && (
+          {planned?.armed && planned.expiresAt > 0 && (
             <button
               type="button"
               className="pending-plan"
@@ -809,7 +865,7 @@ export function App() {
               onPlanStale={() => {
                 stalePlan();
               }}
-              onOpenPlan={() => setScreen('plan')}
+              onApplyPlan={() => void armPlan()}
             />
           )}
 
@@ -840,12 +896,18 @@ export function App() {
           )}
 
           {!loading && !error && screen === 'tools' && (
-            <Tools lang={lang} onChanged={() => void load()} />
+            <Tools
+              lang={lang}
+              onChanged={() => void load()}
+              diskScanning={status?.scanning === true}
+            />
           )}
 
           {!loading && !error && screen === 'env' && <Env lang={lang} />}
 
-          {!loading && !error && screen === 'graph' && <Graph lang={lang} />}
+          {!loading && !error && screen === 'graph' && (
+            <Graph lang={lang} diskScanning={status?.scanning === true} />
+          )}
 
           {!loading && !error && screen === 'schedules' && (
             <Schedules lang={lang} />

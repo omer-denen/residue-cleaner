@@ -30,17 +30,41 @@ export function ScanStatusChip({ view, lang, onOpen, className }: ChipProps) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
   const text = t(SCAN_STATUS_LABEL[view.kind]);
+  // Ilerleme yalnizca tarama surerken basilir; yuzde MOTORDAN gelir.
+  const progress = view.kind === 'scanning' ? view.progress : null;
+  const pct = progress?.percent ?? null;
 
   return (
     <button
       type="button"
-      className={`scan-chip scan-${view.kind}${className ? ` ${className}` : ''}`}
+      className={`scan-chip scan-${view.kind}${progress ? ' has-progress' : ''}${
+        className ? ` ${className}` : ''
+      }`}
       onClick={onOpen}
       aria-haspopup="dialog"
-      aria-label={`${t('a11y.scanStatus')}: ${text}`}
-      title={text}
+      aria-label={`${t('a11y.scanStatus')}: ${text}${
+        pct !== null ? ` · ${pct}%` : ''
+      }`}
+      title={
+        progress?.current
+          ? `${text} · ${pct ?? 0}% · ${progress.current}`
+          : text
+      }
     >
       <span className="scan-chip-label">{text}</span>
+      {progress && (
+        <span className="scan-chip-pct mono">
+          {pct !== null ? `${pct}%` : t('disk.scan.preparing')}
+        </span>
+      )}
+      {progress && (
+        <span
+          className={`scan-chip-bar${pct === null ? ' is-indeterminate' : ''}`}
+          aria-hidden="true"
+        >
+          <span style={pct !== null ? { width: `${pct}%` } : undefined} />
+        </span>
+      )}
     </button>
   );
 }

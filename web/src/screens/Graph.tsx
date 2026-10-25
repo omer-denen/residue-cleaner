@@ -22,6 +22,8 @@ import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
 
 interface Props {
   lang: Lang;
+  /** Disk taramasi suruyor: envanter baslatilmaz (tek agir is kurali). */
+  diskScanning?: boolean;
 }
 
 type ScreenProfile = 'protect' | 'experiment';
@@ -71,7 +73,7 @@ const ROW_SECTIONS: Record<ScreenProfile, Array<'relations' | 'impact'>> = {
  * Dugum/kenar, gruplar, ozet ayrintisi, kok nedenler ve what-if sonucu
  * MOTORDAN gelir; arayuz yalnizca gosterir. Grafik islem YAPMAZ.
  */
-export function Graph({ lang }: Props) {
+export function Graph({ lang, diskScanning = false }: Props) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
 
@@ -84,6 +86,8 @@ export function Graph({ lang }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<'check' | 'inventory' | 'graph'>('check');
+  /** Disk taramasi suruyor: envanter baslatilmaz (tek agir is kurali). */
+  const [blockedScan, setBlockedScan] = useState(false);
   const [toolCount, setToolCount] = useState(0);
 
   const [profile, setProfile] = useState<ScreenProfile>(() =>
@@ -161,6 +165,7 @@ export function Graph({ lang }: Props) {
     setDetailCard(null);
     setWhatIf(null);
     setWhatIfError(null);
+    setBlockedScan(false);
     try {
       setPhase('check');
       const cached = await api.cliView({
@@ -170,6 +175,11 @@ export function Graph({ lang }: Props) {
         sort: 'status',
       });
       if (!cached) {
+        // Tek agir is kurali: disk taramasi surerken envanter baslatma.
+        if (diskScanning) {
+          setBlockedScan(true);
+          return;
+        }
         setPhase('inventory');
         setToolCount(0);
         await inventory();
@@ -183,7 +193,7 @@ export function Graph({ lang }: Props) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [diskScanning]);
 
   useEffect(() => {
     void load();
@@ -472,6 +482,12 @@ export function Graph({ lang }: Props) {
               <span />
             </div>
             <p className="dim">{t('graph.progress.hint')}</p>
+          </div>
+        )}
+
+        {!loading && blockedScan && (
+          <div className="banner" role="status">
+            {t('graph.progress.blockedScan')}
           </div>
         )}
 

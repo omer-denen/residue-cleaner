@@ -101,6 +101,8 @@ export function formatScanRow(row: ScanStatusRow, lang: Lang): string {
       return formatCount(row.amount, lang);
     case 'ratio':
       return formatRatio(row.amount, lang);
+    case 'percent':
+      return `${Math.round(row.amount)}%`;
     default:
       return String(row.amount);
   }

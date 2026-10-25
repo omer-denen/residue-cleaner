@@ -19,7 +19,8 @@ import { Icon } from './icons.tsx';
  *  - (W2-d) ad degistirme kaldirildi: plan 10 dk yasar; adi saklamak
  *    anlamsiz. `PATCH /api/plan/:id` sunucuda ileride icin kalir.
  * Onay/kelime dogrulama burada YOKTUR; Plan ekraninda kalir. "Planı uygula"
- * yalnizca Plan ekranina yonlendirir; `POST /api/execute` cagrilmaz.
+ * taslagi ONCE sunucuda `POST /api/plan/apply` ile arming eder (10 dk sure
+ * o anda baslar), sonra Plan ekranina gecirir; `execute` cagrilmaz.
  */
 
 /** TTL sayaci: yalnizca GOSTERIM (gecerlilik karari sunucudadir). */
@@ -63,6 +64,16 @@ export function PlanValidity({
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
   const now = useNow(expiresAt);
+  // Taslak secim: sure YOK; geri sayim yerine tek satir aciklama.
+  if (expiresAt <= 0) {
+    return (
+      <span
+        className={`rp-validity rp-validity-draft${compact ? ' rp-validity-compact' : ''}`}
+      >
+        {t('rightPanel.planned.validityDraft')}
+      </span>
+    );
+  }
   const left = formatTtl(expiresAt, now);
   const until = new Date(expiresAt).toLocaleTimeString(
     lang === 'tr' ? 'tr-TR' : 'en-US',
@@ -150,98 +161,6 @@ function PlannedGroup({
   );
 }
 
-/**
- * "Yeni plan" onay diyalogu: role=dialog + aria-modal, odak tuzagi,
- * Esc = Vazgeç, kapaninca odak tetikleyiciye doner.
- */
-function NewPlanDialog({
-  plan,
-  lang,
-  onClose,
-  onConfirm,
-}: {
-  plan: PlanResponse;
-  lang: Lang;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  const t = (key: MessageKey, vars?: Record<string, string | number>) =>
-    translate(lang, key, vars);
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-  const cancelRef = useRef<HTMLButtonElement | null>(null);
-  const confirmRef = useRef<HTMLButtonElement | null>(null);
-
-  // Acilista odak Vazgeç'e; kapaninca App/ust bilesen tetikleyiciye geri birakir.
-  useEffect(() => {
-    cancelRef.current?.focus();
-  }, []);
-
-  const onKey = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      onClose();
-      return;
-    }
-    if (e.key !== 'Tab') return;
-    const buttons = [cancelRef.current, confirmRef.current].filter(
-      (el): el is HTMLButtonElement => el !== null,
-    );
-    if (buttons.length === 0) return;
-    const first = buttons[0]!;
-    const last = buttons[buttons.length - 1]!;
-    const active = document.activeElement;
-    if (e.shiftKey && (active === first || active === dialogRef.current)) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && active === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
-
-  return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <div
-        className="scan-dialog rp-plan-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="rp-newplan-title"
-        ref={dialogRef}
-        onKeyDown={onKey}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="scan-dialog-head">
-          <h2 id="rp-newplan-title">{t('rightPanel.planned.confirmTitle')}</h2>
-        </div>
-        <p className="rp-plan-dialog-body">
-          {t('rightPanel.planned.confirmBody', {
-            count: plan.panel.clusterCount,
-            bytes: formatBytes(plan.panel.totalBytes),
-          })}
-        </p>
-        <div className="scan-dialog-actions">
-          <button
-            type="button"
-            className="ghost"
-            ref={cancelRef}
-            onClick={onClose}
-          >
-            {t('rightPanel.planned.cancel')}
-          </button>
-          <button
-            type="button"
-            className="primary"
-            ref={confirmRef}
-            onClick={onConfirm}
-          >
-            {t('rightPanel.planned.confirmAction')}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function PlannedModule({
   plan,
   lang,
@@ -250,7 +169,7 @@ export function PlannedModule({
   expired,
   onDismissExpired,
   onClearAll,
-  onOpenPlan,
+  onApply,
   onOpenTools,
   onOpenDisk,
 }: {
@@ -261,9 +180,10 @@ export function PlannedModule({
   /** Plan suresi doldu (ya da 410): sessiz kaybolma YOK; uyarida kapanabilir. */
   expired: boolean;
   onDismissExpired: () => void;
-  /** "Tümünü boşalt" ve onayli "Yeni plan" ayni isi yapar. */
+  /** "Tümünü boşalt": secimi/plani temizler (saving degildir). */
   onClearAll: () => void;
-  onOpenPlan: () => void;
+  /** "Planı uygula": taslaksa sureyi baslatir (armed), sonra Plan ekrani. */
+  onApply: () => void;
   onOpenTools: () => void;
   onOpenDisk: () => void;
 }) {
@@ -271,21 +191,7 @@ export function PlannedModule({
     translate(lang, key, vars);
   const tu = (key: MessageKey) => translateUpper(lang, key);
 
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const newPlanRef = useRef<HTMLButtonElement | null>(null);
-
-  // Plan kimligi degistince onay diyalogunu kapat.
-  useEffect(() => {
-    setConfirmOpen(false);
-  }, [plan?.planId]);
-
   const hasPlan = plan !== null && plan.panel.keys.length > 0;
-
-  const askNewPlan = (): void => {
-    if (!hasPlan || busy) return;
-    // Planda öge varken Once onay; (plan zaten bos ise dugme pasif).
-    setConfirmOpen(true);
-  };
 
   return (
     <section className="rp-planned" aria-label={tu('rightPanel.planned')}>
@@ -334,20 +240,11 @@ export function PlannedModule({
               <button
                 type="button"
                 className="primary"
-                disabled={!hasPlan}
+                disabled={!hasPlan || busy}
                 title={hasPlan ? undefined : t('rightPanel.planned.applyHint')}
-                onClick={onOpenPlan}
+                onClick={onApply}
               >
                 {t('rightPanel.planned.apply')}
-              </button>
-              <button
-                type="button"
-                className="ghost"
-                disabled={!hasPlan || busy}
-                ref={newPlanRef}
-                onClick={askNewPlan}
-              >
-                {t('rightPanel.planned.new')}
               </button>
               <button
                 type="button"
@@ -405,22 +302,6 @@ export function PlannedModule({
           </button>
         </div>
       </section>
-
-      {confirmOpen && plan && (
-        <NewPlanDialog
-          plan={plan}
-          lang={lang}
-          onClose={() => {
-            setConfirmOpen(false);
-            newPlanRef.current?.focus();
-          }}
-          onConfirm={() => {
-            setConfirmOpen(false);
-            newPlanRef.current?.focus();
-            onClearAll();
-          }}
-        />
-      )}
     </section>
   );
 }

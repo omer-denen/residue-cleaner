@@ -130,13 +130,12 @@ test('POST /api/plan/apply: guncel taramadan yeniden kurulur (armed, yeni kimlik
   assert.equal(live?.armed, true);
 });
 
-test('apply sonrasi ekleme icerigi degistirdigi icin armed: false olur ve TTL yenilenir', async () => {
-  const prevExpires = (await getPlan())?.expiresAt!;
+test('apply sonrasi ekleme icerigi degistirdigi icin yeniden TASLAK olur (suresiz)', async () => {
   const added = await post('/api/plan/add', { planId, keys: ['apply-b'] }, 200);
   assert.ok(added);
-  // icerik degisti -> yeniden uygulanmali (armed: false) + TTL yenilenir.
+  // icerik degisti -> yeniden uygulanmali (armed: false) ve sure KALKAR.
   assert.equal(added.armed, false);
-  assert.ok(added.expiresAt! >= prevExpires);
+  assert.equal(added.expiresAt, 0);
   assert.deepEqual(added.panel?.keys, ['apply-a', 'apply-b']);
 });
 

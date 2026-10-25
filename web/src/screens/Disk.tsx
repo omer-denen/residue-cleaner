@@ -61,8 +61,8 @@ interface Props {
   onPlan: (plan: PlanResponse | null) => void;
   /** Plan 404/410 dondugunde App plan durumunu temizler + uyarı gostermek. */
   onPlanStale: () => void;
-  /** "Planı uygula": yalnizca Plan ekranina gecirir; execute cagrilmaz. */
-  onOpenPlan: () => void;
+  /** "Planı uygula": taslagi arming eder (sure baslar) ve Plan ekranina gecer. */
+  onApplyPlan: () => void;
   /** Açılış doğrulama bandı (daily mod): kaybolan/değişen hedefler. */
   verifyNote?: ScanVerifyResponse | null;
   onDismissVerify?: () => void;
@@ -89,7 +89,7 @@ export function Disk({
   plannedKeys,
   onPlan,
   onPlanStale,
-  onOpenPlan,
+  onApplyPlan,
   verifyNote,
   onDismissVerify,
 }: Props) {
@@ -134,6 +134,7 @@ export function Disk({
     bytes: number;
     found: number;
     paused: boolean;
+    current: string | null;
   } | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const closeStream = useRef<(() => void) | null>(null);
@@ -227,10 +228,21 @@ export function Disk({
         minAgeDays,
       });
       foundIds.current = new Set();
-      setScan({ id: scanId, done: 0, total: 0, bytes: 0, found: 0, paused: false });
+      setScan({
+        id: scanId,
+        done: 0,
+        total: 0,
+        bytes: 0,
+        found: 0,
+        paused: false,
+        current: null,
+      });
       closeStream.current?.();
       closeStream.current = openEvents<ScanStreamEvent>(`/api/scan/${scanId}/events`, (event) => {
         switch (event.type) {
+          case 'target-start':
+            setScan((s) => (s ? { ...s, current: event.path } : s));
+            break;
           case 'progress':
             setScan((s) =>
               s ? { ...s, done: event.done, total: event.total, bytes: event.bytes } : s,
@@ -269,9 +281,9 @@ export function Disk({
   };
 
   const scanAction = async (action: 'cancel' | 'pause' | 'resume'): Promise<void> => {
-    if (!scan) return;
+    if (!scanId) return;
     try {
-      await api.scanAction(scan.id, action);
+      await api.scanAction(scanId, action);
     } catch (err) {
       setScanError(err instanceof ApiError ? err.message : String(err));
     }
@@ -401,6 +413,22 @@ export function Disk({
   // Motor secimi: plan bos iken 0; dolu iken plan kapsami.
   const selectionCount = view?.selection.clusterCount ?? 0;
 
+  /**
+   * TARAMA DURUMU (tek kaynak):
+   *  - yerel SSE varsa (bu ekrandan baslatildi) ince taneli ilerleme,
+   *  - yoksa App'in yokladigi motor durumu (`status.view.progress`).
+   * Tarama surerken ESKI liste gosterilmez ve secim kapalidir.
+   */
+  const engineProgress = status?.view.progress ?? null;
+  const scanning = scan !== null || status?.scanning === true;
+  const live = scan ?? engineProgress;
+  const scanId = scan?.id ?? engineProgress?.scanId ?? null;
+  const percent = scan
+    ? scan.total > 0
+      ? Math.min(100, Math.round((scan.done / scan.total) * 100))
+      : null
+    : (engineProgress?.percent ?? null);
+
   /** Liste filtrelerini sifirla (tarama secenekleri KORUNUR). */
   const clearListFilters = (): void => {
     setText('');
@@ -427,8 +455,17 @@ export function Disk({
                 onOpen={onOpenScanStatus}
               />
             )}
-            <button type="button" className="primary" onClick={() => void startScan()}>
-              {status?.state === 'never' ? t('disk.scan') : t('disk.rescan')}
+            <button
+              type="button"
+              className="primary"
+              disabled={scanning}
+              onClick={() => void startScan()}
+            >
+              {scanning
+                ? t('disk.scanning')
+                : status?.state === 'never'
+                  ? t('disk.scan')
+                  : t('disk.rescan')}
             </button>
           </div>
         </header>
@@ -567,42 +604,66 @@ export function Disk({
           </div>
         </div>
 
-        {scan && (
-          <div className="scan-live">
-            <div className="scan-live-head">
-              <strong>{t('disk.scanning')}</strong>
-              <span className="dim mono">
-                {scan.done} / {scan.total || '—'} · {scan.found} {t('disk.found')} ·{' '}
-                {formatBytes(scan.bytes)}
-              </span>
+        {scanning && (
+          <section className="scan-stage" aria-labelledby="scan-stage-title">
+            <div className="scan-stage-head">
+              <div>
+                <h2 id="scan-stage-title">{t('disk.scan.running')}</h2>
+                <p className="dim">{t('disk.scan.staleNote')}</p>
+              </div>
+              <strong className="mono scan-stage-pct">
+                {percent !== null ? `${percent}%` : t('disk.scan.preparing')}
+              </strong>
             </div>
+
             <div
-              className="progress"
+              className={`progress${percent === null ? ' indeterminate' : ''}`}
               role="progressbar"
               aria-label={t('a11y.scanProgress')}
               aria-valuemin={0}
-              aria-valuemax={scan.total || 0}
-              aria-valuenow={scan.done}
+              aria-valuemax={100}
+              aria-valuenow={percent ?? undefined}
             >
-              <span
-                style={{
-                  width: `${scan.total > 0 ? Math.min(100, (scan.done / scan.total) * 100) : 0}%`,
-                }}
-              />
+              <span style={percent !== null ? { width: `${percent}%` } : undefined} />
             </div>
+
+            <div className="scan-stage-stats mono">
+              <span>
+                {live?.done ?? 0} / {live?.total || '—'} {t('disk.scan.targets')}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>
+                {live?.found ?? 0} {t('disk.found')}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>{formatBytes(live?.bytes ?? 0)}</span>
+            </div>
+
+            {live?.current && (
+              <p className="scan-stage-current mono" title={live.current}>
+                <span className="dim">{t('disk.scan.current')}:</span> {live.current}
+              </p>
+            )}
+
             <div className="scan-actions">
               <button
                 type="button"
                 className="ghost"
-                onClick={() => void scanAction(scan.paused ? 'resume' : 'pause')}
+                disabled={!scanId}
+                onClick={() => void scanAction(live?.paused ? 'resume' : 'pause')}
               >
-                {scan.paused ? t('disk.resume') : t('disk.pause')}
+                {live?.paused ? t('disk.resume') : t('disk.pause')}
               </button>
-              <button type="button" className="ghost" onClick={() => void scanAction('cancel')}>
+              <button
+                type="button"
+                className="ghost"
+                disabled={!scanId}
+                onClick={() => void scanAction('cancel')}
+              >
                 {t('disk.cancel')}
               </button>
             </div>
-          </div>
+          </section>
         )}
 
         {scanError && <div className="banner danger" role="alert">{t('disk.scanFailed')}: {scanError}</div>}
@@ -641,7 +702,7 @@ export function Disk({
           )}`}
         </span>
 
-        {selectionCount > 0 || plannedKeys.length > 0 ? (
+        {!scanning && (selectionCount > 0 || plannedKeys.length > 0) ? (
           <div className="selection-bar">
             <div className="selection-stats">
               <span>
@@ -686,7 +747,7 @@ export function Disk({
                 className="primary"
                 disabled={!view || selectionCount === 0}
                 title={selectionCount === 0 ? t('rightPanel.planned.applyHint') : undefined}
-                onClick={onOpenPlan}
+                onClick={onApplyPlan}
               >
                 {t('rightPanel.planned.apply')}
               </button>
@@ -717,18 +778,20 @@ export function Disk({
           </div>
         )}
 
-        <div className="cluster-head">
-          <span />
-          <span />
-          <span>{tu('table.cluster')}</span>
-          <span>{tu('disk.filter.kind')}</span>
-          <span>{tu('disk.filter.category')}</span>
-          <span className="num">{tu('disk.sort.size')}</span>
-          <span className="num">{tu('disk.detail.idle')}</span>
-          <span />
-        </div>
+        {!scanning && (
+          <div className="cluster-head">
+            <span />
+            <span />
+            <span>{tu('table.cluster')}</span>
+            <span>{tu('disk.filter.kind')}</span>
+            <span>{tu('disk.filter.category')}</span>
+            <span className="num">{tu('disk.sort.size')}</span>
+            <span className="num">{tu('disk.detail.idle')}</span>
+            <span />
+          </div>
+        )}
 
-        {!view && !error && (
+        {!scanning && !view && !error && (
           <>
             <span className="sr-only" role="status">
               {t('common.loading')}
@@ -748,7 +811,7 @@ export function Disk({
           </>
         )}
 
-        {view && view.clusters.length === 0 && (
+        {!scanning && view && view.clusters.length === 0 && (
           <EmptyState
             variant="fill"
             icon={view.scan.at === null ? 'disk' : 'search'}
@@ -768,7 +831,7 @@ export function Disk({
           />
         )}
 
-        {view && view.clusters.length > 0 && (
+        {!scanning && view && view.clusters.length > 0 && (
           <div
             className="cluster-scroll"
             ref={parentRef}

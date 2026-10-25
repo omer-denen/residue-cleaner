@@ -16,6 +16,7 @@ import { debug, info } from '../util/log.ts';
 import { primaryPath, scanItemId } from '../core/scan-items.ts';
 import { diskUsage } from '../core/disk-usage.ts';
 import { ServiceError, describeError } from './errors.ts';
+import { ActivityGate } from './activity.ts';
 import { newId } from './ids.ts';
 import type { Cluster, Env, ScanResult } from '../core/types.ts';
 import type {
@@ -40,6 +41,8 @@ export interface ScanJob {
   /** Duraklatildi mi? Is bitene kadar paused=true kalabilir. */
   paused: boolean;
   progress: { done: number; total: number; bytes: number };
+  /** Su an islenen alan (olay ile guncellenir; arayuz ilerleme metni). */
+  current: string | null;
   /** Taranacak alanlarin tam listesi (sol sutun). */
   targets: string[];
   /** Simdiye kadar siniflandirilan kumeler: gec baglanan istemciye replay. */
@@ -78,22 +81,30 @@ export class ScanService {
   private settingsLoad: Promise<void> | null = null;
   private readonly emit: ScanEmit;
   private readonly persistScan: boolean;
+  private readonly gate: ActivityGate;
 
-  constructor(emit: ScanEmit, persistScan: boolean) {
+  constructor(
+    emit: ScanEmit,
+    persistScan: boolean,
+    gate: ActivityGate = new ActivityGate(),
+  ) {
     this.emit = emit;
     this.persistScan = persistScan;
+    this.gate = gate;
   }
 
-  /** Ayni anda tek tarama; suruyorsa 409. */
+  /** Ayni anda tek tarama; suruyorsa 409 (baska agir is de 409). */
   start(args: ScanArgs): ScanJob {
     if (this.active) {
       throw new ServiceError(409, 'Tarama zaten suruyor');
     }
+    this.gate.begin('scan');
     const job: ScanJob = {
       id: newId(),
       status: 'running',
       paused: false,
       progress: { done: 0, total: 0, bytes: 0 },
+      current: null,
       targets: [],
       found: [],
       events: [],
@@ -203,6 +214,18 @@ export class ScanService {
       scanning: !!this.active,
       paused: this.active?.paused ?? false,
       clusters: this.lastScan?.scan.clusters.length ?? null,
+      // Ilerme: yuzde MOTORDA (scan-status-view) hesaplanir; burada ham veri.
+      progress: this.active
+        ? {
+            scanId: this.active.id,
+            done: this.active.progress.done,
+            total: this.active.progress.total,
+            found: this.active.found.length,
+            bytes: this.active.progress.bytes,
+            paused: this.active.paused,
+            current: this.active.current,
+          }
+        : null,
       // Surucu dolulugu: salt okunur tek sistem cagrisi (P4 gostergesi).
       disk: diskUsage(),
     };
@@ -351,6 +374,7 @@ export class ScanService {
           this.pushEvent(job, { type: 'targets', paths });
         },
         onTargetStart: (path, done, total) => {
+          job.current = path;
           this.pushEvent(job, { type: 'target-start', path, done, total });
         },
         onTargetDone: (path, done, total, cluster) => {
@@ -415,6 +439,8 @@ export class ScanService {
       this.controllers.delete(job.id);
       this.wakePaused(job.id);
       job.paused = false;
+      job.current = null;
+      this.gate.end('scan');
     }
   }
 }

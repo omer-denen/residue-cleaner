@@ -52,6 +52,16 @@ export type DeleteEmit = (jobId: string, event: ExecuteEvent) => void;
 const PLAN_TTL_MS = 10 * 60_000;
 
 /**
+ * Taslak (armed=false) planin SURESI YOKTUR (`expiresAt = 0`).
+ * Sure, "Planı uygula" (`rebuildPlan`) aninda baslar. Boylece secim
+ * ekraninda geri sayim/pending basinci olusmaz; taslak yalnizca oturum
+ * icinde yasar (acilista `discardPlan` ile atilir).
+ */
+function isExpired(stored: { expiresAt: number }, now = Date.now()): boolean {
+  return stored.expiresAt > 0 && now > stored.expiresAt;
+}
+
+/**
  * W2-c: plan adi normalizasyonu (tek kaynak).
  * Turkish kullanici metni burada YOKTUR; yalnizca hata kodlari.
  */
@@ -102,7 +112,8 @@ export class DeleteService {
     }
 
     const planId = newId();
-    const expiresAt = Date.now() + PLAN_TTL_MS;
+    // Taslak: sure YOK. Geri sayim "Planı uygula" (rebuildPlan) aninda baslar.
+    const expiresAt = 0;
     const risks = plan.clusters.map((c) => c.risk);
     const requiresPhrase = advanced ? true : ApprovalRules.requiresPhrase(risks);
     const requiresHighAck = advanced ? true : ApprovalRules.requiresHighAck(risks);
@@ -165,11 +176,22 @@ export class DeleteService {
     const now = Date.now();
     let latest: StoredPlan | null = null;
     for (const [id, stored] of this.plans) {
-      if (now > stored.expiresAt) {
+      if (isExpired(stored, now)) {
         this.plans.delete(id);
         continue;
       }
-      if (!latest || stored.createdAt >= latest.createdAt) latest = stored;
+      // Onay ekranina tasinmis (armed) plan, taslak secime gore onceliklidir.
+      if (!latest) {
+        latest = stored;
+        continue;
+      }
+      const armedPriority = Number(stored.armed) - Number(latest.armed);
+      if (
+        armedPriority > 0 ||
+        (armedPriority === 0 && stored.createdAt >= latest.createdAt)
+      ) {
+        latest = stored;
+      }
     }
     if (!latest) return null;
     return this.viewOf(latest);
@@ -187,7 +209,7 @@ export class DeleteService {
   renamePlan(planId: string, name: string): PlanResponse {
     const stored = this.plans.get(planId);
     if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
-    if (Date.now() > stored.expiresAt) {
+    if (isExpired(stored)) {
       this.plans.delete(stored.planId);
       throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
     }
@@ -220,7 +242,7 @@ export class DeleteService {
   ): PlanResponse | null {
     const stored = this.plans.get(planId);
     if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
-    if (Date.now() > stored.expiresAt) {
+    if (isExpired(stored)) {
       this.plans.delete(stored.planId);
       throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
     }
@@ -275,9 +297,9 @@ export class DeleteService {
       plan: { mode: plan.mode, clusters, targets, totalBytes },
       requiresPhrase: stored.advanced ? true : ApprovalRules.requiresPhrase(risks),
       requiresHighAck: stored.advanced ? true : ApprovalRules.requiresHighAck(risks),
-      // W2-g: icerik degisti -> uygulanmamis sayilir + TTL yenilenir.
+      // W2-g: icerik degisti -> uygulanmamis (taslak) sayilir; sure YOK.
       armed: false,
-      expiresAt: Date.now() + PLAN_TTL_MS,
+      expiresAt: 0,
     };
     this.plans.set(next.planId, next);
     return this.viewOf(next);
@@ -309,7 +331,7 @@ export class DeleteService {
     if (!scan) throw new ServiceError(400, 'Once tarama yapilmali');
     const stored = this.plans.get(planId);
     if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
-    if (Date.now() > stored.expiresAt) {
+    if (isExpired(stored)) {
       this.plans.delete(stored.planId);
       throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
     }
@@ -351,9 +373,9 @@ export class DeleteService {
       plan: { mode: plan.mode, clusters, targets, totalBytes },
       requiresPhrase: stored.advanced ? true : ApprovalRules.requiresPhrase(risks),
       requiresHighAck: stored.advanced ? true : ApprovalRules.requiresHighAck(risks),
-      // W2-g: icerik degisti -> uygulanmamis sayilir + TTL yenilenir.
+      // W2-g: icerik degisti -> uygulanmamis (taslak) sayilir; sure YOK.
       armed: false,
-      expiresAt: Date.now() + PLAN_TTL_MS,
+      expiresAt: 0,
     };
     this.plans.set(next.planId, next);
     return this.viewOf(next);
@@ -382,7 +404,7 @@ export class DeleteService {
   rebuildPlan(planId: string, scan: ScanResult | null): PlanResponse {
     const stored = this.plans.get(planId);
     if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
-    if (Date.now() > stored.expiresAt) {
+    if (isExpired(stored)) {
       this.plans.delete(stored.planId);
       throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
     }
@@ -400,8 +422,11 @@ export class DeleteService {
     const rebuilt = this.createPlan(scan, keys, stored.plan.mode, stored.name || undefined, stored.advanced);
     const rebuiltStored = this.plans.get(rebuilt.planId);
     if (rebuiltStored) {
+      // "Planı uygula": 10 dk'lik sure BURADA baslar (taslakta sure yoktu).
+      const expiresAt = Date.now() + PLAN_TTL_MS;
       rebuiltStored.armed = true;
-      rebuilt.expiresAt = rebuiltStored.expiresAt;
+      rebuiltStored.expiresAt = expiresAt;
+      rebuilt.expiresAt = expiresAt;
       rebuilt.armed = true;
     }
     this.plans.delete(stored.planId);
@@ -421,7 +446,7 @@ export class DeleteService {
   discardPlan(planId: string): { ok: true } {
     const stored = this.plans.get(planId);
     if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
-    if (Date.now() > stored.expiresAt) {
+    if (isExpired(stored)) {
       this.plans.delete(stored.planId);
       throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
     }
@@ -435,7 +460,7 @@ export class DeleteService {
   execute(planId: string, phrase: string | undefined, acknowledgeHigh: boolean): ExecuteStartResponse {
     const stored = this.plans.get(planId);
     if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
-    if (Date.now() > stored.expiresAt) {
+    if (isExpired(stored)) {
       this.plans.delete(stored.planId);
       throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
     }

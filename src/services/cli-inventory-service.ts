@@ -1,6 +1,7 @@
 import { scanCliInventory } from '../core/cli-inventory.ts';
 import { error as logError, info } from '../util/log.ts';
 import { ServiceError, describeError } from './errors.ts';
+import { ActivityGate } from './activity.ts';
 import { newId } from './ids.ts';
 import type { CliInventory, CliTool } from '../core/cli-inventory-types.ts';
 import type { CliInventoryStreamEvent } from '../core/contract.ts';
@@ -30,17 +31,21 @@ export class CliInventoryService {
   private active: CliInventoryJob | null = null;
   private lastInventory: CliInventory | null = null;
   private readonly emit: CliInventoryEmit;
+  private readonly gate: ActivityGate;
 
-  constructor(emit: CliInventoryEmit) {
+  constructor(emit: CliInventoryEmit, gate: ActivityGate = new ActivityGate()) {
     this.emit = emit;
+    this.gate = gate;
   }
 
   /**
    * Ayni anda tek envanter: calisan is varsa yeni tarama baslatmaz,
    * kimligini paylasir. Biten islerin akisi kapanmistir; temizlenir.
+   * Disk taramasi suruyorsa 409 (tek agir is kurali).
    */
   start(unusedDays: number): { jobId: string; shared: boolean } {
     if (this.active) return { jobId: this.active.id, shared: true };
+    this.gate.begin('inventory');
 
     for (const [id, old] of this.jobs) {
       if (old.status !== 'running') this.jobs.delete(id);
@@ -138,6 +143,7 @@ export class CliInventoryService {
       }
     } finally {
       if (this.active === job) this.active = null;
+      this.gate.end('inventory');
       this.controllers.delete(job.id);
     }
   }

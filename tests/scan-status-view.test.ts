@@ -77,8 +77,7 @@ test('tarama surerken: scanning, eylem yok', () => {
   assert.equal(view.action, 'none');
 });
 
-test('ust cubuk: durum etiketi; yas ayrnti raporunda', () => {
-  const v = scanStatusView(facts());
+test('ust cubuk: durum etiketi; yas ayrnti raporunda', () => {  const v = scanStatusView(facts());
   assert.equal(v.kind, 'current');
   assert.ok(v.rows.some((r) => r.id === 'age' && r.amount === 100));
 
@@ -119,4 +118,46 @@ test('gorunum metin icermez: yalniz kimlik, sayi ve tur', () => {
   const text = JSON.stringify(view);
   assert.equal(text.includes('Eski'), false);
   assert.equal(text.includes('Disk'), false);
+});
+
+// --- Ilerleme (tarama surerken) -------------------------------------------
+
+function progress(over: Partial<NonNullable<ScanStatusFacts['progress']>> = {}) {
+  return {
+    scanId: 'scan-1',
+    done: 3,
+    total: 4,
+    found: 2,
+    bytes: 1024,
+    paused: false,
+    current: 'C:\\Users\\Code\\.nuget',
+    ...over,
+  };
+}
+
+test('ilerleme: yuzde MOTORDA hesaplanir + rapor satiri percent', () => {
+  const view = scanStatusView(
+    facts({ scanning: true, state: 'scanning', progress: progress() }),
+  );
+  assert.equal(view.progress?.percent, 75);
+  assert.equal(view.progress?.current, 'C:\\Users\\Code\\.nuget');
+  assert.equal(view.progress?.found, 2);
+  const row = view.rows.find((r) => r.id === 'progress');
+  assert.equal(row?.unit, 'percent');
+  assert.equal(row?.amount, 75);
+});
+
+test('ilerleme: total bilinmiyorken yuzde null (hazirlik), satir 0%', () => {
+  const view = scanStatusView(
+    facts({ scanning: true, state: 'scanning', progress: progress({ total: 0, done: 0 }) }),
+  );
+  assert.equal(view.progress?.percent, null);
+  const row = view.rows.find((r) => r.id === 'progress');
+  assert.equal(row?.amount, 0);
+});
+
+test('tarama bitince ilerleme raporlanmaz', () => {
+  const view = scanStatusView(facts({ scanning: false, progress: progress() }));
+  assert.equal(view.progress, null);
+  assert.equal(view.rows.some((r) => r.id === 'progress'), false);
 });

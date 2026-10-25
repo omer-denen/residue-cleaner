@@ -223,7 +223,7 @@ export type ScanStatusReason = 'never-scanned' | 'fresh' | 'expired' | 'dirty' |
 /**
  * Rapor satirinin deger turu. MOTOR turu secer; arayuz yalnizca bicimlendirir.
  */
-export type ScanStatusUnit = 'timestamp' | 'duration' | 'bytes' | 'count' | 'ratio' | 'text';
+export type ScanStatusUnit = 'timestamp' | 'duration' | 'bytes' | 'count' | 'ratio' | 'percent' | 'text';
 
 export type ScanStatusRowId =
   | 'lastScan'
@@ -231,6 +231,7 @@ export type ScanStatusRowId =
   | 'nextRecommended'
   | 'ttl'
   | 'scope'
+  | 'progress'
   | 'diskDrive'
   | 'diskTotal'
   | 'diskFree'
@@ -253,6 +254,31 @@ export interface ScanStatusRow {
  * Arayuz yalnizca bu gorunumu basar. Ust cubuk rozeti durum etiketini
  * (kind) gosterir; yas bilgisi ayrinti raporunda (rows -> age) yasar.
  */
+/**
+ * Suruyan tarama isinin HAM ilerlemesi (karar verilmemis).
+ *
+ * Tarama uzun surer; kullanici "ne kadar kaldi" sorusunu her ekranda
+ * gorebilmeli. `total` kesif tamamlanana kadar 0'dir.
+ */
+export interface ScanProgressFacts {
+  scanId: string;
+  done: number;
+  total: number;
+  /** Simdiye kadar bulunan kumeler. */
+  found: number;
+  /** Olculen bayt. */
+  bytes: number;
+  paused: boolean;
+  /** Su an islenen alan (yoksa null). */
+  current: string | null;
+}
+
+/** Gorunum: yuzde MOTORDA hesaplanir; arayuz yalnizca basar. */
+export interface ScanProgressView extends ScanProgressFacts {
+  /** 0..100; `total` bilinmiyorsa null (kesif asamasi). */
+  percent: number | null;
+}
+
 export interface ScanStatusViewResponse {
   kind: ScanStatusKind;
   tone: ScanStatusTone;
@@ -264,6 +290,8 @@ export interface ScanStatusViewResponse {
   action: 'scan' | 'none';
   /** Rozet satirinda yasi goster. */
   showAge: boolean;
+  /** Tarama suruyorsa ilerleme; aksi halde null. */
+  progress: ScanProgressView | null;
 }
 
 /** Ham tarama durumu gercekleri (karar verilmemis). */
@@ -279,6 +307,8 @@ export interface ScanStatusFacts {
   /** Tarama duraklatildi mi? (scanning true iken anlamli) */
   paused?: boolean;
   clusters: number | null;
+  /** Suruyorsa tarama ilerlemesi (ham); yoksa null. */
+  progress?: ScanProgressFacts | null;
   /** Surucu dolulugu (salt okunur sistem olcumu). */
   disk: DiskUsageView | null;
 }
