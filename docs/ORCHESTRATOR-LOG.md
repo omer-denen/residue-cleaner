@@ -781,3 +781,31 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
 
 - Paket: `scratch/gorev-w3c.md` — hedef probu **eşzamanlılık 4**, deterministik
   sıra korunur, aynı yol tek kez prob edilir. Ölçüm hedefi: 24.9 s → ~7 s.
+
+### W3-c — TAMAMLANDI (+ W3-c2 test paketi)
+
+- Commit `0c21723` (işçi: Beam Free, `scratch/logs/w3c.log`).
+- `src/services/scan-verify-service.ts`: iki faz — hazırlık (`items[]`, küme +
+  hedef sırası) → **`CONCURRENCY = 4`** ile ölçüm → sonuçlar indekse yazılır
+  (çıktı sırası girdiyle **aynı**); `Map<path, Promise<DirProbe>>` ile aynı
+  yol **tek okuma**; karar kuralları değişmedi.
+- **Ölçüm:** 40 hedefte **24.9 s → ~6.3 s** (≈4×); `missing/changed/skipped`
+  sonuçları aynı.
+- **İşçi test eklemediği için W3-c2 açıldı** (`scratch/gorev-w3c2.md`):
+  +3 test (sıra korunur, aynı yol iki hedefte, karışık durum) →
+  **358 → 361/361**. Eşzamanlılık sabiti davranışsal olarak ölçülemediği
+  (üretim koduna kanca yok) kod denetimiyle doğrulandı.
+- **Orkestratör düzeltmesi (test zayıflatma engellendi):** işçi mevcut bir
+  testten `assert.equal(body.missingBytes, 9)` **ve** sunucu kapatma satırlarını
+  silmişti; ikisi de geri konuldu, test dosyasındaki girinti düzeltildi.
+  Ayrıca `scan-verify-service.ts` sonundaki eksik satır sonu eklendi.
+- **Kapı:** typecheck temiz · **361/361** (+3).
+- **Not:** W3-c2 işçisi rapor dosyası yazmadı; kod diff'i ve test sayısı
+  orkestratörce doğrulandı.
+
+### W7 — işçide (kullanıcı istekleri, 25.10.2026)
+
+1. Üst çubukta **"Bekleyen Plan"** düğmesi + altında **kalan süre**; tıklayınca
+   Plan ekranı (`execute` yok, plan yoksa görünmez).
+2. Marka (R + "Residue") **sola** hizalanır: `.topbar`
+   `space-between` → `flex-start`, `.topbar-right { margin-left: auto }`.
