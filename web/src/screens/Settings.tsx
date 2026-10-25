@@ -30,6 +30,7 @@ export function Settings({ lang, version }: Props) {
   const [scanCacheHours, setScanCacheHours] = useState(24);
   const [vaultRetentionDays, setVaultRetentionDays] = useState(30);
   const [updateCheck, setUpdateCheck] = useState<'off' | 'daily' | 'weekly'>('off');
+  const [scanOnLaunch, setScanOnLaunch] = useState<'always' | 'daily' | 'manual'>('always');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -44,6 +45,7 @@ export function Settings({ lang, version }: Props) {
     setScanCacheHours(next.scanCacheHours);
     setVaultRetentionDays(next.vaultRetentionDays);
     setUpdateCheck(next.updateCheck);
+    setScanOnLaunch(next.scanOnLaunch);
   }, []);
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export function Settings({ lang, version }: Props) {
     setSaved(false);
     setError(null);
     try {
-      apply(await api.saveSettings({ scanCacheHours, vaultRetentionDays, updateCheck }));
+      apply(await api.saveSettings({ scanCacheHours, vaultRetentionDays, updateCheck, scanOnLaunch }));
       setSaved(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
@@ -172,6 +174,31 @@ export function Settings({ lang, version }: Props) {
                 <option value="weekly">{t('settings.update.weekly')}</option>
               </select>
               <span className="dim">{t('settings.updateHint')}</span>
+            </div>
+          </section>
+
+          <section className="panel">
+            <h2>{tu('settings.scanOnLaunch')}</h2>
+            <div className="settings-row">
+              <select
+                className="control"
+                value={scanOnLaunch}
+                onChange={(e) =>
+                  setScanOnLaunch(
+                    e.target.value === 'daily'
+                      ? 'daily'
+                      : e.target.value === 'manual'
+                        ? 'manual'
+                        : 'always',
+                  )
+                }
+                aria-label={t('settings.scanOnLaunch')}
+              >
+                <option value="always">{t('settings.scanLaunch.always')}</option>
+                <option value="daily">{t('settings.scanLaunch.daily')}</option>
+                <option value="manual">{t('settings.scanLaunch.manual')}</option>
+              </select>
+              <span className="dim">{t('settings.scanOnLaunchHint')}</span>
             </div>
           </section>
 

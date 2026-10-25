@@ -250,8 +250,81 @@ export function App() {
     }
   }, []);
 
+  const launchRanRef = useRef(false);
   useEffect(() => {
-    void load();
+    if (launchRanRef.current) return;
+    launchRanRef.current = true;
+    void (async () => {
+      // Acilis politikasi: yalniz ILK yuklemede calisir (döngü yok).
+      await load();
+      // 1. Ayarlar
+      let mode: 'always' | 'daily' | 'manual' = 'always';
+      try {
+        const s = await api.settings();
+        mode = s.scanOnLaunch;
+      } catch {
+        /* varsayilan always */
+      }
+      // 2. Plan atma: armed === false -> at; armed === true -> dokunma.
+      let currentPlanned: PlanResponse | null = null;
+      try {
+        currentPlanned = await api.planned();
+      } catch {
+        currentPlanned = null;
+      }
+      if (currentPlanned && currentPlanned.armed === false) {
+        try {
+          await api.discardPlan(currentPlanned.planId);
+          setPlanned(null);
+          setPlan((prev) =>
+            prev?.planId === currentPlanned!.planId ? null : prev,
+          );
+        } catch {
+          // 409/404/410 sessizce yut
+        }
+      } else if (currentPlanned) {
+        setPlanned(currentPlanned);
+        setPlan(currentPlanned);
+      }
+      // 3. Tarama durumu
+      let currentStatus: ScanStatusResponse | null = null;
+      try {
+        currentStatus = await api.scanStatus();
+        setStatus(currentStatus);
+      } catch {
+        currentStatus = status;
+      }
+      if (currentStatus?.scanning) return;
+
+      // 4. Tarama
+      if (mode === 'always') {
+        try {
+          await api.startScan({});
+        } catch {
+          // 409 sessizce yut
+        }
+        const deadline = Date.now() + 120000;
+        while (Date.now() < deadline) {
+          try {
+            const s = await api.scanStatus();
+            setStatus(s);
+            if (!s.scanning) break;
+          } catch {
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+        await load();
+      } else if (mode === 'daily') {
+        try {
+          await api.verifyScan();
+        } catch {
+          // sessizce yut
+        }
+        await load();
+      }
+      // manual: hicbir istek yok
+    })();
   }, [load]);
 
   useEffect(() => {

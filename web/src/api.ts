@@ -26,6 +26,7 @@ import type {
   ProjectTab,
   ScanStartResponse,
   ScanStatusResponse,
+  ScanVerifyResponse,
   ScheduleCatchUpResponse,
   ScheduleCreateRequest,
   ScheduleHistoryResponse,
@@ -249,6 +250,14 @@ export const api = {
 
   /** Sag panel "Planlananlar": sunucudaki en son gecerli plan (yoksa null). */
   planned: (): Promise<PlanResponse | null> => request<PlanResponse | null>('/api/plan'),
+
+  verifyScan: (): Promise<ScanVerifyResponse> => post<ScanVerifyResponse>('/api/scan/verify', {}),
+
+  discardPlan: (planId: string): Promise<PlanResponse | null> =>
+    post<PlanResponse | null>('/api/plan/discard', { planId }),
+
+  applyPlan: (planId: string): Promise<PlanResponse> =>
+    post<PlanResponse>('/api/plan/apply', { planId }),
 
   /**
    * Disk satiri/_secim plana EKLEME. `planId` verilmisse mevcut plana
