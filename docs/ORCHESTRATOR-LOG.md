@@ -561,3 +561,26 @@ armed, doğrulama bandı).
 - **Kuyruk:** W5-a → W3-a → W5-b → W2-f kalanı. W5-a ve W3-a
   `contract.ts`/`server.ts` dosyalarını paylaştığı için **paralel değil,
   sıralı** yürütülür.
+
+### W5-a — TAMAMLANDI
+
+- Commit `46a7a50` (işçi: **Beam Free**, `scratch/logs/w5a.log`,
+  rapor `scratch/raporlar/w5a.md`).
+- `src/core/contract.ts`: `ScanOnLaunchMode` + `SettingsResponse/Update`
+  alanı; `DashboardTotalsView.scannedBytes|deletableBytes`;
+  `DashboardLedgerView.count?`; `DashboardResponse.lastVaultAt`.
+- `src/core/dashboard-summary.ts`: toplamlar **motorda**
+  (`sum(totalBytes)` / `sum(reclaimableBytes)`), vault ledger `count`,
+  `DashboardFacts.vault.lastAt`.
+- `src/store/settings.ts`: `scanOnLaunch` (varsayılan `always`),
+  `isScanOnLaunchMode` + `SCAN_ON_LAUNCH_MODES`; geçersiz değer varsayılana.
+- `src/services/dashboard-service.ts`: `vault.lastAt = max(at)`
+  (`Number.isFinite` koruması).
+- **Beyaz liste sapması (kabul edildi):** `src/services/scan-service.ts`
+  (+2 satır) — `SettingsResponse.scanOnLaunch` zorunlu alan olduğu için
+  `settings()`/`updateSettings()` eşlemesi derleme gereği eklendi;
+  davranış değişmedi.
+- **Kapı:** typecheck temiz · **351/351** (+4) · yeni test
+  `tests/scan-launch-setting.test.ts` (4) · `tests/dashboard-summary.test.ts`
+  yalnız genişletildi (silinen/zayıflatılan test yok).
+- **Risk:** toplamlar motorda; sunucu kendiliğinden tarama başlatmıyor.
