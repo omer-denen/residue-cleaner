@@ -210,6 +210,12 @@ export class DashboardService {
         entries: vault?.length ?? 0,
         bytes: (vault ?? []).reduce((sum, e) => sum + e.bytes, 0),
         expired: expired?.length ?? 0,
+        lastAt:
+          (vault ?? []).reduce((max, e) => {
+            const at = typeof e.at === 'number' && Number.isFinite(e.at) ? e.at : null;
+            if (at === null) return max;
+            return max === null || at > max ? at : max;
+          }, null as number | null),
       },
       schedules: {
         rules: schedules?.length ?? 0,

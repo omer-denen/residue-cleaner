@@ -326,6 +326,8 @@ export interface FindingsResponse {
   at: number | null;
 }
 
+export type ScanOnLaunchMode = 'always' | 'daily' | 'manual';
+
 export interface SettingsResponse {
   scanCacheHours: number;
   minCacheHours: number;
@@ -334,12 +336,15 @@ export interface SettingsResponse {
   vaultRetentionDays: number;
   /** Surum kontrolu (T41): off | daily | weekly. Varsayilan off. */
   updateCheck: 'off' | 'daily' | 'weekly';
+  /** Acilista tarama modu: always | daily | manual. Varsayilan always. */
+  scanOnLaunch: ScanOnLaunchMode;
 }
 
 export interface SettingsUpdateRequest {
   scanCacheHours?: number;
   vaultRetentionDays?: number;
   updateCheck?: 'off' | 'daily' | 'weekly';
+  scanOnLaunch?: ScanOnLaunchMode;
 }
 
 /** Surum kontrolu sonucu (T41). Kapaliyken checked=false, ag istegi yapilmaz. */
@@ -1199,6 +1204,8 @@ export interface DashboardLedgerView {
   known: boolean;
   /** Bu defterin icerigi hangi detay listesinde? */
   detailId: DashboardLedgerDetailId;
+  /** Oge sayisi (yalniz vault doldurur). */
+  count?: number;
 }
 
 /** Varsayilan secim kuralini gecen kume; "neden" kimlikle gelir. */
@@ -1227,6 +1234,10 @@ export interface DashboardTotalsView {
   clusters: number;
   files: number;
   verdicts: Record<VerdictKind, number>;
+  /** Taranan tum alanlarin toplami (cluster.totalBytes toplami). */
+  scannedBytes: number;
+  /** Kullanimda olsun olmasin SILINEBILIR alan (hedef toplami). */
+  deletableBytes: number;
 }
 
 export interface DashboardResponse {
@@ -1238,6 +1249,8 @@ export interface DashboardResponse {
   totals: DashboardTotalsView;
   /** Kart detaylari: secilen kartin satirlari asagidaki listede. */
   details: DashboardDetailView[];
+  /** Kasa son islem zamani (motordan); yoksa null. */
+  lastVaultAt: number | null;
 }
 
 // ---------------------------------------------------------------------------

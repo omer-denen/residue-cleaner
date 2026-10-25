@@ -58,7 +58,7 @@ export interface DashboardFacts {
     shadowed: number;
   } | null;
   recover: { interrupted: number };
-  vault: { entries: number; bytes: number; expired: number };
+  vault: { entries: number; bytes: number; expired: number; lastAt: number | null };
   /** Kayitli plan sayilari (rozet icin). */
   schedules: { rules: number; due: number; missed: number };
   /** Kart detaylari (secilen kartin satirlari). */
@@ -114,7 +114,7 @@ export class DashboardSummary {
         known: true,
         detailId: 'ledger-reclaimable',
       },
-      { id: 'vault', bytes: this.facts.vault.bytes, known: true, detailId: 'ledger-vault' },
+      { id: 'vault', bytes: this.facts.vault.bytes, known: true, detailId: 'ledger-vault', count: this.facts.vault.entries },
       {
         id: 'cli',
         bytes: inv?.cliBytes ?? 0,
@@ -320,10 +320,15 @@ export class DashboardSummary {
 
   totals(): DashboardTotalsView {
     const s = this.summary();
+    const clusters = this.facts.scan.clusters;
+    const scannedBytes = clusters.reduce((sum, c) => sum + (c.totalBytes ?? 0), 0);
+    const deletableBytes = clusters.reduce((sum, c) => sum + (c.reclaimableBytes ?? 0), 0);
     return {
       clusters: s.all.length,
       files: s.fileCount(),
       verdicts: s.verdictCounts(),
+      scannedBytes,
+      deletableBytes,
     };
   }
 
@@ -336,6 +341,7 @@ export class DashboardSummary {
       safeWins: this.safeWins(),
       totals: this.totals(),
       details: this.facts.details,
+      lastVaultAt: this.facts.vault.lastAt,
     };
   }
 }

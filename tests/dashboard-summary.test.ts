@@ -52,7 +52,7 @@ function facts(over: Partial<DashboardFacts> = {}): DashboardFacts {
     env: null,
     graph: null,
     recover: { interrupted: 0 },
-    vault: { entries: 0, bytes: 0, expired: 0 },
+    vault: { entries: 0, bytes: 0, expired: 0, lastAt: null },
     schedules: { rules: 0, due: 0, missed: 0 },
     details: [],
     ...over,
@@ -66,7 +66,7 @@ test('iki defter: korunan = toplam - geri kazanilabilir', () => {
         cluster({ key: 'a', totalBytes: 1000, reclaimableBytes: 400 }),
         cluster({ key: 'b', totalBytes: 2000, reclaimableBytes: 0 }),
       ]),
-      vault: { entries: 2, bytes: 500, expired: 1 },
+      vault: { entries: 2, bytes: 500, expired: 1, lastAt: 123 },
       inventory: {
         diskBytes: 3000,
         diskCount: 2,
@@ -83,6 +83,10 @@ test('iki defter: korunan = toplam - geri kazanilabilir', () => {
   assert.equal(ledgers.reclaimable, 400);
   assert.equal(ledgers.vault, 500);
   assert.equal(ledgers.cli, 700);
+  assert.equal(view.ledgers.find((l) => l.id === 'vault')?.count, 2);
+  assert.equal(view.totals.scannedBytes, 3000);
+  assert.equal(view.totals.deletableBytes, 400);
+  assert.equal(view.lastVaultAt, 123);
   assert.equal(view.ledgers.find((l) => l.id === 'cli')?.known, true);
   assert.equal(view.ledgers.find((l) => l.id === 'cli')?.detailId, 'ledger-cli');
 });
@@ -132,7 +136,7 @@ test('kartlar: tarama, ortam, kurtarma, kasa ve planlar', () => {
       env: { pathIssues: 3, orphanVars: 1, shadowedCommands: 4 },
       graph: { broken: 1, critical: 0, shadowed: 2 },
       recover: { interrupted: 1 },
-      vault: { entries: 0, bytes: 0, expired: 3 },
+      vault: { entries: 0, bytes: 0, expired: 3, lastAt: null },
       schedules: { rules: 2, due: 1, missed: 2 },
     }),
   ).view();
@@ -184,6 +188,7 @@ test('tarama hic yapilmadiysa bilgi karti cikar, sayilar sifir', () => {
   );
   assert.equal(view.scan.clusters, 0);
   assert.equal(view.totals.clusters, 0);
+  assert.equal(view.lastVaultAt, null);
 });
 
 test('gorunum yalniz kimlik + sayi tasir (metin yok)', () => {

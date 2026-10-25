@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { isUpdateMode, type UpdateCheckMode } from '../core/update-check.ts';
+import type { ScanOnLaunchMode } from '../core/contract.ts';
 import { dataDir } from '../core/data-dir.ts';
 import { longPath } from '../util/longpath.ts';
 
@@ -21,12 +22,15 @@ export interface WebSettings {
    * 'off' | 'daily' | 'weekly'
    */
   updateCheck: UpdateCheckMode;
+  /** Acilista tarama modu. Varsayilan always. */
+  scanOnLaunch: ScanOnLaunchMode;
 }
 
 export const DEFAULT_SETTINGS: WebSettings = {
   scanCacheHours: 24,
   vaultRetentionDays: 30,
   updateCheck: 'off',
+  scanOnLaunch: 'always',
 };
 export const MIN_CACHE_HOURS = 1;
 export const MAX_CACHE_HOURS = 720;
@@ -49,6 +53,12 @@ function clampVaultDays(n: unknown): number {
   return Math.min(MAX_VAULT_DAYS, Math.max(MIN_VAULT_DAYS, Math.round(v)));
 }
 
+export const SCAN_ON_LAUNCH_MODES: ScanOnLaunchMode[] = ['always', 'daily', 'manual'];
+
+export function isScanOnLaunchMode(v: unknown): v is ScanOnLaunchMode {
+  return typeof v === 'string' && (SCAN_ON_LAUNCH_MODES as string[]).includes(v);
+}
+
 export async function loadSettings(): Promise<WebSettings> {
   try {
     const txt = await readFile(longPath(settingsPath()), 'utf8');
@@ -57,6 +67,7 @@ export async function loadSettings(): Promise<WebSettings> {
       scanCacheHours: clampHours(j.scanCacheHours),
       vaultRetentionDays: clampVaultDays(j.vaultRetentionDays),
       updateCheck: isUpdateMode(j.updateCheck) ? j.updateCheck : DEFAULT_SETTINGS.updateCheck,
+      scanOnLaunch: isScanOnLaunchMode(j.scanOnLaunch) ? j.scanOnLaunch : DEFAULT_SETTINGS.scanOnLaunch,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -72,6 +83,9 @@ export async function saveSettings(patch: Partial<WebSettings>): Promise<WebSett
       ? { vaultRetentionDays: clampVaultDays(patch.vaultRetentionDays) }
       : {}),
     ...(isUpdateMode(patch.updateCheck) ? { updateCheck: patch.updateCheck } : {}),
+    ...(patch.scanOnLaunch !== undefined
+      ? { scanOnLaunch: isScanOnLaunchMode(patch.scanOnLaunch) ? patch.scanOnLaunch : DEFAULT_SETTINGS.scanOnLaunch }
+      : {}),
   };
   try {
     const file = settingsPath();

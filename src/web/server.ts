@@ -542,6 +542,7 @@ async function handleRequest(
         ? { vaultRetentionDays: Number(body.vaultRetentionDays) }
         : {}),
       ...(body.updateCheck !== undefined ? { updateCheck: body.updateCheck } : {}),
+      ...(body.scanOnLaunch !== undefined ? { scanOnLaunch: body.scanOnLaunch } : {}),
     });
     sendJson(res, 200, out);
     return;

@@ -219,6 +219,7 @@ export class ScanService {
       maxCacheHours: MAX_CACHE_HOURS,
       vaultRetentionDays: s.vaultRetentionDays,
       updateCheck: s.updateCheck,
+      scanOnLaunch: s.scanOnLaunch,
     };
   }
 
@@ -226,6 +227,7 @@ export class ScanService {
     scanCacheHours?: number;
     vaultRetentionDays?: number;
     updateCheck?: 'off' | 'daily' | 'weekly';
+    scanOnLaunch?: 'always' | 'daily' | 'manual';
   }): Promise<SettingsResponse> {
     const saved = await saveSettings(patch);
     this.ttlMs = saved.scanCacheHours * 3_600_000;
