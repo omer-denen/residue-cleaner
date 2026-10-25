@@ -22,7 +22,7 @@ import {
   type RightPanelModule,
   type RightPanelModuleId,
 } from './components/RightPanel.tsx';
-import { PlannedModule } from './components/PlannedModule.tsx';
+import { PlannedModule, PlanValidity } from './components/PlannedModule.tsx';
 import { ContextBlock } from './components/ContextBlock.tsx';
 import { Dashboard } from './screens/Dashboard.tsx';
 import { Disk } from './screens/Disk.tsx';
@@ -588,6 +588,27 @@ export function App() {
               lang={lang}
               onOpen={() => setScanReport(true)}
             />
+          )}
+          {planned && (
+            <button
+              type="button"
+              className="pending-plan"
+              aria-label={
+                t('top.pendingPlan') +
+                ' · ' +
+                t('rightPanel.planned.validityUntil', {
+                  time: new Date(planned.expiresAt).toLocaleTimeString(
+                    lang === 'tr' ? 'tr-TR' : 'en-US',
+                    { hour: '2-digit', minute: '2-digit' },
+                  ),
+                })
+              }
+              title={t('top.pendingPlanHint')}
+              onClick={() => setScreen('plan')}
+            >
+              <span className="pending-plan-title">{t('top.pendingPlan')}</span>
+              <PlanValidity expiresAt={planned.expiresAt} lang={lang} compact />
+            </button>
           )}
           <button type="button" className="ghost" onClick={() => void load()}>
             {t('top.refresh')}

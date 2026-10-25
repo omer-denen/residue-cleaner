@@ -52,10 +52,12 @@ export function PlanValidity({
   expiresAt,
   lang,
   labelKey = 'rightPanel.planned.validity',
+  compact = false,
 }: {
   expiresAt: number;
   lang: Lang;
   labelKey?: MessageKey;
+  compact?: boolean;
 }) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
@@ -65,6 +67,15 @@ export function PlanValidity({
     lang === 'tr' ? 'tr-TR' : 'en-US',
     { hour: '2-digit', minute: '2-digit' },
   );
+  if (compact) {
+    return (
+      <span className="rp-validity rp-validity-compact" title={t('rightPanel.planned.validityHint')}>
+        <span className="rp-ttl" aria-live="off" aria-hidden="true">
+          {t('rightPanel.planned.validityLeft', { time: left })}
+        </span>
+      </span>
+    );
+  }
   return (
     <span className="rp-validity" title={t('rightPanel.planned.validityHint')}>
       {t(labelKey)}:{' '}
