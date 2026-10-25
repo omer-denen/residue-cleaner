@@ -12,7 +12,8 @@ import { runInventory } from './commands/inventory.ts';
 import { runRepair } from './commands/repair.ts';
 import { runQuarantine } from './commands/quarantine.ts';
 import { ENVS, BUILTIN_PROFILES } from './core/discover.ts';
-import type { Env, ScanResult } from './core/types.ts';
+import type { Env } from './core/types.ts';
+import { scanJson } from './core/cli-json.ts';
 
 const C = {
   reset: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m',
@@ -165,7 +166,7 @@ async function main(): Promise<void> {
     });
 
     if (json) {
-      console.log(JSON.stringify(toJson(result), null, 2));
+      console.log(JSON.stringify(scanJson(result), null, 2));
     } else {
       renderReport(result, showAll);
     }
@@ -355,46 +356,6 @@ async function main(): Promise<void> {
 
   console.log(`Komut henuz uygulanmadi: ${cmd}`);
   console.log(`Simdilik 'scan' ve 'clean' calisiyor. --help icin: residue --help`);
-}
-
-function toJson(r: Awaited<ReturnType<typeof runScan>>) {
-  return {
-    startedAt: r.startedAt,
-    finishedAt: r.finishedAt,
-    stats: r.stats,
-    clusters: r.clusters.map((c) => ({
-      key: c.key,
-      title: c.title,
-      archetype: c.archetype,
-      totalBytes: c.totalBytes,
-      reclaimableBytes: c.reclaimableBytes,
-      lastTouched: c.lastTouched,
-      verdict: c.verdict,
-      evidence: c.evidence,
-      parts: c.parts.map((p) => ({
-        path: p.path,
-        bytes: p.bytes,
-        files: p.files,
-        origin: p.origin,
-      })),
-      // Silme hedefleri ve alt parcalar da makine okunur ciktida
-      // bulunmali; aksi halde "onerilen ama hedefsiz" gibi gorunur.
-      deleteTargets: (c.deleteTargets ?? []).map((t) => ({
-        path: t.path,
-        kind: t.kind,
-        bytes: t.bytes,
-        label: t.label,
-        minAgeDays: t.minAgeDays,
-      })),
-      subparts: (c.subparts ?? []).map((s) => ({
-        path: s.path,
-        label: s.label,
-        bytes: s.bytes,
-        verdictKind: s.verdictKind,
-        reason: s.reason,
-      })),
-    })),
-  };
 }
 
 main().catch((err) => {
