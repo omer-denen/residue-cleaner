@@ -640,3 +640,49 @@ armed, doğrulama bandı).
   `build:web` **459.31 kB / 129.09 kB gzip**.
 - **Denetim notu:** `.ledger` flex-column, `.rail-item` flex-row olduğu için
   yeni düğümler düzeni bozmuyor; arayüzde hesap yok.
+
+### W5-b1 — TAMAMLANDI + tarayıcı doğrulaması (ego-browser, 1440×900)
+
+- Commit `b062073` (işçi: Beam Free, `scratch/logs/w5b1.log`,
+  rapor `scratch/raporlar/w5b1.md`).
+- `web/src/api.ts`: `verifyScan`, `discardPlan`, `applyPlan` sarmalayıcıları.
+- `web/src/App.tsx`: açılış politikası — `launchRanRef` ile **yalnız ilk
+  yüklemede**; `armed === false` plan `POST /api/plan/discard` ile atılır
+  (`armed === true` korunur, 409 sessiz); `always` → `POST /api/scan` +
+  2 sn'lik `scanStatus` yoklaması (en fazla 120 sn) + `load()`;
+  `daily` → `POST /api/scan/verify`; `manual` → istek yok;
+  `status.scanning` ise yeni istek gönderilmez.
+- `web/src/screens/Settings.tsx` + `i18n.ts`: **"Açılışta tarama"** seçici
+  (Her zaman / Günde bir / Elle) + TR/EN anahtarları.
+- **Kapı:** typecheck temiz · **358/358** · `build:web` **461.28 kB /
+  129.81 kB gzip**.
+
+**Tarayıcı kanıtı (spaces 4, `scratch/ego/2026-10-25-w5/`):**
+
+| Kontrol | Sonuç |
+|---|---|
+| Bundle | `/assets/index-41tcutz1.js` = yeni derleme (K15 temiz) |
+| Başlık | "Son Kasa işlemi: 22 Eki 2026 20:55"; **"Son Tarama" yok** |
+| Ölçü paneli | "SİLİNEBİLİR ALAN · 17.3 GB Silinebilir · Taranan: 48.1 GB" |
+| Kasa defteri | "Kasada 5.5 GB / 6 öğe / Hâlâ diskte" |
+| Rail rozeti | "6", `aria-label="Kasa (6)"` |
+| Açılış taraması (`always`) | `POST /api/scan` → `tarama basladi` 16:31:12, `tamamlandi` 16:32:31 (**78.9 s**, 104 küme, 48.07 GB) |
+| Tarama sonrası tazeleme | kart 26.8 → **17.3 GB**, üst çubuk "Son Tarama: az önce" |
+| Ayarlar | "AÇILIŞTA TARAMA" + 3 seçenek; `daily` kaydedildi → `GET` aynı |
+| `daily` modda açılış | 16:33:51 reload → **yeni tam tarama YOK**; `verifiedAt` yazıldı |
+| `POST /api/scan/verify` | `200`, **24.9 s**, 40 hedef, `missing=0`, `changed=0`, `skipped=0` |
+| EN | "Last vault operation", "DELETABLE SPACE", "6 items · Still on disk", "Vault (6)" |
+| Ayar geri alma | doğrulama sonrası `scanOnLaunch` → **`always`** (varsayılan) |
+
+**Bulunan iki kusur (yeni paketler):**
+
+1. **Üst çubuk hâlâ "Son Tarama: az önce"** — kullanıcı kararı "Son Tarama
+   tamamen kalkıyor". Metin motordan geliyor (`ScanStatusViewResponse.header`),
+   arayüzde değil → **W5-c** (`core/scan-status-view.ts`).
+2. **"Araçlarda: bilinmiyor" defter değeri karttan taşıyor** (uzun kelime,
+   sağ kenarı aşıyor) → **W5-d** (yalnız `styles.css`).
+
+**Ölçüm notu:** `always` tam tarama bu makinede **78.9 s** (24.10'daki 12.1 s
+ölçümünden farklı: `minAgeDays=0` tam tarama + disk/Defender durumu).
+`daily` doğrulaması **24.9 s** — "hızlı" beklentisinin üzerinde; hedefler
+sıralı prob ediliyor → **W3-c** (paralel prob, hedef başına düşen süre).
