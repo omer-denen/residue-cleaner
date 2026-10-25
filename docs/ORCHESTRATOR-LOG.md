@@ -745,3 +745,39 @@ sıralı prob ediliyor → **W3-c** (paralel prob, hedef başına düşen süre)
 - Panelden tek tek `×` kaldırılır (**çıkarma satırda kalır** + "Tümünü
   boşalt"), açılış doğrulaması için **Disk bandı** (yalnız
   `missing`/`changed` varsa, sayılar `ScanVerifyResponse`'tan aynen).
+
+### W6 — TAMAMLANDI
+
+- Commit `26ac889` (işçi: Beam Free, `scratch/logs/w6.log`,
+  rapor `scratch/raporlar/w6.md`).
+- `web/src/components/PlannedModule.tsx`: küme + hedef satırlarındaki
+  `.rp-item-remove` düğmeleri kaldırıldı, `onRemoveKey`/`onRemoveTarget`
+  prop'ları silindi. "Tümünü boşalt" / "Yeni plan" korundu; süresi dolmuş
+  uyarının kapatma `×`'i korundu.
+- `web/src/App.tsx`: panel çıkarma bağlantısı (ölü `removePlanned`) kaldırıldı;
+  `scanVerify` state'i + `Disk`'e `verifyNote`/`onDismissVerify`.
+- `web/src/screens/Disk.tsx`: `role="status"` doğrulama bandı — yalnız
+  `missing.length > 0 || changed.length > 0`; sayılar API'den **aynen**.
+- `web/src/i18n.ts`: `disk.verify.missing|changed` (TR+EN);
+  **orkestratör düzeltmesi:** `disk.planned.hint` artık "satırdaki düğmeyi
+  kullanın" diyor (eski metin "sağ paneli kullanın" yanlış olmuştu).
+- **Kapı:** typecheck temiz · **358/358** · `build:web` **129.98 kB gzip**.
+
+**Tarayıcı kanıtı 3 — sentetik veri dizini (port 4412, kullanıcı verisi
+ELLENMEDİ):** `%TEMP%\residue-w6-band-…` içinde 2 küme kuruldu: biri var olan
+klasör, biri **kasıtlı olarak diskte olmayan** hedef.
+
+| Kontrol | Sonuç |
+|---|---|
+| Açılış doğrulaması (`daily`) | kaybolan hedef bulundu, `POST /api/scan/verify` `200` |
+| Bant | `role="status"`, **"1 hedef artık diskte yok (5.0 MB) — liste güncellendi"** + "Kapat" |
+| Panel | `.rp-item-remove` = **0**; "Planı uygula / Yeni plan / Tümünü boşalt" var; önizleme salt okunur |
+| Temizlik | sunucu kapatıldı, sentetik dizin **silindi** (kaldı mı: `False`) |
+
+- **Gerçek silme/plan çalıştırma YAPILMADI**; sentetik plandaki hedefler
+  yalnız `%TEMP%` altındaki sahte yollardı.
+
+### W3-c — işçide (doğrulama hızlandırma)
+
+- Paket: `scratch/gorev-w3c.md` — hedef probu **eşzamanlılık 4**, deterministik
+  sıra korunur, aynı yol tek kez prob edilir. Ölçüm hedefi: 24.9 s → ~7 s.
