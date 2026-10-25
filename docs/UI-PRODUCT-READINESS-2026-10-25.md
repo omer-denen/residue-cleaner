@@ -5,6 +5,10 @@
 > değişikliği bırakılmadı; Faz 0/1/2 denemeleri geri alındı ve yalnız
 > `scratch/ui-product-2026-10-25/faz0-2-taslak.patch` (git dışı) olarak
 > saklandı. Sıradaki oturum Faz 0'dır.
+> **25.10.2026 2. tur (inceleme eki):** harita gerçek kodla karşı
+> inceleme yapıldı; `--faint` kontrast düzeltmesi, eksik belirteçler,
+> Faz 0 kabul detayları ve Gelişmiş mod kapsamı eklendi (§8).
+> Sıradaki yine Faz 0'dır.
 > **Kapsam:** web arayüzü (`web/`), görsel sistem ve ekran yerleşimleri.
 > **Değişmez kurallar:** `AGENTS.md` kural 18 (karar motorda), iki aşamalı
 > onay, `report-only`, `guard.ts`, localhost + çerez kapıları.
@@ -110,12 +114,14 @@ Sentez (bu projeye uyarlanmış 8 kural):
 | `--line-strong` | `#2a3a4b` | odak dışı vurgu |
 | `--text` | `#e8eff7` | ana metin |
 | `--dim` | `#93a3b8` | ikincil |
-| `--faint` | `#6f8096` | üçüncül / yol |
+| `--faint` | `#7d8da4` | üçüncül / yol |
 | `--accent` | `#46d17e` | güvenli / birincil |
 | `--info` | `#63a9ff` | bilgi / odak |
 | `--warn` | `#e5b143` | dikkat |
 | `--danger` | `#ff6b6b` | risk |
 | `--vault` | `#b795ff` | kasa |
+| `--line-soft` | `#17212c` | tablo/satır ayırıcı (mevcut; ilk taslakta eksikti) |
+| `--accent-dim` | `#1f6f34` | marka degrade + `tone-ok` kenarı (mevcut; eksikti) |
 
 - Gövde **14 px / 1.5**; tablo **13 px**; `h1` **28 px / 1.15**, `h2`
   **15 px**, bölüm etiketi **11 px / 0.08em uppercase**.
@@ -123,14 +129,38 @@ Sentez (bu projeye uyarlanmış 8 kural):
   panel 14, rozet 999.
 - Odak: 2 px `--info`, 2 px offset. Gölge yalnız overlay/dialog.
 
+**Kontrast düzeltmesi (kod geri doğrulaması, 2. tur):** ilk taslakta
+`--faint` değeri `#6f8096` idi; ölçüm: panel **4.38:1**, panel-2
+**4.07:1** — 11 px yol/alt metin için AA sınırı 4.5:1'in ALTINDA.
+Mevcut M5 değeri `#74839a` da panel-2'de 4.27 ile ihlaldi. Yeni değer
+`#7d8da4`: panel **5.24** · panel-2 **4.87** · bg **5.73** — üç yüzeyde
+geçer. (`--text/--dim/--accent/--warn/--danger` ölçümleri mevcut
+değerlerden İYİ çıktı; dokunulmadı: bkz. §8 ölçüm tablosu.)
+
+**İkincil belirteçler (Faz 0'da adlandırılır):**
+
+| Grup | Belirteçler | Not |
+|---|---|---|
+| Boşluk | `--space-1..6` = 4 / 8 / 12 / 16 / 24 / 32 px | Faz 3 hizalama ölçeği |
+| Yarıçap | `--r-sm` 8 · `--r-md` 12 · `--r-lg` 14 · `--r-pill` 999 | prozedürel değerlerin adı |
+| Hareket | `--dur-fast` 120ms · `--dur` 150ms | `prefers-reduced-motion` genel kapatma korundu (styles.css 3294) |
+| Zıplama | `--z-sticky` 1 · `--z-drawer` 30 · `--z-dialog` 40 · `--z-modal` 60 | bugünkü ad-hoc 1/20/30/40/60/70'in adlandırılması |
+| Yazı | `--font-ui` · `--mono` (mevcut yığın) | `--mono` bugün :root'ta tanımlı |
+
 ### 4.2 Kabuk (P0)
 
 - Topbar 56 px: marka · (esnek) · tarama durumu · bekleyen plan · eylemler.
+  (Bugünkü `.app` satırı 54 px; 56'ya geçilirken 54'e bağlı iki sabit
+  nokta birlikte taşınır: `<820px` çekmece `top: 54px` ve skip-link
+  `top: -56px` — styles.css 56/459.)
 - Rail **gruplu**: `Tara` (Genel Bakış, Disk, Plan) · `Sistem` (Projeler,
   Araçlar, PATH, Graf) · `Kayıt` (Zamanlanmış, Kasa) · altta `Ayarlar`.
   Grup etiketi 10 px uppercase; daraltınca yalnız ikon + ayırıcı çizgi.
-- Rail altında **yerel çalışma notu**: kilit ikonu + "Yerel çalışır ·
-  veri dışarı gitmez". Ürün vaadini hatırlatır, boşluğu anlamlı doldurur.
+- Rail altında **yerel çalışma notu**: kilit ikonu + "Veriler bilgisayarından
+  çıkış yapmaz · güncelleme kontrolü yalnız izin verirsen" (TR/EN `i18n`).
+  "Veri dışarı gitmez" mutlak ifadesi kullanılmaz: güncelleme kontrolü
+  opt-in açılınca tek sürüm sorgusu yapılır (kural 15) — not bunu kesin
+  söylemeli. Ürün vaadini hatırlatır, boşluğu anlamlı doldurur.
 - Sağ panel boş `Kanıtlar`: ikon + başlık + 3 adımlı yol
   (satır seç → kanıtı oku → plana ekle) + "Disk'e git" bağlantısı.
   `İşlem` boş: "Bu ekranda işlem yok" + hangi ekranlarda olduğu.
@@ -183,9 +213,18 @@ Yeni düzen:
 | UI-002 | Topbar + gruplu rail + yerel çalışma notu | ⬜ bekliyor |
 | UI-003 | Sağ panel anlamlı boş durumlar | ⬜ bekliyor |
 
-**Çıkış kapısı:** typecheck temiz · build · 1440/1024 tarayıcı · ekran
-görüntüsü · tek commit. Dashboard ve Disk değişiklikleri bu faza **dahil
-değildir**; Faz 1/2'ye aittir.
+**UI-002 kabul detayları (kod doğrulamasından):** roving tabindex +
+`↑ ↓ Home End` gruplama ile birebir çalışır (App.tsx 429-448, seçici
+`.rail-item`); grup başlıkları `button` DEĞİL ve odak sırasına girmez;
+`aria-current="page"` + `aria-label` davranışı korunur; `localStorage`
+anahtarları aynen kalır: `residue.lang/rail/panel/panelWidth`
+(App.tsx 313-328).
+
+**Çıkış kapısı:** typecheck temiz · test sayısı korunur · build ·
+`npm run smoke` (35 kontrol) · 1440/1024 tarayıcı · **tüm 10 ekranın**
+süpürülmesi (belirteçler globaldir; unsız kalan ekran kırık görünmesin)
+· ekran görüntüsü · tek commit. Dashboard ve Disk değişiklikleri bu faza
+**dahil değildir**; Faz 1/2'ye aittir.
 
 ### Faz 1 — Genel Bakış
 
@@ -195,8 +234,10 @@ değildir**; Faz 1/2'ye aittir.
 | UI-005 | Defter ve dikkat kartları cilası | ⬜ bekliyor |
 | UI-006 | Güvenli kazanımlar tablosu + boş durum | ⬜ bekliyor |
 
-**Çıkış kapısı:** hero sayıları motordan; segmentli çubuk yalnız görsel;
-defter kartı tıklaması sağ panelde detay; tarama yoksa eylemli boş durum.
+**Çıkış kapısı:** hero sayıları motordan; segmentli çubuk yalnız görsel ve
+`aria-hidden` — değerler yalnız lejant satırlarından okunur; defter kartı
+tıklaması sağ panelde detay; tarama yoksa eylemli boş durum. Bu faz
+"Kararlar paneli"ni kaldırarak UX-PLAN P8'i kapatır.
 
 ### Faz 2 — Disk akışı
 
@@ -207,13 +248,15 @@ defter kartı tıklaması sağ panelde detay; tarama yoksa eylemli boş durum.
 
 **Çıkış kapısı:** seçim yokken çubuk yok; satır seçince çubuk var; plana
 ekleme sayfadan ayrılmadan; sağ panelde `Planda` rozeti; filtre boşken
-"Filtreleri temizle".
+"Filtreleri temizle". Çubuk gizliyken "Varsayılanları plana ekle" ipucu
+satırından erişilebilir kalır (bugün çubuk içinde, Disk.tsx 635-641); canlı
+`sr-only` seçim duyurusu korunur (Disk.tsx 618).
 
 ### Faz 3 — Ortak ekran cilası
 
 | Kimlik | İş | Durum |
 |---|---|---|
-| UI-009 | Projeler, Araçlar, PATH, Graf, Plan, Ayarlar, Kasa, Zamanlanmış için ortak başlık/panel/form/boş durum stilleri | ⬜ bekliyor |
+| UI-009 | Projeler, Araçlar, PATH, Graf, Plan, Ayarlar, Kasa, Zamanlanmış için ortak başlık/panel/form/boş durum stilleri. Denetim listesi: `.advanced-wall` + `.badge.advanced` (Gelişmiş mod duvarı — tehlike tonu korunur) · `.signal-badge` (F5 kanıt rozetleri) · kasa `TASI`/`SIL` duvarları | ⬜ bekliyor |
 
 **Çıkış kapısı:** tüm ekranlar yeni belirteçlerle tutarlı; hiçbir ekran
 okunamaz/kırık değil; TR/EN taşması yok.
@@ -247,6 +290,10 @@ güncel; tek commit.
 3. `npm run build:web` — bundle üretilir.
 4. Eski sunucu sürecini kapat, **önce derle, sonra sunucuyu başlat** (K15).
 5. `ego-browser` ile 1440×900 ve 1024×768:
+   - **Belirteç kapısı:** `--faint` metinleri panel ve panel-2 yüzeylerinde
+     ≥ 4.5:1 (ölçümle); odak halkası yeni yüzeylerde görünür.
+   - **Faz 0'da 10 ekranın tamamı** iki genişlikte süpürülür (belirteç
+     değişimi globaldir);
    - Genel Bakış: hero sayıları, segmentli çubuk, defter kartı tıklaması,
      sağ panelde detay;
    - Disk: seçim yokken çubuk yok, satır seçince çubuk var, plana ekleme,
@@ -265,3 +312,64 @@ güncel; tek commit.
 - Sağ panel bir "karar" yüzeyi değil, **kanıt ve plan görüntüleyicisi**dir.
 - Hiçbir yeni düğme doğrudan silmez; en fazla plan üretir.
 - `prefers-reduced-motion` ve klavye-only tur korunur.
+- `GELİŞMİŞ` onay duvarı görsel karşılığıyla korunur (`.advanced-wall` +
+  `.badge.advanced`, styles.css 3439-3463); yeni belirteçler yalnız ölçek
+  bağlar, tehlike tonu değişmez.
+- `npm run smoke` (35 kontrol) her faz çıkışında yeşil kalır.
+- Rail/panel `localStorage` anahtarları ve kısayollar (`/`, `?`, ok
+  tuşları, Esc) davranış birebir korunur.
+
+---
+
+## 8. İnceleme eki — kod karşısı doğrulama (25.10.2026, 2. tur)
+
+**Iş:** bu belge ile çalışan depo (`web/`, 3464 satır CSS,
+`App.tsx` 956 satır) satır bazında karşı okundu. Amaç: A1–A8'in bugün
+hâlâ geçerli olup olmadığını ve haritanın kodca uygulanabilirliğini
+kanıtla. Bulgular:
+
+| İlk tur bulgusu | Kod kanıtı | Durum |
+|---|---|---|
+| A1 — sağ panel boşken tek cümle | `RightPanel.tsx` 139-141 (`rp-empty`, `p.dim`) | DOĞRU → UI-003 |
+| A2 — seçim çubuğu her zaman görünür | `Disk.tsx` 617 (koşulsuz `.selection-bar`) | DOĞRU → UI-007 |
+| A3 — Genel Bakış dikey yığın | `Dashboard.tsx` 136-313 (ölçü → defter → kart → güvenli kazanımlar → kararlar) | DOĞRU → UI-004..006 |
+| A5 — rail 10 eşit öğe | `App.tsx` 50-61 (düz `NAV` listesi) | DOĞRU → UI-002 |
+| A6 — yükleme tek satır | `App.tsx` 695 (`{loading && <div className="state">...`) | DOĞRU; uygulama iskeleti ayrı öneri (UI-013) |
+
+**Sonradan gelen kapsam (haritaya işlendi):** Gelişmiş mod (A1/A2
+commits, aynı gün, belgenin ilk derlemesinden önce koddaydı ama listede
+yok): `.advanced-wall` (styles.css 3439-3457; `PlanScreen.tsx` 214,
+`Settings.tsx` 207), `.badge.advanced` (styles.css 3459; `Disk.tsx`
+769). Ayrıca T69/F5 `.signal-badge` (styles.css 1895). Üçü Faz 3
+denetim listesine (UI-009) ve §7 değişmezlerine eklendi.
+
+**Kontrast ölçümleri (WCAG 2.x, normal metin ≥ 4.5:1):**
+
+| Çift (metin / yüzey) | taslak `--faint #6f8096` | `#7d8da4` (yeni) | eski `#74839a` |
+|---|---|---|---|
+| faint / panel | **4.38** ✗ | **5.24** ✓ | 4.60 ✓ |
+| faint / panel-2 | **4.07** ✗ | **4.87** ✓ | **4.27** ✗ |
+| faint / bg | 4.80 ✓ | 5.73 ✓ | 5.03 ✓ |
+
+- Diğer taslak renkler ölçüldü ve KORUNDU: `text/panel` 15.26 ·
+  `dim/panel` 6.88 · `accent/panel` 9.00 (eski 7.03) · `warn/panel`
+  9.01 (eski 7.07) · `danger/panel` 6.37 (eski 5.32) · primary düğme
+  metni/accent 9.75 — hepsi taslak paletle İYİLEŞTİ. Yalnız `--faint`
+  klipler ve düzeltildi.
+- `.advanced-wall` karışımları da geçer: danger metin / duvar zemin
+  5.43 (eski palet 4.69).
+
+**UI-013 — açık öneri (kullanıcı kararı bekliyor):** ilk yüklemede
+tam-sayfa `Yükleniyor` yerine kabuk iskeleti (topbar/rail zaten çizili;
+`main` içinde shimmer satırlar). Faz 2'nin Disk iskeleti bileşeni
+yeniden kullanılır. Faz 0 listesine eklenmedi; onay gelirse Faz 1
+sırasında değerlendirilir.
+
+**Araştırma eki (sentete opsiyonel):** yüzey katmanı ölçeğinin (kural 2)
+güncel uygulama karşılıkları: Radix Colors'ın 12 adımlı koyu ölçek
+mantığı ve Material 3 "tonal elevation rolleri" (`surface-container*`).
+PatternFly/NN/g kaynakları yeterli; bu iki desen yalnız token adlandırması
+için referanstır, yeni bağımlılık GİRMEZ.
+
+**Karar:** yol haritası faz listesi değişmedi (UI-001..UI-012 + açık
+UI-013); Faz 0 hâlâ sıradaki iştir.
