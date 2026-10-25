@@ -23,7 +23,9 @@ export type IconName =
   | 'panel'
   | 'check'
   | 'chevronDown'
-  | 'file';
+  | 'file'
+  | 'lock'
+  | 'arrowRight';
 
 const PATHS: Record<IconName, ReactElement> = {
   menu: <path d="M2 4h12M2 8h12M2 12h12" />,
@@ -108,6 +110,14 @@ const PATHS: Record<IconName, ReactElement> = {
       <path d="M9 1.5v3h3" />
     </>
   ),
+  lock: (
+    <>
+      <rect x="3" y="7" width="10" height="7" rx="1.5" />
+      <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+      <circle cx="8" cy="10.4" r="0.9" fill="currentColor" stroke="none" />
+    </>
+  ),
+  arrowRight: <path d="M3 8h10M9 4l4 4-4 4" />,
 };
 
 export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {

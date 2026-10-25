@@ -60,6 +60,16 @@ const NAV: Array<{ id: Screen; label: MessageKey; icon: IconName }> = [
   { id: 'settings', label: 'nav.settings', icon: 'settings' },
 ];
 
+/**
+ * Rail bilgi mimarisi: 10 esit oge yerine uc is grubu + altta Ayarlar.
+ * Gruplama YALNIZ sunumdur; ekran kimlikleri, kisayollar ve davranis aynidir.
+ */
+const NAV_GROUPS: Array<{ id: string; label: MessageKey; items: Screen[] }> = [
+  { id: 'work', label: 'nav.group.work', items: ['dashboard', 'disk', 'plan'] },
+  { id: 'system', label: 'nav.group.system', items: ['projects', 'tools', 'env', 'graph'] },
+  { id: 'records', label: 'nav.group.records', items: ['schedules', 'vault'] },
+];
+
 /** Yazı alanında mı? Kısayollar orada devre dışı kalır. */
 function isTypingTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -496,6 +506,46 @@ export function App() {
       ? t('nav.open')
       : t('nav.collapse');
 
+  /**
+   * Rail ogesi: roving tabindex korunur (yalniz aktif ekran 0; oklar gezer).
+   * Kasa sayaci motordan gelir; sifirsa rozet cizilmez.
+   */
+  const railItem = (id: Screen) => {
+    const item = NAV.find((entry) => entry.id === id);
+    if (!item) return null;
+    const vaultCount =
+      id === 'vault'
+        ? (dashboard?.ledgers.find((ledger) => ledger.id === 'vault')?.count ?? 0)
+        : 0;
+    const label =
+      id === 'vault' && vaultCount > 0
+        ? `${t(item.label)} (${vaultCount})`
+        : t(item.label);
+    return (
+      <button
+        key={id}
+        type="button"
+        className={`rail-item${screen === id ? ' active' : ''}`}
+        aria-current={screen === id ? 'page' : undefined}
+        tabIndex={screen === id ? 0 : -1}
+        title={label}
+        aria-label={label}
+        onClick={() => {
+          setScreen(id);
+          if (isNarrow) setRailOpen(false);
+        }}
+      >
+        <Icon name={item.icon} />
+        <span className="rail-label">{t(item.label)}</span>
+        {vaultCount > 0 && (
+          <span className="rail-badge" aria-hidden="true">
+            {vaultCount}
+          </span>
+        )}
+      </button>
+    );
+  };
+
   // Sag panel modulleri: karar YOK; yalnizca sunum + motordan gelen sayilar.
   // (W2-d) Baglam ayrı modul YALNIZ Plan ekraninda (kanit slotu yok);
   // diger ekranlarda Kanitalar modulunun footer'idir.
@@ -506,6 +556,11 @@ export function App() {
       label: 'rightPanel.evidence',
       slot: true,
       empty: 'rightPanel.evidence.empty',
+      emptyKind: 'evidence',
+      emptyAction: {
+        label: 'rightPanel.empty.cta',
+        onClick: () => setScreen('disk'),
+      },
       footer: <ContextBlock meta={meta} lang={lang} />,
     });
   }
@@ -515,6 +570,7 @@ export function App() {
       label: 'rightPanel.action',
       slot: true,
       empty: 'rightPanel.action.empty',
+      emptyKind: 'action',
     });
   }
   if (screen !== 'plan') {
@@ -534,6 +590,7 @@ export function App() {
           onClearAll={() => void clearPlanned()}
           onOpenPlan={() => setScreen('plan')}
           onOpenTools={() => setScreen('tools')}
+          onOpenDisk={() => setScreen('disk')}
         />
       ),
     });
@@ -658,31 +715,30 @@ export function App() {
           ref={railRef}
           onKeyDown={onRailKey}
         >
-          {NAV.map((item) => {
-            const vaultCount = item.id === 'vault' ? (dashboard?.ledgers.find((l) => l.id === 'vault')?.count ?? 0) : 0;
-            const vaultLabel = vaultCount > 0 ? t('nav.vault') + ' (' + vaultCount + ')' : t(item.label);
-            return (
-            <button
-              key={item.id}
-              type="button"
-              className={`rail-item${screen === item.id ? ' active' : ''}`}
-              aria-current={screen === item.id ? 'page' : undefined}
-              tabIndex={screen === item.id ? 0 : -1}
-              title={item.id === 'vault' && vaultCount > 0 ? vaultLabel : t(item.label)}
-              aria-label={item.id === 'vault' && vaultCount > 0 ? vaultLabel : t(item.label)}
-              onClick={() => {
-                setScreen(item.id);
-                if (isNarrow) setRailOpen(false);
-              }}
+          {NAV_GROUPS.map((group) => (
+            <div
+              key={group.id}
+              className="rail-group"
+              role="group"
+              aria-label={t(group.label)}
             >
-              <Icon name={item.icon} />
-              <span className="rail-label">{t(item.label)}</span>
-              {item.id === 'vault' && vaultCount > 0 && (
-                <span className="rail-badge" aria-hidden="true">{vaultCount}</span>
-              )}
-            </button>
-            );
-          })}
+              <div className="rail-group-label" aria-hidden="true">
+                {tu(group.label)}
+              </div>
+              {group.items.map((id) => railItem(id))}
+            </div>
+          ))}
+
+          <div className="rail-spacer" />
+          {railItem('settings')}
+
+          <div className="rail-foot" title={t('rail.localHint')}>
+            <Icon name="lock" size={14} />
+            <div className="rail-foot-text">
+              <strong>{t('rail.local')}</strong>
+              <span>{t('rail.localHint')}</span>
+            </div>
+          </div>
         </nav>
 
         <main

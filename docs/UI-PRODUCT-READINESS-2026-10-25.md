@@ -10,6 +10,8 @@
 > Faz 0 kabul detayları ve Gelişmiş mod kapsamı eklendi (§8).
 > Sıradaki yine Faz 0'dır.
 > **Kapsam:** web arayüzü (`web/`), görsel sistem ve ekran yerleşimleri.
+> **25.10.2026 3. tur:** **Faz 0 kapandı** (UI-001..UI-003; sonuç ve ölçümler
+> §9). Sıradaki: Faz 1 (UI-004..UI-006).
 > **Değişmez kurallar:** `AGENTS.md` kural 18 (karar motorda), iki aşamalı
 > onay, `report-only`, `guard.ts`, localhost + çerez kapıları.
 > **İlke:** bu turda **hiçbir karar kuralı değişmez**; yalnız görünüm,
@@ -209,9 +211,9 @@ Yeni düzen:
 
 | Kimlik | İş | Durum |
 |---|---|---|
-| UI-001 | Belirteçler + tipografi + yüzey katmanları | ⬜ bekliyor |
-| UI-002 | Topbar + gruplu rail + yerel çalışma notu | ⬜ bekliyor |
-| UI-003 | Sağ panel anlamlı boş durumlar | ⬜ bekliyor |
+| UI-001 | Belirteçler + tipografi + yüzey katmanları | ✅ 25.10.2026 |
+| UI-002 | Topbar + gruplu rail + yerel çalışma notu | ✅ 25.10.2026 |
+| UI-003 | Sağ panel anlamlı boş durumlar | ✅ 25.10.2026 |
 
 **UI-002 kabul detayları (kod doğrulamasından):** roving tabindex +
 `↑ ↓ Home End` gruplama ile birebir çalışır (App.tsx 429-448, seçici
@@ -373,3 +375,27 @@ için referanstır, yeni bağımlılık GİRMEZ.
 
 **Karar:** yol haritası faz listesi değişmedi (UI-001..UI-012 + açık
 UI-013); Faz 0 hâlâ sıradaki iştir.
+
+---
+
+## 9. Faz 0 sonucu — 25.10.2026 (kapandı)
+
+**Durum:** UI-001 · UI-002 · UI-003 ✅. Motor, servis, API ve onay
+kuralları **değişmedi**; `src/` dokunulmadı.
+
+| İş | Uygulama | Kanıt |
+|---|---|---|
+| UI-001 | `styles.css :root` yeniden yazıldı (`panel-3`, `line-strong`, `faint #7d8da4`, space/radius/duration/z ölçekleri, `--font-ui`, `--shadow`); gövde 14/1.5, `h1` 28/1.15, bölüm etiketi 11 px, `tabular-nums`; `.app` 56 px + çekmece/kısayol ripplesi | DOM ölçümü: `faint` panel 5.24 / panel-2 4.87 / bg 5.73; body `14px/21px`, h1 `28px/32.2px`, topbar `56px` |
+| UI-002 | `NAV_GROUPS` (Çalışma · Sistem · Kayıt) + alta sabit Ayarlar + kilit ikonlu yerel not; `lock`/`arrowRight` ikonları | 3 grup, 10 öğe aynı sırada; daraltılmış rail 52 px, görünür etiket 0, Ayarlar dipte; roving tabindex/`aria-current`/localStorage aynı |
+| UI-003 | `PanelEmpty` (`emptyKind` + `emptyAction`): Kanıtlar 3 adım + CTA, İşlem "hangi ekranlarda", Plan Durumu "Plan boş" + CTA | TR + EN metinleri ve CTA'lar gerçek tarayıcıda okundu |
+
+**Kapılar:** typecheck (src + web) 0 · `npm test` 388/388 · `build:web`
+133.41 kB gzip · `smoke` temiz · 1440/1024 + 760 çekmece taraması · konsol
+hatası yok · ekran görüntüleri `scratch/ui-product-2026-10-25/after-*.png`.
+
+**Kapsam dışı bırakılanlar (harita §5 gereği):** Genel Bakış hero/dikey
+yığın (Faz 1), Disk seçim çubuğu/tablo (Faz 2), ekran içi boş durumlar ve
+form cilası (Faz 3), tam-sayfa yükleme iskeleti (UI-013, kullanıcı kararı
+bekliyor).
+
+**Sıradaki:** **Faz 1 — UI-004..UI-006.**

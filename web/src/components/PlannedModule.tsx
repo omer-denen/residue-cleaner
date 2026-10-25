@@ -251,6 +251,7 @@ export function PlannedModule({
   onClearAll,
   onOpenPlan,
   onOpenTools,
+  onOpenDisk,
 }: {
   plan: PlanResponse | null;
   lang: Lang;
@@ -263,6 +264,7 @@ export function PlannedModule({
   onClearAll: () => void;
   onOpenPlan: () => void;
   onOpenTools: () => void;
+  onOpenDisk: () => void;
 }) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
@@ -307,9 +309,21 @@ export function PlannedModule({
       )}
 
       {!plan ? (
-        <p className="rp-planned-empty-note dim">
-          {t('rightPanel.planned.empty')}
-        </p>
+        <div className="rp-empty-state rp-empty-planned">
+          <span className="rp-empty-icon" aria-hidden="true">
+            <Icon name="plan" size={18} />
+          </span>
+          <h3>{t('rightPanel.planned.emptyTitle')}</h3>
+          <p>{t('rightPanel.planned.emptyBody')}</p>
+          <button
+            type="button"
+            className="ghost rp-empty-cta"
+            onClick={onOpenDisk}
+          >
+            <span>{t('rightPanel.empty.cta')}</span>
+            <Icon name="arrowRight" size={13} />
+          </button>
+        </div>
       ) : (
         <>
           {/* Üst blok: aksiyon + özet/geçerlilik (sticky). */}

@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
+import { Icon } from './icons.tsx';
 
 /**
  * SAG PANEL — ekranlardan bagimsiz "baglam yuzeyi".
@@ -41,6 +42,10 @@ export interface RightPanelModule {
   slot?: boolean;
   /** Slot bos oldugunda gosterilecek metin. */
   empty?: MessageKey;
+  /** Bos durumun zengin varyanti: adimli yol gosterir. */
+  emptyKind?: 'evidence' | 'action';
+  /** Bos durumdaki tek eylem (ornek: "Disk'e git"). */
+  emptyAction?: { label: MessageKey; onClick: () => void };
   /** slot=false ise dogrudan basilan icerik. */
   content?: ReactNode;
   /** Slot altinda basilan ek bolum (or. Baglam); slot bos olsa da gorunur. */
@@ -136,11 +141,77 @@ function SlotHost({
 
   return (
     <>
-      {empty && module.empty && (
-        <p className="dim rp-empty">{translate(lang, module.empty)}</p>
-      )}
+      {empty &&
+        (module.emptyKind ? (
+          <PanelEmpty
+            kind={module.emptyKind}
+            lang={lang}
+            action={module.emptyAction}
+          />
+        ) : (
+          module.empty && <p className="dim rp-empty">{translate(lang, module.empty)}</p>
+        ))}
       <div ref={setEl} className="rp-slot" />
     </>
+  );
+}
+
+/**
+ * Bos panel bir "ogrenme yuzeyi"dir: ne secilecegini ve secimden sonra
+ * NE olacagini anlatir. Metinler i18n'den gelir; karar yoktur (kural 18).
+ */
+function PanelEmpty({
+  kind,
+  lang,
+  action,
+}: {
+  kind: 'evidence' | 'action';
+  lang: Lang;
+  action?: { label: MessageKey; onClick: () => void };
+}) {
+  const t = (key: MessageKey): string => translate(lang, key);
+  const steps: MessageKey[] =
+    kind === 'evidence'
+      ? [
+          'rightPanel.evidence.step1',
+          'rightPanel.evidence.step2',
+          'rightPanel.evidence.step3',
+        ]
+      : [];
+
+  return (
+    <div className={`rp-empty-state rp-empty-${kind}`}>
+      <span className="rp-empty-icon" aria-hidden="true">
+        <Icon name={kind === 'evidence' ? 'file' : 'tools'} size={18} />
+      </span>
+      <h3>
+        {t(
+          kind === 'evidence'
+            ? 'rightPanel.evidence.emptyTitle'
+            : 'rightPanel.action.emptyTitle',
+        )}
+      </h3>
+      <p>
+        {t(
+          kind === 'evidence'
+            ? 'rightPanel.evidence.emptyBody'
+            : 'rightPanel.action.emptyBody',
+        )}
+      </p>
+      {steps.length > 0 && (
+        <ol className="rp-empty-steps">
+          {steps.map((step) => (
+            <li key={step}>{t(step)}</li>
+          ))}
+        </ol>
+      )}
+      {action && (
+        <button type="button" className="ghost rp-empty-cta" onClick={action.onClick}>
+          <span>{t(action.label)}</span>
+          <Icon name="arrowRight" size={13} />
+        </button>
+      )}
+    </div>
   );
 }
 
