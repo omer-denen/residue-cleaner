@@ -112,6 +112,8 @@ export class EvidenceReader {
       out.push('Sürüm kontrolü altındaki yollar atlandı; tracked dosyalar silinmez.');
     if (markers.includes('CACHEDIR.TAG'))
       out.push('Klasor kendini onbellek olarak isaretliyor (CACHEDIR.TAG).');
+    if (markers.some((m) => m.startsWith('partial-install:')))
+      out.push('Yarim kalmis kurulum klasoru — gizli, rastgele ekli.');
 
     const regen = c.verdict.regenerability;
     if (regen) {

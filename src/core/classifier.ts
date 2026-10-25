@@ -517,6 +517,27 @@ export async function probeDir(path: string): Promise<Probe> {
   // DOSYA'dir; logs dizin aramasi yalniz dizin girdilerine bakar.
   await probeLogs(path, p, entries);
 
+  // T37: yarim kalmis guncelleme artiklari (gizli .paket-<rastgele>).
+  // Yalniz paket deposu kokunde: adi 'node_modules' olan klasor ya da
+  // 'package-store' kaniti tasiyan klasor. Sinirli (80 cocuk), hata
+  // yutulur, ek olcum YOK.
+  try {
+    const PARTIAL_INSTALL_RE = /^\.[A-Za-z0-9][A-Za-z0-9._-]*-[a-z0-9]{6,}$/;
+    const dirName = (path.split(/[\\/]/).filter(Boolean).pop() ?? '').toLowerCase();
+    const isPkgStore = dirName === 'node_modules' || (p.markers ?? []).includes('package-store');
+    if (isPkgStore && Array.isArray(entries)) {
+      const children = entries.filter((e) => e.isDirectory()).slice(0, 80);
+      for (const c of children) {
+        if (PARTIAL_INSTALL_RE.test(c.name)) {
+          const m = `partial-install:${c.name}`;
+          if (!p.markers.includes(m)) p.markers.push(m);
+        }
+      }
+    }
+  } catch {
+    /* hata yutulur */
+  }
+
   p.fileKinds = [...new Set(p.fileKinds)];
   p.markers = [...new Set(p.markers)];
   return p;

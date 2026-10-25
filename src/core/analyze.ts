@@ -1,5 +1,5 @@
 import { stat, readdir, readFile } from 'node:fs/promises';
-import { readdirSync, statSync } from 'node:fs';
+import { readdirSync, statSync, lstatSync, readFileSync } from 'node:fs';
 import type { Dirent } from 'node:fs';
 import { join } from 'node:path';
 import { longPath, errorCode } from '../util/longpath.ts';
@@ -504,6 +504,9 @@ function enforceTargetConsistency(verdict: Verdict, root: string, archetype: Arc
   });
 }
 
+/** T37: yarim kurulum artigi icin minimum yas (gun). */
+const PARTIAL_INSTALL_MIN_AGE_DAYS = 1;
+
 /**
  * Silme hedeflerini uretir.
  *
@@ -511,6 +514,69 @@ function enforceTargetConsistency(verdict: Verdict, root: string, archetype: Arc
  * DEGILDIR. Gecici klasorlerde sadece yasli dosyalar hedeflenir;
  * model depolarda sadece bilesik (kullanilamayan) parcalar.
  */
+function buildPartialInstallTargets(root: string, ev: Evidence | undefined, now: number): DeleteTarget[] {
+  const out: DeleteTarget[] = [];
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const m of ev?.markers ?? []) {
+    if (typeof m === 'string' && m.startsWith('partial-install:')) {
+      names.push(m.slice('partial-install:'.length));
+    }
+  }
+  if (names.length === 0) return out;
+
+  // Gercek paket korumasi: kökteki package.json dependencies/devDependencies
+  // içinde öndeki ad geçiyorsa hedef YOK.
+  const protectedNames = new Set<string>();
+  try {
+    const pkgPath = `${root}\\package.json`;
+    const st = statSync(longPath(pkgPath));
+    if (st.isFile()) {
+      const j = JSON.parse(readFileSync(longPath(pkgPath), 'utf8')) as unknown;
+      if (j && typeof j === 'object' && !Array.isArray(j)) {
+        const o = j as Record<string, unknown>;
+        for (const field of ['dependencies', 'devDependencies']) {
+          const deps = o[field];
+          if (deps && typeof deps === 'object' && !Array.isArray(deps)) {
+            for (const key of Object.keys(deps as Record<string, unknown>)) {
+              protectedNames.add(key.toLowerCase());
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    /* package.json yok veya okunamadi */
+  }
+
+  const minAgeMs = PARTIAL_INSTALL_MIN_AGE_DAYS * 24 * 60 * 60 * 1000;
+
+  for (const name of names) {
+    if (!name || /[\\\\/]/.test(name)) continue;
+    // ondaki ad: baslangictaki nokta + son rastgele ek cikarilir
+    const base = name.replace(/^\./, '').replace(/-[a-z0-9]{6,}$/i, '');
+    if (base && protectedNames.has(base.toLowerCase())) continue;
+
+    const p = `${root}\\${name}`;
+    try {
+      const st = lstatSync(longPath(p));
+      // Reparse point (symlink/junction) asla hedeflenmez.
+      if (st.isSymbolicLink()) continue;
+      if ((st.mode & 0xf000) === 0xa000) continue;
+      if (!st.isDirectory()) continue;
+      const age = now - st.mtimeMs;
+      if (age < minAgeMs) continue;
+    } catch {
+      continue;
+    }
+    const k = p.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push({ path: p, kind: 'whole', label: `${name} — yarım kurulum artığı`, bytes: 0 });
+  }
+  return out;
+}
+
 function buildDeleteTargets(
   root: string,
   archetype: Archetype,
@@ -616,8 +682,14 @@ function buildDeleteTargets(
           label: `${baseName(cacheRoot)} — paket deposu`,
           bytes: cacheRoot === root ? totalBytes : 0,
         },
+        ...buildPartialInstallTargets(root, ev, now),
       ];
     }
+
+    case 'global-packages':
+      // T37: kok klasor (node_modules) silinmez; yalniz yarim kalmis
+      // gizli kurulum artiklari hedef olur.
+      return buildPartialInstallTargets(root, ev, now);
 
     case 'crash-artifacts':
     case 'updater-staging':
@@ -705,7 +777,7 @@ function buildSensitiveTargets(
 }
 
 function baseName(p: string): string {
-  return p.split('\\').filter(Boolean).pop() ?? p;
+  return p.split(/[\\/]/).filter(Boolean).pop() ?? p;
 }
 
 /**
@@ -1481,6 +1553,12 @@ export function detectArchetype(
   // proje ici tarama zorunlu olarak rapor modudur (AGENTS kural 9).
   if (probe?.projectArtifact) return 'project-artifact';
 
+  // T37: node_modules kokü (proje baglaminda degilse) global paket
+  // kurulumu sayilir; yarim kalmis gizli kurulum artiklari bu yoldan
+  // hedeflenir. Proje baglaminda project-artifact zaten yukarida dondu.
+  const baseNameLower = (root.split(/[\\/]/).filter(Boolean).pop() ?? '').toLowerCase();
+  if (baseNameLower === 'node_modules') return 'global-packages';
+
   // 11. GLOBAL PAKET KURULUMU: komut shim'i + node_modules.
   //
   // npm prefix (or. %APPDATA%\\npm) node_modules + shim'ler icerir; bu
@@ -2042,6 +2120,28 @@ function decideBase(ctx: {
   // kendisidir. Klasoru silmek komutlari PATH'te baglantisiz birakir;
   // dogru islem paket yoneticisinin uninstall akisidir.
   if (archetype === 'global-packages') {
+    const hasPartial = (ev.markers ?? []).some(
+      (m) => typeof m === 'string' && m.startsWith('partial-install:'),
+    );
+    if (hasPartial) {
+      return {
+        risk: 'medium',
+        kind: 'ask',
+        title: `${name} — global paket kurulumu`,
+        what: 'Kurulu araçlar korunur; yalnız **yarım kalmış gizli kurulum artıkları** (`.paket-rastgele`) hedeflenir.',
+        consequence:
+          'Silinirse yalnız yarım kalan artık kaldırılır; kurulu paketler ve komut bağlantıları korunur. Emin değilseniz plana eklemeyin.',
+        because: [
+          ...because,
+          'node_modules / .bin yapisi bulundu (kurulum, onbellek degil)',
+          'Gizli, rastgele ekli artık klasör bulundu (yarım kurulum)',
+        ],
+        preconditions: [
+          'Yarım artık 1 günden yeni değil',
+          'Kurulu paketler hedeflenmez',
+        ],
+      };
+    }
     return {
       risk: 'high',
       kind: 'report-only',
