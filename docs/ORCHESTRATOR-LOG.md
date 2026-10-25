@@ -809,3 +809,41 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
    Plan ekranı (`execute` yok, plan yoksa görünmez).
 2. Marka (R + "Residue") **sola** hizalanır: `.topbar`
    `space-between` → `flex-start`, `.topbar-right { margin-left: auto }`.
+
+### W7 — TAMAMLANDI (kullanıcı istekleri)
+
+- Commit `b0e4df2` (işçi: Beam Free, `scratch/logs/w7.log`,
+  rapor `scratch/raporlar/w7.md`).
+- `web/src/App.tsx`: `.topbar-right` içinde, durum rozetinden sonra
+  **"Bekleyen Plan"** düğmesi (`planned &&`), tıklayınca `setScreen('plan')`;
+  `aria-label` statik ("… · 20:13'e kadar"), sayaç `aria-hidden`.
+- `web/src/components/PlannedModule.tsx`: `PlanValidity`ye `compact` seçeneği
+  (yalnız "kalan mm:ss"); **varsayılan davranış değişmedi** (sağ panel aynı).
+- `web/src/styles.css`: `.topbar` → `justify-content: flex-start`,
+  `.topbar-right { margin-left: auto }`, `.pending-plan` (iki satır, mono
+  sayaç, odak halkası).
+- `web/src/i18n.ts`: `top.pendingPlan` / `top.pendingPlanHint` (TR+EN).
+- **Kapı:** typecheck temiz · **361/361** · `build:web` **462.08 kB /
+  130.38 kB gzip**.
+
+**Tarayıcı kanıtı 4 (1440×900, space "residue w7 ust cubuk"):**
+
+| Kontrol | Ölçüm |
+|---|---|
+| Marka sola | `.brand.left = 62` (rail-toggle `right = 46` + 16 px gap) → hamburger'ın hemen sağında |
+| Sağ grup | `.topbar-right.right = 1520` (viewport 1536 − 16 px padding) |
+| Plan yokken | `.pending-plan` sayısı **0** |
+| Plan varken | **1** düğme: "Pending plan / 09:44 left"; `aria-label` = "Pending plan · until 08:13 PM" (statik), sayaç `aria-hidden="true"` |
+| Sayaç akıyor | 09:42 → 09:40 (2.5 s), **ağ isteği yok** |
+| Yönlendirme | tıklama → rail aktif "Plan", `h1 = "Plan"`, URL değişmedi |
+
+- **Test artefaktı temizlendi:** plan `discard` (200), `scanOnLaunch` →
+  **`always`**, sunucu kapatıldı. **Gerçek silme/plan çalıştırma YAPILMADI.**
+
+### Oturum özeti (25.10.2026)
+
+- Commit'ler: `359cd8c` protokol · `46a7a50` W5-a · `1049f33` W3-a ·
+  `5598995` W5-b2 · `b062073` W5-b1 · `88a541b` W5-c · `895666f` W5-d ·
+  `26ac889` W6 · `0c21723` W3-c · `b0e4df2` W7 + 5 kayıt commit'i.
+- Test: **347 → 361**. typecheck her adımda temiz. Bundle 129.09 → **130.38 kB gzip**.
+- **Gerçek silme yapılmadı**; kasa değişmedi.
