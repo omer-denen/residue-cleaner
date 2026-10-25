@@ -862,3 +862,45 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
 - **Kopyalanan dosyalar:** `state.json` (wave **D6** + `lastSession`) ve
   `SESSION_LOG.md` (25.10.2026 devir notu) worktree'den **ana repoya** elle
   kopyalandı (gitignore'da).
+
+## 25.10.2026 — devam: F5 (kanıt türü rozetleri)
+
+- **T37 ön kanıtı (diskte arama, salt okunur):** `%APPDATA%\npm\node_modules`,
+  `%LOCALAPPDATA%\npm-cache`, `%APPDATA%\npm-cache` → gizli `.paket-*`
+  klasörü **YOK** (0/0/yok). T37 bugün **gerçek veriyle doğrulanamaz**;
+  yalnız sentetik fixture ile test edilebilir.
+
+### F5 — TAMAMLANDI
+
+- Commit `fe8c1b7` (işçi: Beam Free, `scratch/logs/f5.log`,
+  rapor `scratch/raporlar/f5.md`).
+- `src/core/cli-inventory-types.ts`: `UsageSignal = 'state'|'history'|'atime'|'install'`;
+  `CliTool.usageSignals` + `CliTool.atimeSuspect`.
+- `src/core/cli-inventory.ts`: `usageVerdict()` dönüşüne `signals`
+  (sabit sıra `install, state, atime, history`) + `atimeSuspect`
+  (`installAtime`); **5 envanter üretim noktası** alanları dolduruyor.
+  **Karar eşikleri değişmedi** (K17/K20, ≤2 sn kuralı aynı);
+  `evidence: string[]` korundu.
+- `web/src/screens/Tools.tsx`: satırda ve detay panelinde `.signal-badge`
+  rozetleri (`atimeSuspect` uyarı tonunda); `i18n.ts` TR+EN 6 anahtar;
+  `styles.css` `.badge.signal-badge`.
+- **Kapı:** typecheck temiz · **361 → 365/365** (+4: F5-1..F5-4) ·
+  `build:web` **463.16 kB / 130.95 kB gzip**.
+- **Beyaz liste sapması (kabul):** `tests/cli-view.test.ts` ve
+  `tests/inventory-atime.test.ts` +2 satır (fixture'a yeni zorunlu alanlar) —
+  derleme gereği, test zayıflatma yok.
+- **Orkestratör düzeltmesi:** `i18n.ts`'de iki anahtar tek satıra yapışmıştı
+  (`tools.signals.hint` + `tools.manual`), TR ve EN'de ayrıldı.
+
+**Tarayıcı kanıtı 5 (gerçek envanter, 14 araç):**
+
+| Kontrol | Ölçüm |
+|---|---|
+| Rozetler | `.signal-badge` **41** adet; metinler "install", "access", "state", "atime = install" |
+| K17 görünürlüğü | `browser` aracı: **"atime = install"** uyarı rozeti (atime kullanım kanıtı sayılmadı) |
+| Durum/güven | Mevcut durum rozeti (`Unused/Unknown/Protected`) ve güven rozeti korunuyor |
+| Yerleşim | 1440×900'de satırlar taşmıyor; rozetler durum rozetinin yanında |
+| Envanter | `GET /api/cli/view` → 14 araç (SALT OKUNUR tarama) |
+
+- **Gerçek silme/kaldırma YAPILMADI.**
+- **Sıradaki:** W0-b (CLI/API parity) → T37 (sentetik fixture ile) → T74 W2.
