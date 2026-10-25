@@ -181,3 +181,80 @@ test('uc: cache varken POST /api/scan/verify -> 200 alanlar', async () => {
   await new Promise<void>((ok) => server.close(() => ok()));
   await rm(tmpRoot, { recursive: true, force: true });
 });
+
+test('sıra korunur: 3 küme × 2 hedef → out.targets girdi sırasıyla aynı', async () => {
+  const clusters: any[] = [];
+  for (let i = 0; i < 3; i++) {
+    const targets: any[] = [];
+    for (let j = 0; j < 2; j++) {
+      const p = join(root, `order-${i}-${j}`);
+      await mkdir(p, { recursive: true });
+      targets.push({ path: p, kind: 'whole', label: 'x', bytes: 10 + i * 2 + j });
+    }
+    clusters.push(cluster({
+      key: `ko${i}`,
+      deleteTargets: targets as any,
+      reclaimableBytes: targets.reduce((a: number, t: any) => a + t.bytes, 0),
+      totalBytes: 100,
+    }));
+  }
+  const finishedAt = Date.now() + 100_000;
+  const scan = makeScan(clusters, finishedAt);
+  const out = await verify.verifyScanTargets(scan, finishedAt);
+  assert.equal(out.targets.length, 6);
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 2; j++) {
+      const idx = i * 2 + j;
+      assert.equal(out.targets[idx]!.key, `ko${i}`);
+      assert.equal(out.targets[idx]!.path, join(root, `order-${i}-${j}`));
+    }
+  }
+});
+
+test('aynı yol iki hedefte (farklı kümeler): ikisi ok, iki küme korunur', async () => {
+  const dir = join(root, 'samepath');
+  await mkdir(dir, { recursive: true });
+  const finishedAt = Date.now() + 100_000;
+  const t: any = { path: dir, kind: 'whole', label: 'x', bytes: 5 };
+  const c1 = cluster({ key: 'sa', deleteTargets: [{ ...t }], reclaimableBytes: 5, totalBytes: 5 });
+  const c2 = cluster({ key: 'sb', deleteTargets: [{ ...t }], reclaimableBytes: 5, totalBytes: 5 });
+  const scan = makeScan([c1, c2], finishedAt);
+  const out = await verify.verifyScanTargets(scan, finishedAt);
+  assert.equal(out.targets.length, 2);
+  assert.equal(out.targets[0]!.status, 'ok');
+  assert.equal(out.targets[1]!.status, 'ok');
+  assert.equal(out.scan.clusters.length, 2);
+  assert.equal(out.scan.clusters[0]!.deleteTargets!.length, 1);
+  assert.equal(out.scan.clusters[1]!.deleteTargets!.length, 1);
+});
+
+test('karışık durum: missing + ok + changed; reclaimableBytes yalnız kalanlar; totalBytes sabit', async () => {
+  const okDir = join(root, 'mixed-ok');
+  const changedDir = join(root, 'mixed-changed');
+  await mkdir(okDir, { recursive: true });
+  await mkdir(changedDir, { recursive: true });
+  const finishedAt = Date.now();
+  await new Promise((r) => setTimeout(r, 60));
+  await writeFile(join(changedDir, 'f.txt'), 'hello world');
+  const targets = [
+    { path: join(root, 'mixed-missing'), kind: 'whole', label: 'm', bytes: 5 },
+    { path: okDir, kind: 'whole', label: 'o', bytes: 10 },
+    { path: changedDir, kind: 'whole', label: 'c', bytes: 1 },
+  ];
+  const c = cluster({ key: 'km', deleteTargets: targets as any, reclaimableBytes: 16, totalBytes: 100 });
+  const scan = makeScan([c], finishedAt);
+  const out = await verify.verifyScanTargets(scan, finishedAt);
+  assert.equal(out.targets.length, 3);
+  assert.equal(out.targets[0]!.status, 'missing');
+  assert.equal(out.targets[0]!.toBytes, 0);
+  assert.equal(out.targets[1]!.status, 'ok');
+  assert.equal(out.targets[1]!.toBytes, 10);
+  assert.equal(out.targets[2]!.status, 'changed');
+  assert.ok(out.targets[2]!.toBytes > 1);
+  const cl = out.scan.clusters[0]!;
+  assert.equal(cl.totalBytes, 100);
+  const kept = cl.deleteTargets!;
+  assert.equal(kept.length, 2);
+  assert.equal(cl.reclaimableBytes, kept.reduce((a: number, t: any) => a + (t.bytes ?? 0), 0));
+  assert.equal(cl.reclaimableBytes, out.targets[1]!.toBytes + out.targets[2]!.toBytes);
+});
