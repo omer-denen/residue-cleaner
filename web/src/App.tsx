@@ -583,14 +583,18 @@ export function App() {
           ref={railRef}
           onKeyDown={onRailKey}
         >
-          {NAV.map((item) => (
+          {NAV.map((item) => {
+            const vaultCount = item.id === 'vault' ? (dashboard?.ledgers.find((l) => l.id === 'vault')?.count ?? 0) : 0;
+            const vaultLabel = vaultCount > 0 ? t('nav.vault') + ' (' + vaultCount + ')' : t(item.label);
+            return (
             <button
               key={item.id}
               type="button"
               className={`rail-item${screen === item.id ? ' active' : ''}`}
               aria-current={screen === item.id ? 'page' : undefined}
               tabIndex={screen === item.id ? 0 : -1}
-              title={t(item.label)}
+              title={item.id === 'vault' && vaultCount > 0 ? vaultLabel : t(item.label)}
+              aria-label={item.id === 'vault' && vaultCount > 0 ? vaultLabel : t(item.label)}
               onClick={() => {
                 setScreen(item.id);
                 if (isNarrow) setRailOpen(false);
@@ -598,8 +602,12 @@ export function App() {
             >
               <Icon name={item.icon} />
               <span className="rail-label">{t(item.label)}</span>
+              {item.id === 'vault' && vaultCount > 0 && (
+                <span className="rail-badge" aria-hidden="true">{vaultCount}</span>
+              )}
             </button>
-          ))}
+            );
+          })}
         </nav>
 
         <main

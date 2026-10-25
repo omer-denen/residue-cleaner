@@ -15,7 +15,6 @@ import {
   formatTimestamp,
 } from '../format.ts';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
-import { ScanStamp } from '../components/ScanStamp.tsx';
 import {
   CARD_TITLE_LABEL,
   CATEGORY_LABEL,
@@ -126,9 +125,24 @@ export function Dashboard({
         <div>
           <h1>{t('dash.title')}</h1>
           <p className="dim">{t('dash.subtitle')}</p>
-          <ScanStamp at={data.scan.at} ageMs={data.scan.ageMs} lang={lang} />
+          <p className="dim last-vault">
+            {data.lastVaultAt !== null
+              ? t('dash.lastVault', { when: formatTimestamp(data.lastVaultAt, lang) })
+              : t('dash.lastVault.none')}
+          </p>
         </div>
       </header>
+
+      <section className="panel" aria-labelledby="dash-measure-title">
+        <h2 id="dash-measure-title">{tu('dash.measure.title')}</h2>
+        <div className="measure-primary">
+          <strong className="mono">{formatBytes(data.totals.deletableBytes)}</strong>{' '}
+          <span className="dim">{t('dash.measure.deletable')}</span>
+        </div>
+        <div className="measure-secondary dim">
+          {t('dash.measure.scanned', { bytes: formatBytes(data.totals.scannedBytes) })}
+        </div>
+      </section>
 
       <section className="ledgers" aria-label={t('dash.ledgers')}>
         {data.ledgers.map((ledger) => (
@@ -148,6 +162,9 @@ export function Dashboard({
             <strong className="ledger-value">
               {ledger.known ? formatBytes(ledger.bytes) : t('ledger.unknown')}
             </strong>
+            {ledger.id === 'vault' && ledger.count ? (
+              <span className="ledger-count">{formatCount(ledger.count, lang)} {t('ledger.items')}</span>
+            ) : null}
             <span className="ledger-note dim">
               {t(ledger.known ? LEDGER_NOTE[ledger.id] : 'ledger.cli.note.empty')}
             </span>
@@ -248,7 +265,6 @@ export function Dashboard({
       <section className="panel">
           <h2>{tu('dash.safeWins')}</h2>
           <p className="panel-note dim">{t('dash.safeWins.why')}</p>
-          <ScanStamp at={data.scan.at} ageMs={data.scan.ageMs} lang={lang} />
           {data.safeWins.length === 0 ? (
             <p className="dim">{t('dash.safeWins.empty')}</p>
           ) : (
