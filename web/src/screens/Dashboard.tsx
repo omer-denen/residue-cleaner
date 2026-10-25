@@ -159,7 +159,7 @@ export function Dashboard({
             }}
           >
             <span className="ledger-label">{t(LEDGER_LABEL[ledger.id])}</span>
-            <strong className="ledger-value">
+            <strong className={`ledger-value${ledger.known ? '' : ' unknown'}`}>
               {ledger.known ? formatBytes(ledger.bytes) : t('ledger.unknown')}
             </strong>
             {ledger.id === 'vault' && ledger.count ? (

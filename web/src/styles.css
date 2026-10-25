@@ -979,6 +979,7 @@ code,
   color: inherit;
   text-align: left;
   width: 100%;
+  min-width: 0;
   cursor: pointer;
 }
 
@@ -1023,6 +1024,12 @@ code,
   font-size: 25px;
   font-weight: 650;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.ledger-value.unknown {
+  font-size: 17px;
+  letter-spacing: 0;
 }
 
 .ledger-note {
