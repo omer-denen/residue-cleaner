@@ -3,7 +3,6 @@
 ![platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![License](https://img.shields.io/github/license/omer-denen/residue-cleaner)
 ![Version](https://img.shields.io/github/v/tag/omer-denen/residue-cleaner?label=version)
-![npm](https://img.shields.io/npm/v/residue-cleaner)
 
 [Türkçe (varsayılan)](README.md) · **English**
 
@@ -54,7 +53,7 @@ It answers one question with evidence: **"What is this folder, and what happens 
 3. Type this and press Enter:
 
    ```powershell
-   npx residue-cleaner scan
+   node bin/residue.mjs scan
    ```
 
 4. The tool scans the folders left behind by developer and AI tooling and
@@ -64,7 +63,7 @@ It answers one question with evidence: **"What is this folder, and what happens 
 5. Pick what you want to move to the vault → `residue clean` → read the plan
    → type `TASI` for medium/high risk → confirm. Permanent deletion
    (`--purge`) asks for `SIL`.
-6. Prefer a browser over the terminal? Run `npx residue-cleaner ui --web`.
+6. Prefer a browser over the terminal? Run `node bin/residue.mjs ui --web`.
 
 The default mode moves items into the tool's own **vault**, so a wrong
 decision is reversible (`residue undo --restore`).
@@ -82,8 +81,8 @@ decision is reversible (`residue undo --restore`).
 ### Never used a terminal before?
 
 - Run `node --version`; if it is below `v22.6.0`, install the LTS from nodejs.org.
-- `npx residue-cleaner scan` downloads the package on first run; it takes a few seconds.
-- `npx residue-cleaner` prints the command list and the help text.
+- `node bin/residue.mjs scan` downloads the package on first run; it takes a few seconds.
+- `node bin/residue.mjs` prints the command list and the help text.
 - You do not have to delete anything; `residue clean --dry-run` shows the
   plan only.
 
@@ -94,7 +93,7 @@ decision is reversible (`residue undo --restore`).
 Prefer a browser over the terminal:
 
 ```powershell
-npx residue-cleaner ui --web
+node bin/residue.mjs ui --web
 ```
 
 - The server listens on **`127.0.0.1` only**; it cannot be reached from the
@@ -242,7 +241,7 @@ tracked by Git are protected in every mode anyway.
 Restore from the vault: `residue undo --restore`.
 
 **How do I open the browser UI?**
-Run `npx residue-cleaner ui --web`; it opens on `127.0.0.1`. Press `Ctrl+C`
+Run `node bin/residue.mjs ui --web`; it opens on `127.0.0.1`. Press `Ctrl+C`
 in the terminal to close it.
 
 **The UI says "invalid token".**
@@ -283,24 +282,14 @@ No. Everything runs locally.
 No administrator rights needed.
 
 ```bash
-npx residue-cleaner scan     # try without installing
-npm install -g residue-cleaner   # install globally
-residue                  # print the command list
-```
-
-After installation the command is **`residue`** (`residue-cleaner` is an alias
-for the same script).
-
-Run from source:
-
-```bash
 git clone https://github.com/omer-denen/residue-cleaner.git
-cd residue-cleaner
-npm install
-npm start
+cd residue-cleaner && npm install
+node bin/residue.mjs scan   # scan without installing anything globally
 ```
 
-**Uninstall:** `npm uninstall -g residue-cleaner`.
+Command form: `node bin/residue.mjs <subcommand>` (e.g. `node bin/residue.mjs scan`).
+
+**Uninstall:** there is no npm install; delete the repository folder.
 Tool data lives under `%LOCALAPPDATA%\residue` (logs, scan cache, backup
 vault). **The tool never lists or deletes this directory in its own scans**;
 because the backup vault lives there, do not delete it by hand either.
@@ -349,12 +338,11 @@ while it is off, **no network request is made**.
 Manual update:
 
 ```bash
-npm i -g residue-cleaner        # update the global install
-npx residue-cleaner@latest      # run the latest version without installing
+git pull                        # update from source
+npm install                     # refresh dependencies
 ```
 
-- npm: <https://www.npmjs.com/package/residue-cleaner>
-- GitHub releases: <https://github.com/omer-denen/residue-cleaner/releases>
+- Source: <https://github.com/omer-denen/residue-cleaner>
 
 The automatic update check is **off** by default (no network request is made).
 To enable it, set **Update check** in the Settings screen to `Daily` or
