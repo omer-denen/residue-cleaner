@@ -619,3 +619,24 @@ armed, doğrulama bandı).
 - **Açık nokta (kabul):** `older` hedefte `minAgeDays` tanımsızsa ölçüm 0
   üretebilir; `buildDeleteTargets` her `older` hedefe 3/90 yazdığı için bugün
   ulaşılamaz — ileride savunma eklenebilir.
+
+### W5-b2 — TAMAMLANDI
+
+- Commit `5598995` (işçi: Beam Free, `scratch/logs/w5b2.log`,
+  rapor `scratch/raporlar/w5b2.md`).
+- `web/src/screens/Dashboard.tsx`: iki `ScanStamp` kullanımı kaldırıldı
+  ("Son Tarama" yaşı artık Genel Bakış'ta yok); yerine **"Son Kasa işlemi"**
+  (`data.lastVaultAt`, `null` → "Henüz kasa işlemi yok"); yeni **"Silinebilir
+  alan"** paneli (`totals.deletableBytes` birincil, `totals.scannedBytes`
+  ikincil); kasa defterinde `count` → "N öğe".
+- `web/src/App.tsx`: rail'de yalnız Kasa için `rail-badge` (öğe sayısı),
+  `> 0` iken; `title`/`aria-label` sayıyı içerir.
+- `web/src/i18n.ts`: `dash.lastVault`, `dash.lastVault.none`,
+  `dash.measure.title|deletable|scanned`, `ledger.items` (TR+EN);
+  `ledger.vault.note` → **"Hâlâ diskte" / "Still on disk"**.
+- `web/src/styles.css`: `.rail-badge`, `.ledger-count`, `.measure-primary|secondary`.
+- **Kapı:** typecheck temiz · **358/358** (test sayısı değişmedi; web için DOM
+  test altyapısı yok — görsel doğrulama tarayıcı turuna bırakıldı) ·
+  `build:web` **459.31 kB / 129.09 kB gzip**.
+- **Denetim notu:** `.ledger` flex-column, `.rail-item` flex-row olduğu için
+  yeni düğümler düzeni bozmuyor; arayüzde hesap yok.
