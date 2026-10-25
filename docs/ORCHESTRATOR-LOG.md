@@ -549,3 +549,15 @@ armed, doğrulama bandı).
   "Son Kasa işlemi"), W2-f kalanı (panel `×`, boşluk, bant), W3-a
   (doğrulama ucu; daily/manual için).
 - **Gerçek silme/plan çalıştırma YAPILMADI.**
+
+## 25.10.2026 — oturum başı: işçi model Beam Free + baseline
+
+- **İşçi model değişti (kullanıcı kararı, 25.10.2026):**
+  `opencode-go/glm-5.3-flash` → **`opencode-go/beam-free`** (Beam Free,
+  0 maliyet). `ORKESTRATOR.md` §2 güncellendi. Biçim aynı: ayrı görünür
+  PowerShell penceresi, `opencode run --standalone --auto`, subagent YOK.
+- **Baseline (kapı 1):** `npm run typecheck` temiz · `npm test`
+  **347/347** · dal `orkestrator` @ `6d52541`, çalışma ağacı temiz.
+- **Kuyruk:** W5-a → W3-a → W5-b → W2-f kalanı. W5-a ve W3-a
+  `contract.ts`/`server.ts` dosyalarını paylaştığı için **paralel değil,
+  sıralı** yürütülür.

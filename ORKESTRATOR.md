@@ -32,13 +32,13 @@ bunlarda değişiklik yaparsa iş sonunda **ana repoya geri kopyalar**.
 Orkestratör **ürün kodunu kendisi yazmaz**; doğrulama için okur, test ve
 entegrasyonu yapar. Küçük mekanik düzeltmeler (yazım, tek satır) istisnadır.
 
-### İşçi model (kullanıcı kararı, 22.10.2026 · güncelleme 23.10.2026)
+### İşçi model (kullanıcı kararı, 22.10.2026 · güncelleme 25.10.2026)
 
-- **Model:** `opencode-go/glm-5.3-flash` (GLM-5.3-Flash)
-  — 23.10.2026: Free kotası dolduğu için kullanıcı onayıyla ücretli kanala
-  dönüldü; önceki deneme `opencode/glm-5.3-flash-free`.
+- **Model:** `opencode-go/beam-free` (Beam Free) — 25.10.2026 kullanıcı
+  kararı: işçi model **Beam Free**. Önceki: `opencode-go/glm-5.3-flash`
+  (23.10.2026, ücretli kanal), ondan önce `opencode/glm-5.3-flash-free`.
 - **Biçim:** ayrı **görünür PowerShell penceresi**; subagent YOK.
-- **Komut:** `opencode run --standalone --auto --model opencode-go/glm-5.3-flash --file <görev>.md "<kısa yönerge>"`
+- **Komut:** `opencode run --standalone --auto --model opencode-go/beam-free --file <görev>.md "<kısa yönerge>"`
 - Görev dosyaları `scratch/gorev-*.md`, penceredeki çıktı `scratch/logs/*.log`
   (ikisi de gitignore'da, ürüne girmez).
 - Her görev ayrı `opencode run` sürecidir; bağlamı görev dosyası taşır.
