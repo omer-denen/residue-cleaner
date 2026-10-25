@@ -664,6 +664,7 @@ export function App() {
       className={[
         'app',
         railCollapsed ? 'rail-collapsed' : '',
+        rightCollapsed ? 'panel-collapsed' : '',
         isNarrow && railOpen ? 'rail-drawer-open' : '',
       ]
         .filter(Boolean)

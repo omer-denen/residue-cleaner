@@ -2462,17 +2462,20 @@ body.resizing {
 /* --- Tarama sahnesi: liste yerine ilerleme (Faz 2 devami) -------------- */
 
 .scan-stage {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 12px;
-  min-height: 220px;
-  padding: 24px 22px;
+  padding: 22px 22px 24px;
   border: 1px solid var(--line);
   border-top: 2px solid var(--info);
   border-radius: var(--r-md);
   background: var(--panel);
+}
+
+.toolbar[inert] {
+  opacity: 0.5;
 }
 
 .scan-stage-head {
@@ -2563,6 +2566,17 @@ body.resizing {
 
 .selection-bar .spacer {
   flex: 1;
+}
+
+/*
+ * "Planı uygula" TEK yerde: panel gorunurken paneldeki birincil dugme
+ * kullanilir; dar ekranda ya da panel katlanmissa cubuktaki gorunur.
+ * (Ayni eylemi iki birincil dugme temsil etmesin.)
+ */
+@media (min-width: 1181px) {
+  .app:not(.panel-collapsed) .selection-apply {
+    display: none;
+  }
 }
 
 /* Plan yokken: cubuk yerine tek satirlik ipucu + iki toplu eylem. */

@@ -237,6 +237,10 @@ export function Disk({
         paused: false,
         current: null,
       });
+      // App'in durumu HEMEN tazelensin: ust cubuk yuzdesi, diger ekranlarin
+      // "tarama suruyor" korkuluklari ve 1.2 s'lik yoklama bu bayrakla baslar.
+      // (Aksi halde baska ekrana gecince tarama gorunmez oluyordu.)
+      onStatus();
       closeStream.current?.();
       closeStream.current = openEvents<ScanStreamEvent>(`/api/scan/${scanId}/events`, (event) => {
         switch (event.type) {
@@ -474,7 +478,9 @@ export function Disk({
           {t('a11y.skipList')}
         </a>
 
-        <div className="toolbar">
+        {/* Tarama surerken arac cubugu ETKILESIMSIZ: eski sayilarla filtre
+            degistirmek yaniltmasin (inert = klavye + isaretci kapali). */}
+        <div className="toolbar" inert={scanning || undefined}>
           <div className="toolbar-row">
             <input
               className="control search"
@@ -702,8 +708,9 @@ export function Disk({
           )}`}
         </span>
 
-        {!scanning && (selectionCount > 0 || plannedKeys.length > 0) ? (
-          <div className="selection-bar">
+        {!scanning &&
+          (selectionCount > 0 || plannedKeys.length > 0 ? (
+            <div className="selection-bar">
             <div className="selection-stats">
               <span>
                 <strong className="mono">{selectionCount}</strong> {t('disk.selection.planned')}
@@ -744,7 +751,7 @@ export function Disk({
               </button>
               <button
                 type="button"
-                className="primary"
+                className="primary selection-apply"
                 disabled={!view || selectionCount === 0}
                 title={selectionCount === 0 ? t('rightPanel.planned.applyHint') : undefined}
                 onClick={onApplyPlan}
@@ -753,30 +760,30 @@ export function Disk({
               </button>
             </div>
           </div>
-        ) : (
-          <div className="selection-hint">
-            <span className="dim">
-              {t('disk.selection.none')} {t('disk.selection.noneHint')}
-            </span>
-            <span className="spacer" />
-            <button
-              type="button"
-              className="ghost"
-              disabled={busy || !view || view.defaultSelectedKeys.length === 0}
-              onClick={() => void addKeysToPlan(view!.defaultSelectedKeys)}
-            >
-              {t('disk.defaults')}
-            </button>
-            <button
-              type="button"
-              className="ghost"
-              disabled={busy || !view || view.plannableKeys.length === 0}
-              onClick={() => void addKeysToPlan(view!.plannableKeys)}
-            >
-              {t('disk.selectVisible')}
-            </button>
-          </div>
-        )}
+          ) : (
+            <div className="selection-hint">
+              <span className="dim">
+                {t('disk.selection.none')} {t('disk.selection.noneHint')}
+              </span>
+              <span className="spacer" />
+              <button
+                type="button"
+                className="ghost"
+                disabled={busy || !view || view.defaultSelectedKeys.length === 0}
+                onClick={() => void addKeysToPlan(view!.defaultSelectedKeys)}
+              >
+                {t('disk.defaults')}
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                disabled={busy || !view || view.plannableKeys.length === 0}
+                onClick={() => void addKeysToPlan(view!.plannableKeys)}
+              >
+                {t('disk.selectVisible')}
+              </button>
+            </div>
+          ))}
 
         {!scanning && (
           <div className="cluster-head">
