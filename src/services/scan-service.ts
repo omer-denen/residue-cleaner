@@ -242,6 +242,17 @@ export class ScanService {
     if (this.persistScan) await markScanDirty(this.dirtyAt);
   }
 
+  /** Doğrulama sonucunu belleğe yazar ve kalıcı önbelleğe kaydeder. */
+  applyVerification(scan: ScanResult): void {
+    this.lastScan = { scan, at: scan.finishedAt };
+    this.cacheLoaded = true;
+    if (this.persistScan) {
+      // Onbellek yazimi basarisiz olsa da dogrulama sonucu bellekte kalir;
+      // yakalanmamis ret (unhandled rejection) sureci dusurmesin.
+      void saveScanCache(scan).catch(() => {});
+    }
+  }
+
   cancel(id: string): void {
     const job = this.scans.get(id);
     if (!job) throw new ServiceError(404, 'Tarama bulunamadi');

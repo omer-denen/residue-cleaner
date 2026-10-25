@@ -290,6 +290,8 @@ export interface ScanResult {
   clusters: Cluster[];
   stats: ScanStats;
   skipped: SkippedEntry[];
+  /** Hedef varlık/boyut doğrulamasının yapıldığı zaman (ms). Opsiyonel. */
+  verifiedAt?: number;
 }
 
 export interface ScanStats {

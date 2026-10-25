@@ -186,6 +186,17 @@ export interface LatestResponse {
   at: number | null;
 }
 
+export interface ScanVerifyResponse {
+  scanAt: number | null;
+  checkedAt: number;
+  checkedTargets: number;
+  missing: Array<{ key: string; path: string; bytes: number }>;
+  changed: Array<{ key: string; path: string; fromBytes: number; toBytes: number }>;
+  missingBytes: number;
+  changedBytes: number;
+  skipped: number;
+}
+
 export type ScanFreshness = 'never' | 'current' | 'stale' | 'scanning';
 
 /**

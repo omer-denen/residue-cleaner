@@ -33,6 +33,7 @@ import { currentVersion } from '../util/version.ts';
 import { primaryPath, scanItemId } from '../core/scan-items.ts';
 import { longPath } from '../util/longpath.ts';
 import { ScanService } from '../services/scan-service.ts';
+import { verifyScanTargets } from '../services/scan-verify-service.ts';
 import { DeleteService } from '../services/delete-service.ts';
 import { CliInventoryService } from '../services/cli-inventory-service.ts';
 import { CliRemovalService } from '../services/cli-removal-service.ts';
@@ -76,6 +77,7 @@ import type {
   ScanStartResponse,
   ScanStatusResponse,
   ScanStreamEvent,
+  ScanVerifyResponse,
   SettingsResponse,
   SettingsUpdateRequest,
   UpdateCheckView,
@@ -503,6 +505,49 @@ async function handleRequest(
 
   if (route === 'GET /api/scan/status') {
     const body: ScanStatusResponse = await ctx.scan.status();
+    sendJson(res, 200, body);
+    return;
+  }
+
+  if (route === 'POST /api/scan/verify') {
+    await ctx.scan.ensureCacheLoaded();
+    const last = ctx.scan.last();
+    const checkedAt = Date.now();
+    if (!last) {
+      const body: ScanVerifyResponse = {
+        scanAt: null,
+        checkedAt,
+        checkedTargets: 0,
+        missing: [],
+        changed: [],
+        missingBytes: 0,
+        changedBytes: 0,
+        skipped: 0,
+      };
+      sendJson(res, 200, body);
+      return;
+    }
+    const out = await verifyScanTargets(last.scan, checkedAt);
+    ctx.scan.applyVerification(out.scan);
+    const missing = out.targets
+      .filter((t) => t.status === 'missing')
+      .map((t) => ({ key: t.key, path: t.path, bytes: t.fromBytes }));
+    const changed = out.targets
+      .filter((t) => t.status === 'changed')
+      .map((t) => ({ key: t.key, path: t.path, fromBytes: t.fromBytes, toBytes: t.toBytes }));
+    const missingBytes = missing.reduce((a, m) => a + m.bytes, 0);
+    const changedBytes = changed.reduce((a, c) => a + Math.abs(c.toBytes - c.fromBytes), 0);
+    const skipped = out.targets.filter((t) => t.status === 'skipped').length;
+    const body: ScanVerifyResponse = {
+      scanAt: last.scan.finishedAt,
+      checkedAt: out.checkedAt,
+      checkedTargets: out.targets.length,
+      missing,
+      changed,
+      missingBytes,
+      changedBytes,
+      skipped,
+    };
     sendJson(res, 200, body);
     return;
   }
