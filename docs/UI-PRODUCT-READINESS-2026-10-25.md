@@ -10,10 +10,10 @@
 > Faz 0 kabul detayları ve Gelişmiş mod kapsamı eklendi (§8).
 > Sıradaki yine Faz 0'dır.
 > **Kapsam:** web arayüzü (`web/`), görsel sistem ve ekran yerleşimleri.
-> **25.10.2026 3. tur:** **Faz 0 kapandı** (UI-001..UI-003; §9), **Faz 1
-> kapandı** (UI-004..UI-006; §10), **Faz 2 kapandı** (UI-007..UI-008; §11) ve
-> **Faz 3 kapandı** (UI-009; §12). Sıradaki: Faz 4 (kapanış — metin denetimi,
-> kapılar, tarayıcı doğrulaması, devir).
+> **25.10.2026 3. tur:** **Faz 0** (§9), **Faz 1** (§10), **Faz 2** (§11),
+> **Faz 3** (§12) ve **Faz 4** (§13) kapandı — UI-001..UI-012 tamam.
+> Açık kalan tek öneri: **UI-013** (tam-sayfa yükleme iskeleti; kullanıcı
+> kararı bekliyor).
 > **Değişmez kurallar:** `AGENTS.md` kural 18 (karar motorda), iki aşamalı
 > onay, `report-only`, `guard.ts`, localhost + çerez kapıları.
 > **İlke:** bu turda **hiçbir karar kuralı değişmez**; yalnız görünüm,
@@ -269,9 +269,9 @@ okunamaz/kırık değil; TR/EN taşması yok.
 
 | Kimlik | İş | Durum |
 |---|---|---|
-| UI-010 | TR/EN metin denetimi + eksik anahtar kontrolü | ⬜ bekliyor |
-| UI-011 | typecheck + test + build | ⬜ bekliyor |
-| UI-012 | Gerçek tarayıcı doğrulaması (1440 + 1024) + devir notu | ⬜ bekliyor |
+| UI-010 | TR/EN metin denetimi + eksik anahtar kontrolü | ✅ 25.10.2026 |
+| UI-011 | typecheck + test + build | ✅ 25.10.2026 |
+| UI-012 | Gerçek tarayıcı doğrulaması (1440 + 1024) + devir notu | ✅ 25.10.2026 |
 
 **Çıkış kapısı:** `npm test` yeşil; bundle üretilmiş; ekran görüntüleri
 `scratch/ui-product-2026-10-25/after-*.png`; `SESSION_LOG.md` + `state.json`
@@ -482,3 +482,41 @@ yükleme iskeleti (UI-013) hâlâ kullanıcı kararında.
 **Sıradaki:** **Faz 4 — UI-010..UI-012** (TR/EN metin denetimi + eksik anahtar
 kontrolü, tüm kapılar, 1440 + 1024 tarayıcı doğrulaması, `SESSION_LOG.md` +
 `state.json`, tek commit).
+
+---
+
+## 13. Faz 4 sonucu — 25.10.2026 (kapanış)
+
+**Durum:** UI-010 · UI-011 · UI-012 ✅. **UI-001..UI-012 tamam.**
+
+| Kapı | Sonuç |
+|---|---|
+| Tip | `npx tsc --noEmit` **0** · `tsc -p web/tsconfig.json --noEmit` **0** |
+| Test | `npm test` **388/388**, 0 fail, ~4 s |
+| Derleme | `build:web` CSS **52.74 kB** (9.64 gzip) · JS **476.27 kB** (134.95 gzip) |
+| Smoke | `npm run smoke` → **SMOKE TEMİZ** (tüm uçlar beklendiği gibi) |
+| Tarayıcı | 10 ekran × (1440, 1024) × (TR, EN): **yatay taşma yok**, başlık/boş durum metni kırpılmıyor |
+
+**Metin denetimi (UI-010):**
+
+- `en` bloğu `Record<keyof typeof tr, string>` olarak tiplenmiş: **eksik anahtar
+  derlemede yakalanır**, tip kontrolü temiz.
+- EN bloğunda **Türkçe karakter yok** (ç/ğ/ı/İ/ö/ş/ü taraması: 0).
+- TR/EN **yer tutucu (`{ad}`) uyumsuzluğu yok** (811 anahtar karşılaştırıldı).
+- Bu turda silinen ölü anahtarlar: `plan.empty`, `vault.empty`,
+  `projects.detail.empty`, `disk.detail.empty`, `dash.measure.title`,
+  `dash.measure.deletable`, `dash.cards`, `dash.noScan`, `dash.noScanHint`,
+  `dash.verdicts`.
+
+**Kalan bilinçli açıklar:**
+
+- **UI-013** (tam-sayfa yükleme iskeleti) — kullanıcı kararı bekliyor; Disk
+  iskeleti hazır olduğu için Faz 1 sırasında yeniden kullanılabilir.
+- Panel içi tek satırlık boşluklar (Zamanlanmış kural/geçmiş, PATH bulguları)
+  metin olarak kaldı; bunlar sayfa düzeyi boş durum değil.
+- Grafik ekranı envanter yokken ilk taramayı bekler (motor davranışı, UI
+  değişikliği değil).
+
+**Devir:** `SESSION_LOG.md` (bu oturumun dört fazı) · `state.json`
+(D8 + T75) · ekran görüntüleri `scratch/ui-product-2026-10-25/`
+(`after-*` Faz 0, `faz1-*`, `faz2-*`, `faz3-*`, `after-10-*`).
