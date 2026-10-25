@@ -807,7 +807,7 @@ export interface CliInventoryRequest {
 }
 
 export type CliInventoryResponse = CliInventory;
-export type { CliSource, CliStatus, CliTool } from './cli-inventory-types.ts';
+export type { CliSource, CliStatus, CliTool, UsageSignal } from './cli-inventory-types.ts';
 
 /** Arac listesi filtresi: durum + kaynak + arama + siralama MOTORDAN gelir. */
 export type CliStatusFilter = 'all' | CliStatus;

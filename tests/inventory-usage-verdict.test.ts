@@ -53,6 +53,8 @@ function baseTool(over: Partial<CliTool> = {}): CliTool {
     status: 'recent',
     confidence: 'medium',
     evidence: [],
+    usageSignals: [],
+    atimeSuspect: false,
     uninstall: null,
     ...over,
   };
@@ -224,4 +226,54 @@ test('9: karar sirasi — gecmis + eski atime, durum guncel degil → unknown; h
   );
   assert.equal(v.status, 'unknown');
   assert.equal(v.confidence, 'medium');
+});
+
+test('F5-1: yalniz durum klasoru sinyali → signals=[state], atimeSuspect=false', () => {
+  const v = usageVerdict(
+    baseInput({
+      installedAt: 0,
+      lastAccessAt: 0,
+      state: { dirs: ['d'], lastMtime: NOW - 60_000, lastAtime: 0 },
+    }),
+  );
+  assert.deepEqual(v.signals, ['state']);
+  assert.equal(v.atimeSuspect, false);
+});
+
+test('F5-2: gecmiste geciyor (atime yok) → signals icinde history; status unknown, confidence medium', () => {
+  const v = usageVerdict(
+    baseInput({
+      lastAccessAt: 0,
+      history: { files: ['h'], lines: ['ornek urun', 'baskasi'], lastWrite: NOW - 90 * DAY, available: true },
+    }),
+  );
+  assert.ok(v.signals.includes('history'), `history sinyali eksik: ${JSON.stringify(v.signals)}`);
+  assert.equal(v.status, 'unknown');
+  assert.equal(v.confidence, 'medium');
+});
+
+test('F5-3: atime ≈ installedAt (≤2 sn) → signals icinde atime YOK, atimeSuspect=true', () => {
+  const installedAt = NOW - 60 * DAY;
+  const v = usageVerdict(
+    baseInput({
+      installedAt,
+      lastAccessAt: installedAt + 1000,
+      state: { dirs: [], lastMtime: 0, lastAtime: 0 },
+      history: { files: [], lines: [], lastWrite: 0, available: true },
+    }),
+  );
+  assert.ok(!v.signals.includes('atime'), `atime sinyali olmamali: ${JSON.stringify(v.signals)}`);
+  assert.equal(v.atimeSuspect, true);
+});
+
+test('F5-4: tum sinyaller → sıra [install,state,atime,history]', () => {
+  const v = usageVerdict(
+    baseInput({
+      installedAt: NOW - 60 * DAY,
+      lastAccessAt: NOW - 3 * DAY,
+      state: { dirs: ['d'], lastMtime: NOW - 60_000, lastAtime: 0 },
+      history: { files: ['h'], lines: ['ornek urun'], lastWrite: NOW, available: true },
+    }),
+  );
+  assert.deepEqual(v.signals, ['install', 'state', 'atime', 'history']);
 });

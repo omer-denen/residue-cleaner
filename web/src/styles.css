@@ -1891,6 +1891,13 @@ body.resizing {
   border-color: color-mix(in srgb, var(--vault) 40%, var(--line));
 }
 
+/* T69/F5: kanit turu rozetleri. */
+.badge.signal-badge {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel-2));
+}
+
 /* "Planda" rozeti: metin tasiyir; yalniz renk degil. */
 .badge.planda {
   display: inline-flex;

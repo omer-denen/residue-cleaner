@@ -31,6 +31,8 @@ function tool(overrides: Partial<CliTool> & { id: string; command: string }): Cl
     status: 'unused',
     confidence: 'high',
     evidence: ['shim atime 40 gün önce'],
+    usageSignals: [],
+    atimeSuspect: false,
     uninstall: spec(overrides.command),
     ...overrides,
   };

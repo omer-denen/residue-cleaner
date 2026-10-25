@@ -41,6 +41,7 @@ import type {
   PathShadow,
   ShimIssue,
   UninstallSpec,
+  UsageSignal,
 } from './cli-inventory-types.ts';
 
 export type {
@@ -53,6 +54,7 @@ export type {
   PathShadow,
   ShimIssue,
   UninstallSpec,
+  UsageSignal,
 } from './cli-inventory-types.ts';
 
 const DAY = 86_400_000;
@@ -393,6 +395,8 @@ async function scanNpmGlobal(
         status: usage.status,
         confidence: usage.confidence,
         evidence: usage.evidence,
+        usageSignals: usage.signals,
+        atimeSuspect: usage.atimeSuspect,
         uninstall,
       };
       out.push(tool);
@@ -779,6 +783,8 @@ async function scanUvTools(
         status: usage.status,
         confidence: usage.confidence,
         evidence: usage.evidence,
+        usageSignals: usage.signals,
+        atimeSuspect: usage.atimeSuspect,
         uninstall: uv
           ? {
               kind: 'uv',
@@ -879,6 +885,8 @@ async function scanDotnetTools(
       status: usage.status,
       confidence: usage.confidence,
       evidence: usage.evidence,
+      usageSignals: usage.signals,
+      atimeSuspect: usage.atimeSuspect,
       uninstall: dotnet
         ? {
             kind: 'dotnet',
@@ -997,6 +1005,8 @@ async function scanPythonUser(
         status: usage.status,
         confidence: usage.confidence,
         evidence: usage.evidence,
+        usageSignals: usage.signals,
+        atimeSuspect: usage.atimeSuspect,
         uninstall:
           python && dist
             ? {
@@ -1133,6 +1143,8 @@ async function scanStandaloneShims(
         status: usage.status,
         confidence: usage.confidence,
         evidence: usage.evidence,
+        usageSignals: usage.signals,
+        atimeSuspect: usage.atimeSuspect,
         uninstall: null,
       };
       out.push(tool);
@@ -1166,6 +1178,8 @@ export interface UsageVerdict {
   status: CliStatus;
   confidence: 'high' | 'medium' | 'low';
   evidence: string[];
+  signals: UsageSignal[];
+  atimeSuspect: boolean;
 }
 
 /**
@@ -1268,7 +1282,22 @@ export function usageVerdict(input: UsageInput): UsageVerdict {
   }
   if (idleDays !== Number.POSITIVE_INFINITY && idleDays < 3650) evidence.push(`son sinyalden ${Math.floor(idleDays)} gun gecti`);
 
-  return { mentions: usage.mentions, lastRatio: usage.lastRatio, idleDays, status, confidence, evidence };
+  // sabit sira: install, state, atime, history
+  const ordered: UsageSignal[] = [];
+  if (input.installedAt > 0) ordered.push('install');
+  if (lastStateAt > 0) ordered.push('state');
+  if (input.lastAccessAt > 0 && atimeUsable) ordered.push('atime');
+  if (usage.mentions > 0) ordered.push('history');
+  return {
+    mentions: usage.mentions,
+    lastRatio: usage.lastRatio,
+    idleDays,
+    status,
+    confidence,
+    evidence,
+    signals: ordered,
+    atimeSuspect: installAtime,
+  };
 }
 
 /**

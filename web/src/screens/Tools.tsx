@@ -493,6 +493,23 @@ export function Tools({ lang, onChanged }: Props) {
                     >
                       {t(CLI_STATUS_LABEL[tool.status] ?? 'cli.status.unknown')}
                     </span>
+                    {(tool.usageSignals ?? []).map((sig) => (
+                      <span
+                        key={sig}
+                        className="badge signal-badge"
+                        aria-label={t(`tools.signal.${sig}` as MessageKey)}
+                      >
+                        {t(`tools.signal.${sig}` as MessageKey)}
+                      </span>
+                    ))}
+                    {tool.atimeSuspect && (
+                      <span
+                        className="badge warn signal-badge"
+                        aria-label={t('tools.signal.atimeSuspect')}
+                      >
+                        {t('tools.signal.atimeSuspect')}
+                      </span>
+                    )}
                     <span className="num dim">
                       {tool.idleDays >= 0
                         ? `${Math.floor(tool.idleDays)} ${t('vault.days')}`
@@ -636,6 +653,23 @@ export function Tools({ lang, onChanged }: Props) {
                   <span className="badge">
                     {t(CONFIDENCE_LABEL[detail.confidence] ?? 'confidence.low')}
                   </span>
+                  {(detail.usageSignals ?? []).map((sig) => (
+                    <span
+                      key={sig}
+                      className="badge signal-badge"
+                      aria-label={t(`tools.signal.${sig}` as MessageKey)}
+                    >
+                      {t(`tools.signal.${sig}` as MessageKey)}
+                    </span>
+                  ))}
+                  {detail.atimeSuspect && (
+                    <span
+                      className="badge warn signal-badge"
+                      aria-label={t('tools.signal.atimeSuspect')}
+                    >
+                      {t('tools.signal.atimeSuspect')}
+                    </span>
+                  )}
                   {detail.health === 'broken' && (
                     <span className="badge warn">{t('tools.brokenBadge')}</span>
                   )}

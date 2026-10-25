@@ -122,6 +122,8 @@ test('annotateHealth: küçük stub dosya "broken" isaretlenir ve atime degismez
     status: 'unused',
     confidence: 'low',
     evidence: [],
+    usageSignals: [],
+    atimeSuspect: false,
     uninstall: null,
   };
 

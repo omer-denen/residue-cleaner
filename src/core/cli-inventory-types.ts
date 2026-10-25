@@ -8,6 +8,8 @@
 export type CliSource = 'npm-global' | 'uv-tool' | 'dotnet-tool' | 'pip-user' | 'standalone';
 export type CliStatus = 'unused' | 'recent' | 'unknown' | 'protected';
 
+/** T69/F5: tipli kanit sinyali turleri. */
+export type UsageSignal = 'state' | 'history' | 'atime' | 'install';
 /** T35: ayni dizinin birden fazla PATH kaynaginda tanimli olmasi. */
 export interface PathDuplicate {
   path: string;
@@ -106,6 +108,10 @@ export interface CliTool {
   status: CliStatus;
   confidence: 'high' | 'medium' | 'low';
   evidence: string[];
+  /** T69/F5: karara giren tipli kanit sinyalleri (sabit sira). */
+  usageSignals: UsageSignal[];
+  /** T69/F5: atime kurulum anıyla aynı → kullanım kanıtı sayılmadı. */
+  atimeSuspect: boolean;
   uninstall: UninstallSpec | null;
   /**
    * Kurulum sagligi. 'broken' = bin dosyasi stub kalmis / calismiyor;
