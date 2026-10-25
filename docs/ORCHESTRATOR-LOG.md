@@ -584,3 +584,38 @@ armed, doğrulama bandı).
   `tests/scan-launch-setting.test.ts` (4) · `tests/dashboard-summary.test.ts`
   yalnız genişletildi (silinen/zayıflatılan test yok).
 - **Risk:** toplamlar motorda; sunucu kendiliğinden tarama başlatmıyor.
+
+### W3-a — TAMAMLANDI
+
+- Commit `1049f33` (işçi: Beam Free, `scratch/logs/w3a.log`,
+  rapor `scratch/raporlar/w3a.md`).
+- `src/core/freshness.ts` (yeni): `probeDirs` — yalnız **klasör yürüyüşü**
+  (`readdir withFileTypes`; dosya `stat`'ı yok), `lstat` + reparse biti ile
+  junction/symlink atlanır, `maxDirs=20000`/`maxDepth=10`, limit aşılırsa
+  `capped:true`. Uzun yol `longPath` ile.
+- `src/services/scan-verify-service.ts` (yeni): `verifyScanTargets` —
+  hedef başına `missing` / `skipped` (capped) / `ok` / `changed`;
+  şüphe ölçütü `probe.newestMtime > scan.finishedAt`; şüphe varsa tam ölçüm
+  (`MeasureCache.measure` ya da `walk({olderThanDays:[minAgeDays]})` —
+  `buildDeleteTargets` ile **aynı** `olderBytes` kuralı).
+  `deleteTargets` yalnız kalanlar, `reclaimableBytes` = kalan toplamı,
+  `totalBytes` **değişmez**, `finishedAt` korunur, `verifiedAt` yeni alan.
+  Girdi mutasyona uğramaz (derin kopya).
+- `src/services/scan-service.ts`: `applyVerification(scan)` — bellek + kalıcı
+  önbellek; `dirty.json`'a dokunulmaz.
+- `src/core/contract.ts`: `ScanVerifyResponse`; `src/core/types.ts`:
+  `ScanResult.verifiedAt?`.
+- `src/web/server.ts`: `POST /api/scan/verify` (önbellek yokken `200` +
+  `scanAt: null`).
+- **Orkestratör düzeltmesi:** `applyVerification` içindeki
+  `void saveScanCache(scan)` yakalanmamış ret üretebiliyordu →
+  `.catch(() => {})` (bellekteki sonuç korunur, süreç düşmez).
+- **Gerçek disk ölçümü (işçi):** `%USERPROFILE%\.nuget` 9.97 GB /
+  14.723 klasör → `probeDirs` **1.93 s**, `verifyScanTargets` **1.58 s**,
+  `capped=false`, `missing=0`, `changed=0` (mtime taramadan eski → tam ölçüm
+  yapılmadı). Diske yazma/silme yok; tam tarama tetiklenmedi.
+- **Kapı:** typecheck temiz · **351 → 358/358** (+7) · yeni test
+  `tests/scan-verify.test.ts`.
+- **Açık nokta (kabul):** `older` hedefte `minAgeDays` tanımsızsa ölçüm 0
+  üretebilir; `buildDeleteTargets` her `older` hedefe 3/90 yazdığı için bugün
+  ulaşılamaz — ileride savunma eklenebilir.
