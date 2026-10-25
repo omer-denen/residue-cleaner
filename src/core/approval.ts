@@ -24,7 +24,8 @@ export type ApprovalKind =
   | 'vaultPurge'
   | 'projectRestore'
   | 'envClean'
-  | 'schedule';
+  | 'schedule'
+  | 'advanced';
 
 const PHRASES = {
   /** Kalici silme (yalniz purge). */
@@ -40,6 +41,8 @@ const PHRASES = {
   envClean: 'TEMIZLE',
   /** Otomatik/zamanlanmis plan kurali olusturma. */
   schedule: 'PLANLA',
+  /** Gelismis mod: keep/report-only kumeleri de plana alir (yalniz kasaya). */
+  advanced: 'GELİŞMİŞ',
 } as const satisfies Record<ApprovalKind, string>;
 
 export class ApprovalRules {

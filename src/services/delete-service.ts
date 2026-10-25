@@ -41,6 +41,8 @@ interface StoredPlan {
   expiresAt: number;
   requiresPhrase: boolean;
   requiresHighAck: boolean;
+  /** Gelismis modla kuruldu mu. */
+  advanced: boolean;
   /** W2-g: "Planı uygula" ile yeniden kuruldu mu (TTL o anda baslar). */
   armed: boolean;
 }
@@ -79,16 +81,18 @@ export class DeleteService {
     keys: string[],
     mode: 'recycle' | 'purge',
     name?: string,
+    advanced = false,
   ): PlanResponse {
     if (!scan) throw new ServiceError(400, 'Once tarama yapilmali');
     if (keys.length === 0) throw new ServiceError(400, 'Kume secilmedi');
+    if (advanced && mode !== 'recycle') throw new ServiceError(400, 'Gelismis mod yalniz kasaya tasima ile kullanilabilir');
 
     const selected = scan.clusters.filter((c) => keys.includes(c.key));
     if (selected.length === 0) throw new ServiceError(400, 'Secilen kumeler bulunamadi');
 
     let plan: DeletePlan;
     try {
-      plan = buildPlan(selected, mode);
+      plan = buildPlan(selected, mode, undefined, undefined, advanced);
     } catch (err) {
       // Guvenlik kapisi burada hata firlatir; plana hicbir zaman girmez.
       throw new ServiceError(400, describeError(err));
@@ -100,8 +104,8 @@ export class DeleteService {
     const planId = newId();
     const expiresAt = Date.now() + PLAN_TTL_MS;
     const risks = plan.clusters.map((c) => c.risk);
-    const requiresPhrase = ApprovalRules.requiresPhrase(risks);
-    const requiresHighAck = ApprovalRules.requiresHighAck(risks);
+    const requiresPhrase = advanced ? true : ApprovalRules.requiresPhrase(risks);
+    const requiresHighAck = advanced ? true : ApprovalRules.requiresHighAck(risks);
     const stored: StoredPlan = {
       planId,
       name: name === undefined ? '' : normalizePlanName(name),
@@ -110,6 +114,7 @@ export class DeleteService {
       expiresAt,
       requiresPhrase,
       requiresHighAck,
+      advanced,
       // W2-g: checkbox ile kurulan plan uygulanmamistir; "Planı uygula"
       // aninda `rebuildPlan` ile yeniden kurulur ve TTL o anda baslar.
       armed: false,
@@ -124,7 +129,11 @@ export class DeleteService {
    * (ApprovalRules) gelir. Panel motor hesabidir (kural 18).
    */
   private viewOf(stored: StoredPlan): PlanResponse {
-    const approvalKind = stored.plan.mode === 'recycle' ? 'vaultMove' : 'delete';
+    const approvalKind = stored.advanced
+      ? 'advanced'
+      : stored.plan.mode === 'recycle'
+        ? 'vaultMove'
+        : 'delete';
     const view: PlanView = {
       mode: stored.plan.mode,
       clusters: stored.plan.clusters,
@@ -141,6 +150,7 @@ export class DeleteService {
       requiresHighAck: stored.requiresHighAck,
       expiresAt: stored.expiresAt,
       armed: stored.armed,
+      advanced: stored.advanced,
       panel: PlanPanel.from(view),
     };
   }
@@ -263,8 +273,8 @@ export class DeleteService {
     const next: StoredPlan = {
       ...stored,
       plan: { mode: plan.mode, clusters, targets, totalBytes },
-      requiresPhrase: ApprovalRules.requiresPhrase(risks),
-      requiresHighAck: ApprovalRules.requiresHighAck(risks),
+      requiresPhrase: stored.advanced ? true : ApprovalRules.requiresPhrase(risks),
+      requiresHighAck: stored.advanced ? true : ApprovalRules.requiresHighAck(risks),
       // W2-g: icerik degisti -> uygulanmamis sayilir + TTL yenilenir.
       armed: false,
       expiresAt: Date.now() + PLAN_TTL_MS,
@@ -321,7 +331,7 @@ export class DeleteService {
 
     let built: DeletePlan;
     try {
-      built = buildPlan(selected, plan.mode);
+      built = buildPlan(selected, plan.mode, undefined, undefined, stored.advanced);
     } catch (err) {
       // Guvenlik kapisi burada hata firlatir; plana hicbir zaman girmez.
       throw new ServiceError(400, describeError(err));
@@ -339,8 +349,8 @@ export class DeleteService {
     const next: StoredPlan = {
       ...stored,
       plan: { mode: plan.mode, clusters, targets, totalBytes },
-      requiresPhrase: ApprovalRules.requiresPhrase(risks),
-      requiresHighAck: ApprovalRules.requiresHighAck(risks),
+      requiresPhrase: stored.advanced ? true : ApprovalRules.requiresPhrase(risks),
+      requiresHighAck: stored.advanced ? true : ApprovalRules.requiresHighAck(risks),
       // W2-g: icerik degisti -> uygulanmamis sayilir + TTL yenilenir.
       armed: false,
       expiresAt: Date.now() + PLAN_TTL_MS,
@@ -387,7 +397,7 @@ export class DeleteService {
 
     // Yeni plan taze hedeflerle kurulur; eski kayit, yeni plan basariyla
     // kurulduktan SONRA silinir (createPlan firlatirsa eski plan korunur).
-    const rebuilt = this.createPlan(scan, keys, stored.plan.mode, stored.name || undefined);
+    const rebuilt = this.createPlan(scan, keys, stored.plan.mode, stored.name || undefined, stored.advanced);
     const rebuiltStored = this.plans.get(rebuilt.planId);
     if (rebuiltStored) {
       rebuiltStored.armed = true;
@@ -429,7 +439,11 @@ export class DeleteService {
       this.plans.delete(stored.planId);
       throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
     }
-    const approvalKind = stored.plan.mode === 'recycle' ? 'vaultMove' : 'delete';
+    const approvalKind = stored.advanced
+      ? 'advanced'
+      : stored.plan.mode === 'recycle'
+        ? 'vaultMove'
+        : 'delete';
     if (stored.requiresPhrase && !ApprovalRules.matches(approvalKind, phrase)) {
       throw new ServiceError(
         400,

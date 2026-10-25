@@ -220,6 +220,7 @@ export class ScanService {
       vaultRetentionDays: s.vaultRetentionDays,
       updateCheck: s.updateCheck,
       scanOnLaunch: s.scanOnLaunch,
+      advancedDelete: s.advancedDelete,
     };
   }
 
@@ -228,6 +229,7 @@ export class ScanService {
     vaultRetentionDays?: number;
     updateCheck?: 'off' | 'daily' | 'weekly';
     scanOnLaunch?: 'always' | 'daily' | 'manual';
+    advancedDelete?: boolean;
   }): Promise<SettingsResponse> {
     const saved = await saveSettings(patch);
     this.ttlMs = saved.scanCacheHours * 3_600_000;

@@ -588,6 +588,7 @@ async function handleRequest(
         : {}),
       ...(body.updateCheck !== undefined ? { updateCheck: body.updateCheck } : {}),
       ...(body.scanOnLaunch !== undefined ? { scanOnLaunch: body.scanOnLaunch } : {}),
+      ...(typeof body.advancedDelete === 'boolean' ? { advancedDelete: body.advancedDelete } : {}),
     });
     sendJson(res, 200, out);
     return;
@@ -1297,11 +1298,20 @@ async function handleCreatePlan(
   const body = await readJson<PlanRequest>(req);
   await ctx.scan.ensureCacheLoaded();
 
+  const advanced = body.advanced === true;
+  if (advanced) {
+    const settings = await ctx.scan.settings();
+    if (!settings.advancedDelete) {
+      sendJson(res, 403, { error: 'Gelismis mod kapali' });
+      return;
+    }
+  }
+
   const scan = body.scanId ? ctx.scan.get(body.scanId)?.result : ctx.scan.last()?.scan;
   const keys = Array.isArray(body.keys)
     ? body.keys.filter((k): k is string => typeof k === 'string' && k.length > 0)
     : [];
-  const mode = body.mode === 'purge' ? 'purge' : 'recycle';
+  const mode = advanced ? 'recycle' : body.mode === 'purge' ? 'purge' : 'recycle';
   // W2-c: istege bagli plan adi; verilmezse bos string (ayni davranis).
   sendJson(
     res,
@@ -1311,6 +1321,7 @@ async function handleCreatePlan(
       keys,
       mode,
       typeof body.name === 'string' ? body.name : undefined,
+      advanced,
     ),
   );
 }

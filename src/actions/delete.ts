@@ -1,11 +1,13 @@
 import { lstat, rename, rm, stat, readdir } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { lstatSync } from 'node:fs';
+import { dirname, resolve, basename } from 'node:path';
 import type { ChildProcess } from 'node:child_process';
 import { longPath, isDenied, isLongPathError } from '../util/longpath.ts';
 import { debug, error as logError, info, warn } from '../util/log.ts';
 import type { DeleteTarget, Cluster, SensitiveAllow } from '../core/types.ts';
 import { assertSafeTarget } from './guard.ts';
 import { gitTrackerFor } from '../core/git.ts';
+import { isOwnDataPath } from '../core/discover.ts';
 import { moveIntoVault, newVaultBatch } from './vault.ts';
 
 /**
@@ -67,11 +69,20 @@ function requiredFlag(c: Cluster): keyof SensitiveAllow | null {
 }
 
 /** Kume risk seviyesine gore onay planina cevrilir. */
+const ADVANCED_EXCLUDED_ARCHETYPES = new Set([
+  'virtual-disk',
+  'project-workspace',
+  'project-artifact',
+  'agent-workspace',
+  'os-user-data',
+]);
+
 export function buildPlan(
   clusters: Cluster[],
   mode: DeleteMode,
   only?: string[],
   allow?: SensitiveAllow,
+  advanced = false,
 ): DeletePlan {
   const f = only?.map((o) => o.toLowerCase());
 
@@ -79,7 +90,7 @@ export function buildPlan(
   let total = 0;
 
   for (const c of clusters) {
-    if (c.verdict.kind === 'report-only' || c.verdict.kind === 'keep') continue;
+    if (!advanced && (c.verdict.kind === 'report-only' || c.verdict.kind === 'keep')) continue;
     // T28: hassas siniflar yalnizca acik bayrakla plana girer.
     const need = requiredFlag(c);
     if (need && !allow?.[need]) continue;
@@ -89,19 +100,67 @@ export function buildPlan(
       );
       if (!hit) continue;
     }
-    const targets = (c.deleteTargets ?? []).filter((t) => t.bytes > 0);
-    if (targets.length === 0) continue;
-    // Guvenlik kapisi: korunan yollarin atasi olan hedefler plana
-    // hicbir zaman girmez. Kontrol burada, kullanici onayindan ONCE.
-    for (const t of targets) assertSafeTarget(t);
+
+    // Gelismis mod: istisna archetype'lar HICBIR kosulda hedef uretmez.
+    if (advanced && ADVANCED_EXCLUDED_ARCHETYPES.has(c.archetype)) continue;
+
+    let targets: DeleteTarget[] = [];
+    if (advanced) {
+      const existing = (c.deleteTargets ?? []).filter((t) => t.bytes > 0);
+      if (existing.length > 0) {
+        for (const t of existing) {
+          try {
+            assertSafeTarget(t);
+            targets.push(t);
+          } catch {
+            /* guvenlik reddi: hedef atlanir */
+          }
+        }
+      } else {
+        // Hedef listesi bos: parcalardan uret.
+        for (const part of c.parts ?? []) {
+          if (!part || !part.path) continue;
+          if (isOwnDataPath(part.path)) continue;
+          // Reparse point parcalari atlanir.
+          try {
+            const st = lstatSync(longPath(part.path));
+            if (st.isSymbolicLink()) continue;
+          } catch (err) {
+            // Yol yoksa (ENOENT) reparse point degildir; plana girebilir.
+            // Diger erisim hatalarinda guvenli tarafta kal: atla.
+            if ((err as NodeJS.ErrnoException).code !== 'ENOENT') continue;
+          }
+          const t: DeleteTarget = {
+            path: part.path,
+            kind: 'whole',
+            label: `${basename(part.path)} — gelişmiş hedef`,
+            bytes: part.bytes,
+          };
+          if (t.bytes <= 0) continue;
+          try {
+            assertSafeTarget(t);
+          } catch {
+            continue;
+          }
+          targets.push(t);
+        }
+      }
+      if (targets.length === 0) continue;
+    } else {
+      targets = (c.deleteTargets ?? []).filter((t) => t.bytes > 0);
+      if (targets.length === 0) continue;
+      // Guvenlik kapisi: korunan yollarin atasi olan hedefler plana
+      // hicbir zaman girmez. Kontrol burada, kullanici onayindan ONCE.
+      for (const t of targets) assertSafeTarget(t);
+    }
 
     const bytes = targets.reduce((a, t) => a + t.bytes, 0);
     planned.push({
       key: c.key,
       title: c.title,
       reason: c.verdict.consequence,
-      risk: c.verdict.risk,
       bytes,
+      risk: c.verdict.risk,
       targets: targets.map((t) => ({ target: t, bytes: t.bytes })),
     });
     total += bytes;

@@ -24,6 +24,8 @@ export interface WebSettings {
   updateCheck: UpdateCheckMode;
   /** Acilista tarama modu. Varsayilan always. */
   scanOnLaunch: ScanOnLaunchMode;
+  /** Gelismis mod: keep/report-only kumeleri de plana alinabilir. Varsayilan KAPALI. */
+  advancedDelete: boolean;
 }
 
 export const DEFAULT_SETTINGS: WebSettings = {
@@ -31,6 +33,7 @@ export const DEFAULT_SETTINGS: WebSettings = {
   vaultRetentionDays: 30,
   updateCheck: 'off',
   scanOnLaunch: 'always',
+  advancedDelete: false,
 };
 export const MIN_CACHE_HOURS = 1;
 export const MAX_CACHE_HOURS = 720;
@@ -68,6 +71,7 @@ export async function loadSettings(): Promise<WebSettings> {
       vaultRetentionDays: clampVaultDays(j.vaultRetentionDays),
       updateCheck: isUpdateMode(j.updateCheck) ? j.updateCheck : DEFAULT_SETTINGS.updateCheck,
       scanOnLaunch: isScanOnLaunchMode(j.scanOnLaunch) ? j.scanOnLaunch : DEFAULT_SETTINGS.scanOnLaunch,
+      advancedDelete: typeof j.advancedDelete === 'boolean' ? j.advancedDelete : DEFAULT_SETTINGS.advancedDelete,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -86,6 +90,7 @@ export async function saveSettings(patch: Partial<WebSettings>): Promise<WebSett
     ...(patch.scanOnLaunch !== undefined
       ? { scanOnLaunch: isScanOnLaunchMode(patch.scanOnLaunch) ? patch.scanOnLaunch : DEFAULT_SETTINGS.scanOnLaunch }
       : {}),
+    ...(typeof patch.advancedDelete === 'boolean' ? { advancedDelete: patch.advancedDelete } : {}),
   };
   try {
     const file = settingsPath();

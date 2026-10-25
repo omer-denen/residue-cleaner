@@ -340,6 +340,8 @@ export interface SettingsResponse {
   updateCheck: 'off' | 'daily' | 'weekly';
   /** Acilista tarama modu: always | daily | manual. Varsayilan always. */
   scanOnLaunch: ScanOnLaunchMode;
+  /** Gelismis mod: keep/report-only kumeleri de plana alinabilir. Varsayilan false. */
+  advancedDelete: boolean;
 }
 
 export interface SettingsUpdateRequest {
@@ -347,6 +349,7 @@ export interface SettingsUpdateRequest {
   vaultRetentionDays?: number;
   updateCheck?: 'off' | 'daily' | 'weekly';
   scanOnLaunch?: ScanOnLaunchMode;
+  advancedDelete?: boolean;
 }
 
 /** Surum kontrolu sonucu (T41). Kapaliyken checked=false, ag istegi yapilmaz. */
@@ -443,6 +446,8 @@ export interface PlanRequest {
    * varsayilan metin YOKTUR.
    */
   name?: string;
+  /** Gelismis mod: keep/report-only kumeleri de plana alir (yalniz recycle). */
+  advanced?: boolean;
 }
 
 /**
@@ -505,8 +510,8 @@ export interface PlanResponse {
   panel: PlanPanelView;
   /** Orta/yuksek risk varsa yazili onay zorunlu (kasa: TASI, kalici: SIL) */
   requiresPhrase: boolean;
-  /** Onay turu: kasa tasima `vaultMove`, kalici silme `delete`. */
-  approvalKind: 'vaultMove' | 'delete';
+  /** Onay turu: kasa tasima `vaultMove`, kalici silme `delete`, gelismis `advanced`. */
+  approvalKind: 'vaultMove' | 'delete' | 'advanced';
   /** Sunucunun bekledigi yazili ifade (tek kaynak: ApprovalRules). */
   phrase: string;
   /** Yuksek risk varsa ayrica acik isaretleme zorunlu */
@@ -520,6 +525,8 @@ export interface PlanResponse {
    * olur (yeniden uygulanmali).
    */
   armed: boolean;
+  /** Gelismis modla kuruldu mu (yalniz recycle). */
+  advanced?: boolean;
 }
 
 export interface ExecuteRequest {
