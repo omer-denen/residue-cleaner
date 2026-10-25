@@ -714,3 +714,34 @@ sıralı prob ediliyor → **W3-c** (paralel prob, hedef başına düşen süre)
 - `scratch/gorev-w5d.md` (`unknown` defter değeri taşması; yalnız CSS +
   sınıf), `scratch/gorev-w3c.md` (doğrulamada eşzamanlılık 4, deterministik
   sıra korunur).
+
+### W5-d — TAMAMLANDI
+
+- Commit `895666f` (işçi: Beam Free, `scratch/logs/w5d.log`,
+  rapor `scratch/raporlar/w5d.md`).
+- `web/src/screens/Dashboard.tsx`: değer sınıfı
+  `ledger-value` + bilinmeyen değerde `unknown`.
+- `web/src/styles.css`: `.ledger { min-width: 0 }`,
+  `.ledger-value { overflow-wrap: anywhere }`,
+  `.ledger-value.unknown { font-size: 17px; letter-spacing: 0 }`.
+- **Kapı:** typecheck temiz · **358/358** · `build:web` **129.72 kB gzip**.
+
+### Tarayıcı turu 2 — ölçüm (space 4, `scratch/ego/2026-10-25-w5/`)
+
+| Kontrol | Ölçüm |
+|---|---|
+| Rozet (W5-c) | `.scan-chip` = **"Scan current"**, sınıf `scan-current`; sayfada "Son Tarama"/"Last scan" **yok** |
+| `unknown` taşması (W5-d) | 4 defterde `overflowPx = -15` (kartın **15 px içinde**), sınıf `ledger-value unknown` |
+| Panelde çift `×` | 2 küme + 3 hedef planında panelde **5** `.rp-item-remove` (2 küme + 3 hedef) + Disk satırında aynı çıkarma → **çift** |
+| `.rp-plan-head` binmesi | head `top=109`, sekmeler `bottom=95` → **+14 px boşluk**; iddia edilen 4 px binme **YOK** (kapatıldı) |
+| Açılışta plan atma (W5-b1) | Sayfa yenilenince `armed=false` plan **otomatik atıldı** ("No items selected yet") |
+
+- **Test artefaktı temizlendi:** oluşturulan plan `POST /api/plan/discard`
+  (200), `scanOnLaunch` → **`always`**, sunucu kapatıldı.
+  **Gerçek silme/plan çalıştırma YAPILMADI** (yalnız plan kuruldu ve atıldı).
+
+### W6 — paket hazır (`scratch/gorev-w6.md`)
+
+- Panelden tek tek `×` kaldırılır (**çıkarma satırda kalır** + "Tümünü
+  boşalt"), açılış doğrulaması için **Disk bandı** (yalnız
+  `missing`/`changed` varsa, sayılar `ScanVerifyResponse`'tan aynen).
