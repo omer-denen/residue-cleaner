@@ -777,7 +777,11 @@ export function App() {
           )}
 
           {!loading && !error && screen === 'dashboard' && dashboard && (
-            <Dashboard data={dashboard} lang={lang} />
+            <Dashboard
+              data={dashboard}
+              lang={lang}
+              onOpenDisk={() => setScreen('disk')}
+            />
           )}
 
           {!loading && !error && screen === 'disk' && (

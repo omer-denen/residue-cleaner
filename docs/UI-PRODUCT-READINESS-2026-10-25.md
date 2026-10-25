@@ -11,7 +11,8 @@
 > Sıradaki yine Faz 0'dır.
 > **Kapsam:** web arayüzü (`web/`), görsel sistem ve ekran yerleşimleri.
 > **25.10.2026 3. tur:** **Faz 0 kapandı** (UI-001..UI-003; sonuç ve ölçümler
-> §9). Sıradaki: Faz 1 (UI-004..UI-006).
+> §9). **Faz 1 kapandı** (UI-004..UI-006; §10). Sıradaki: Faz 2
+> (UI-007..UI-008).
 > **Değişmez kurallar:** `AGENTS.md` kural 18 (karar motorda), iki aşamalı
 > onay, `report-only`, `guard.ts`, localhost + çerez kapıları.
 > **İlke:** bu turda **hiçbir karar kuralı değişmez**; yalnız görünüm,
@@ -232,9 +233,9 @@ süpürülmesi (belirteçler globaldir; unsız kalan ekran kırık görünmesin)
 
 | Kimlik | İş | Durum |
 |---|---|---|
-| UI-004 | Genel Bakış hero + karar dağılımı | ⬜ bekliyor |
-| UI-005 | Defter ve dikkat kartları cilası | ⬜ bekliyor |
-| UI-006 | Güvenli kazanımlar tablosu + boş durum | ⬜ bekliyor |
+| UI-004 | Genel Bakış hero + karar dağılımı | ✅ 25.10.2026 |
+| UI-005 | Defter ve dikkat kartları cilası | ✅ 25.10.2026 |
+| UI-006 | Güvenli kazanımlar tablosu + boş durum | ✅ 25.10.2026 |
 
 **Çıkış kapısı:** hero sayıları motordan; segmentli çubuk yalnız görsel ve
 `aria-hidden` — değerler yalnız lejant satırlarından okunur; defter kartı
@@ -399,3 +400,30 @@ form cilası (Faz 3), tam-sayfa yükleme iskeleti (UI-013, kullanıcı kararı
 bekliyor).
 
 **Sıradaki:** **Faz 1 — UI-004..UI-006.**
+
+---
+
+## 10. Faz 1 sonucu — 25.10.2026 (kapandı)
+
+**Durum:** UI-004 · UI-005 · UI-006 ✅. Motor/API/onay kuralı değişmedi;
+`src/` dokunulmadı. `UX-PLAN P8` (Kararlar paneli) kapandı.
+
+| İş | Uygulama | Kanıt (DOM) |
+|---|---|---|
+| UI-004 | `Dashboard.tsx`: sayfa başında tarama damgası + "Disk'e git"; tek **kahraman panel** (solda "Geri kazanılabilir" + 44 px mono sayı + "Taranan X" + tarama durumu noktası; sağda **karar dağılımı** çubuk + 2×2 lejant). Çubuk `aria-hidden`, değerler yalnız lejanttan. Toplam 0 ise çubuk yerine cümle. Tarama yoksa hero yerine **3 adımlı boş durum + CTA**. | hero `17.3 GB`; meta `Taranan: 48.1 GB · Tarama güncel`; lejant `10/89/6/0` (toplam 105); segment `flexGrow` 10/89/6; `verdict-grid` DOM'da **yok** |
+| UI-005 | Defter kartları: 12 px yarıçap, üst harf etiketi, hover/aktif tonu (`aria-pressed` + iç çizgi). Dikkat kartları: vurgu çubuğu yerine **ton noktası**, 10 px iç boşluk, bölüm başlığı + motor sayısı. | defter tıklaması → sağ panel `KANITLAR`, başlık `GERİ KAZANILABİLİR İÇERİK`, `aria-pressed` doğru kartta; dikkat bölümü 2 kart |
+| UI-006 | Güvenli kazanımlar: kategori **rozet**, boyut sağa hizalı, "neden" iki rozet (yeniden üretilebilir = yeşil ton). Boşsa **eylemli boş durum** (başlık + açıklama + "Disk'e git"). | 2 satır, rozetler; tarama yokken boş durum metni + CTA göründü |
+
+**Boş durum doğrulaması:** ayrı veri dizini (`%TEMP%\residue-ui-empty`,
+`scanOnLaunch=manual`) ile ikinci bir sunucu (4412) açıldı; Genel Bakış
+**hero yerine** "Henüz tarama yok" + 3 adım + "Disk'e git" gösterdi; CTA
+**Disk** ekranına gitti; güvenli kazanımlar boş durumu göründü. Sunucu ve
+geçici dizin kapatıldı/silindi. Gerçek veri dizinine dokunulmadı.
+
+**Kapılar:** typecheck (src + web) 0 · `npm test` **388/388** · `smoke`
+temiz · `build:web` CSS 51.20 kB (9.33 gzip) / JS 473.55 kB (134.17 gzip) ·
+1440 + 1024 (hero `285.2px 420px`, yatay taşma yok) · TR/EN · konsol
+hatası yok. Ekran görüntüleri: `scratch/ui-product-2026-10-25/faz1-*.png`.
+
+**Sıradaki:** **Faz 2 — UI-007..UI-008** (Disk: bağlamsal seçim çubuğu,
+tablo/araç çubuğu/skeleton/boş durum).
