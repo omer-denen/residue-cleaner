@@ -1,6 +1,5 @@
 import type {
   ScanStatusFacts,
-  ScanStatusHeader,
   ScanStatusKind,
   ScanStatusReason,
   ScanStatusRow,
@@ -129,18 +128,6 @@ export class ScanStatusView {
     return kind === 'current' || kind === 'scanning' ? 'none' : 'scan';
   }
 
-  /**
-   * Ust cubuk rozeti: durum etiketi DEGIL, "Son Tarama: <gecen sure>".
-   * Hangi metnin gosterilecegine motor karar verir.
-   */
-  private header(kind: ScanStatusKind): ScanStatusHeader {
-    if (kind === 'scanning') return { kind: 'scanning', ageMs: null };
-    if (this.facts.lastScanAt === null || this.facts.ageMs === null) {
-      return { kind: 'none', ageMs: null };
-    }
-    return { kind: 'age', ageMs: this.facts.ageMs };
-  }
-
   view(): ScanStatusViewResponse {
     const kind = this.kind();
     return {
@@ -148,7 +135,6 @@ export class ScanStatusView {
       tone: this.tone(kind),
       reasons: this.reasons(kind),
       rows: this.rows(),
-      header: this.header(kind),
       action: this.action(kind),
       showAge: this.facts.ageMs !== null,
     };

@@ -32,7 +32,7 @@ test('guncel tarama: kind=current, eylem yok', () => {
   assert.deepEqual(view.reasons, ['fresh']);
   assert.equal(view.action, 'none');
   assert.equal(view.showAge, true);
-  assert.deepEqual(view.header, { kind: 'age', ageMs: 100 });
+  assert.ok(view.rows.some((r) => r.id === 'age' && r.amount === 100));
 });
 
 test('TTL asildi: expired, uyari tonu, "tarama eski" sebebi', () => {
@@ -66,7 +66,7 @@ test('hic taranmadiysa: never, yas gosterilmez', () => {
   assert.equal(view.tone, 'info');
   assert.deepEqual(view.reasons, ['never-scanned']);
   assert.equal(view.showAge, false);
-  assert.deepEqual(view.header, { kind: 'none', ageMs: null });
+  assert.ok(!view.rows.some((r) => r.id === 'age'));
 });
 
 test('tarama surerken: scanning, eylem yok', () => {
@@ -75,16 +75,19 @@ test('tarama surerken: scanning, eylem yok', () => {
   assert.equal(view.tone, 'info');
   assert.deepEqual(view.reasons, ['scanning']);
   assert.equal(view.action, 'none');
-  assert.deepEqual(view.header, { kind: 'scanning', ageMs: null });
 });
 
-test('ust cubuk: yas, taraniyor veya yok', () => {
-  assert.equal(scanStatusView(facts()).header.kind, 'age');
-  assert.equal(scanStatusView(facts({ scanning: true, state: 'scanning' })).header.kind, 'scanning');
-  assert.equal(
-    scanStatusView(facts({ lastScanAt: null, ageMs: null })).header.kind,
-    'none',
-  );
+test('ust cubuk: durum etiketi; yas ayrnti raporunda', () => {
+  const v = scanStatusView(facts());
+  assert.equal(v.kind, 'current');
+  assert.ok(v.rows.some((r) => r.id === 'age' && r.amount === 100));
+
+  const s = scanStatusView(facts({ scanning: true, state: 'scanning' }));
+  assert.equal(s.kind, 'scanning');
+
+  const n = scanStatusView(facts({ lastScanAt: null, ageMs: null, nextRecommendedAt: null }));
+  assert.equal(n.kind, 'never');
+  assert.ok(!n.rows.some((r) => r.id === 'age'));
 });
 
 test('rapor satirlari: deger turu motorun karari', () => {

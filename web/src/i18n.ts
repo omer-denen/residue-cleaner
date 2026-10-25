@@ -39,9 +39,6 @@ const tr = {
   'scan.kind.dirty': 'Disk değişti',
   'scan.kind.dirty-expired': 'Tarama geçersiz',
   'scan.kind.scanning': 'Taranıyor',
-  'scan.header.age': 'Son Tarama: {age}',
-  'scan.header.none': 'Son Tarama: yok',
-  'scan.header.scanning': 'Taranıyor…',
   // --- Tarama durumu detay raporu -----------------------------------------
   'scan.report.title': 'Tarama durumu',
   'scan.report.reasons': 'Neden',
@@ -836,9 +833,6 @@ const en: Record<keyof typeof tr, string> = {
   'scan.kind.dirty': 'Disk changed',
   'scan.kind.dirty-expired': 'Scan invalid',
   'scan.kind.scanning': 'Scanning',
-  'scan.header.age': 'Last scan: {age}',
-  'scan.header.none': 'Last scan: none',
-  'scan.header.scanning': 'Scanning…',
   // --- Scan status detail report -----------------------------------------
   'scan.report.title': 'Scan status',
   'scan.report.reasons': 'Why',

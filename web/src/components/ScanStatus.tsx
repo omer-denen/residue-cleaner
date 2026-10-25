@@ -4,8 +4,8 @@ import type {
   ScanStatusViewResponse,
 } from '../../../src/core/contract.ts';
 import { translate, type Lang, type MessageKey } from '../i18n.ts';
-import { formatAge, formatScanRow } from '../format.ts';
-import { SCAN_REASON_LABEL, SCAN_ROW_LABEL } from '../labels.ts';
+import { formatScanRow } from '../format.ts';
+import { SCAN_REASON_LABEL, SCAN_ROW_LABEL, SCAN_STATUS_LABEL } from '../labels.ts';
 
 /**
  * TARAMA DURUMU — rozet + ayrinti raporu.
@@ -23,17 +23,13 @@ interface ChipProps {
 }
 
 /**
- * Rozet: durum etiketi degil, "Son Tarama: <gecen sure>" gosterir (UX-040).
+ * Rozet: durum etiketini gosterir ("Tarama güncel", "Disk değişti", ...).
  * Tiklanabilir; ayrinti raporunu acar.
  */
 export function ScanStatusChip({ view, lang, onOpen, className }: ChipProps) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
-  const header = view.header;
-  const text =
-    header.kind === 'age' && header.ageMs !== null
-      ? t('scan.header.age', { age: formatAge(header.ageMs, lang) })
-      : t(header.kind === 'scanning' ? 'scan.header.scanning' : 'scan.header.none');
+  const text = t(SCAN_STATUS_LABEL[view.kind]);
 
   return (
     <button

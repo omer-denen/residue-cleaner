@@ -246,19 +246,12 @@ export interface ScanStatusRow {
   tone?: ScanStatusTone;
 }
 
-/** Ust cubuktaki rozet: durum degil, ZAMAN gosterilir (UX-040). */
-export type ScanHeaderKind = 'none' | 'age' | 'scanning';
-
-export interface ScanStatusHeader {
-  kind: ScanHeaderKind;
-  ageMs: number | null;
-}
-
 /**
  * MOTORUN belirledigi tarama durumu gorunumu.
  *
  * Etiket, ton, neden sirasi, rapor satirlari ve eylem burada karar verilir.
- * Arayuz yalnizca bu gorunumu basar.
+ * Arayuz yalnizca bu gorunumu basar. Ust cubuk rozeti durum etiketini
+ * (kind) gosterir; yas bilgisi ayrinti raporunda (rows -> age) yasar.
  */
 export interface ScanStatusViewResponse {
   kind: ScanStatusKind;
@@ -267,8 +260,6 @@ export interface ScanStatusViewResponse {
   reasons: ScanStatusReason[];
   /** Detay raporundaki satirlar (sirali). */
   rows: ScanStatusRow[];
-  /** Ust cubuk rozeti icin zaman etiketi (motor secer). */
-  header: ScanStatusHeader;
   /** Kullaniciya onerilen eylem: 'scan' = yeniden tara. */
   action: 'scan' | 'none';
   /** Rozet satirinda yasi goster. */
