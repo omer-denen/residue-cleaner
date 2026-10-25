@@ -115,6 +115,7 @@ export function Disk({
   const [envs, setEnvs] = useState<string[]>([]);
   const [profile, setProfile] = useState('');
   const [minAgeDays, setMinAgeDays] = useState(0);
+  const [advancedDelete, setAdvancedDelete] = useState<boolean>(false);
   const metaInit = useRef(false);
 
   const [scan, setScan] = useState<{
@@ -171,6 +172,21 @@ export function Disk({
 
   useEffect(() => {
     return () => closeStream.current?.();
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .settings()
+      .then((s) => {
+        if (alive) setAdvancedDelete(s.advancedDelete);
+      })
+      .catch(() => {
+        /* varsayilan kapali */
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -285,11 +301,28 @@ export function Disk({
    */
   const addOneToPlan = async (key: string): Promise<void> => {
     if (busy || plannedSet.has(key)) return;
+    const cluster = view?.clusters.find((c) => c.key === key);
+    const advancedCluster =
+      advancedDelete && (cluster?.verdictKind === 'keep' || cluster?.verdictKind === 'report-only');
+    const useAdvanced = advancedDelete && (advancedCluster || planned?.advanced === true);
+
     setBusyL(true);
     setPlanError(null);
     try {
-      const next = await api.addToPlan(planned?.planId ?? null, [key]);
-      // Sag panel "Plan Durumu" sekmesine gecer; sayfa degismez.
+      let next: PlanResponse;
+      if (useAdvanced) {
+        if (planned?.planId && planned.advanced) {
+          next = await api.addToPlan(planned.planId, [key]);
+        } else if (planned?.planId && !planned.advanced) {
+          // Normal plandan gelismise gecis: mevcut anahtarlar + yeni.
+          const keys = [...plannedKeys.filter((k) => k !== key), key];
+          next = await api.plan(keys, true);
+        } else {
+          next = await api.plan([key], true);
+        }
+      } else {
+        next = await api.addToPlan(planned?.planId ?? null, [key]);
+      }
       panel?.activate('planned');
       onPlan(next);
     } catch (err) {
@@ -685,7 +718,15 @@ export function Disk({
                     <input
                       type="checkbox"
                       checked={inPlan}
-                      disabled={inPlan || !c.plannable || busy}
+                      disabled={
+                        inPlan ||
+                        busy ||
+                        !(
+                          c.plannable ||
+                          (advancedDelete &&
+                            (c.verdictKind === 'keep' || c.verdictKind === 'report-only'))
+                        )
+                      }
                       onChange={() => void addOneToPlan(c.key)}
                       onClick={(e) => e.stopPropagation()}
                       aria-label={
@@ -723,6 +764,10 @@ export function Disk({
                     </span>
                     <span className="badges-right">
                       {c.gitTracked && <span className="badge git">git</span>}
+                      {advancedDelete &&
+                        (c.verdictKind === 'keep' || c.verdictKind === 'report-only') && (
+                          <span className="badge advanced">{t('disk.advanced.badge')}</span>
+                        )}
                       {c.targetCount > 0 && <span className="badge">{c.targetCount}</span>}
                       {inPlan && (
                         <>

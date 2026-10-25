@@ -3435,3 +3435,30 @@ kbd {
   font-size: 13px;
 }
 
+/* Gelismis mod duvari (kirmizi). */
+.advanced-wall {
+  border: 1px solid color-mix(in srgb, var(--danger) 60%, var(--line));
+  background: color-mix(in srgb, var(--danger) 12%, var(--panel));
+  color: var(--danger);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.advanced-wall strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.advanced-wall p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--danger);
+}
+
+.badge.advanced {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  background: color-mix(in srgb, var(--danger) 8%, var(--panel-2));
+}
+

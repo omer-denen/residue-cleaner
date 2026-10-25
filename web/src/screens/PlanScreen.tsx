@@ -144,7 +144,7 @@ export function PlanScreen({
     }
     try {
       setError(null);
-      onReplace(await api.plan(remaining));
+      onReplace(await api.plan(remaining, plan.advanced));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     }
@@ -211,6 +211,12 @@ export function PlanScreen({
       </section>
 
       <section className="panel approval">
+        {plan.approvalKind === 'advanced' && (
+          <div className="advanced-wall" role="alert">
+            <strong>{t('plan.advanced.title')}</strong>
+            <p>{t('plan.advanced.body')}</p>
+          </div>
+        )}
         <h2>{tu('plan.approval')}</h2>
         {plan.requiresPhrase && (
           <label className="approval-row">
@@ -228,7 +234,9 @@ export function PlanScreen({
         {plan.requiresHighAck && (
           <label className="approval-row checkbox">
             <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
-            <span>{t('plan.highAck')}</span>
+            <span>
+              {plan.approvalKind === 'advanced' ? t('plan.advanced.ack') : t('plan.highAck')}
+            </span>
           </label>
         )}
         {!plan.requiresPhrase && !plan.requiresHighAck && (

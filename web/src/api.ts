@@ -245,8 +245,8 @@ export const api = {
     post<{ ok: boolean }>(`/api/scan/${scanId}/${action}`, {}),
 
   /** Yalnizca kasaya tasima modu; kalici silme arayuzde YOK. */
-  plan: (keys: string[]): Promise<PlanResponse> =>
-    post<PlanResponse>('/api/plan', { keys, mode: 'recycle' }),
+  plan: (keys: string[], advanced?: boolean): Promise<PlanResponse> =>
+    post<PlanResponse>('/api/plan', { keys, mode: 'recycle', ...(advanced ? { advanced: true } : {}) }),
 
   /** Sag panel "Planlananlar": sunucudaki en son gecerli plan (yoksa null). */
   planned: (): Promise<PlanResponse | null> => request<PlanResponse | null>('/api/plan'),

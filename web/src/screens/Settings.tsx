@@ -31,6 +31,7 @@ export function Settings({ lang, version }: Props) {
   const [vaultRetentionDays, setVaultRetentionDays] = useState(30);
   const [updateCheck, setUpdateCheck] = useState<'off' | 'daily' | 'weekly'>('off');
   const [scanOnLaunch, setScanOnLaunch] = useState<'always' | 'daily' | 'manual'>('always');
+  const [advancedDelete, setAdvancedDelete] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -46,6 +47,7 @@ export function Settings({ lang, version }: Props) {
     setVaultRetentionDays(next.vaultRetentionDays);
     setUpdateCheck(next.updateCheck);
     setScanOnLaunch(next.scanOnLaunch);
+    setAdvancedDelete(next.advancedDelete);
   }, []);
 
   useEffect(() => {
@@ -71,7 +73,7 @@ export function Settings({ lang, version }: Props) {
     setSaved(false);
     setError(null);
     try {
-      apply(await api.saveSettings({ scanCacheHours, vaultRetentionDays, updateCheck, scanOnLaunch }));
+      apply(await api.saveSettings({ scanCacheHours, vaultRetentionDays, updateCheck, scanOnLaunch, advancedDelete }));
       setSaved(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
@@ -200,6 +202,24 @@ export function Settings({ lang, version }: Props) {
               </select>
               <span className="dim">{t('settings.scanOnLaunchHint')}</span>
             </div>
+          </section>
+
+          <section className="panel advanced-wall">
+            <h2>{tu('settings.advanced')}</h2>
+            <div className="settings-row">
+              <label className="approval-row checkbox">
+                <input
+                  type="checkbox"
+                  checked={advancedDelete}
+                  onChange={(e) => setAdvancedDelete(e.target.checked)}
+                  aria-label={t('settings.advanced')}
+                />
+                <span>{t('settings.advanced')}</span>
+              </label>
+            </div>
+            <p className="banner danger" role="alert">
+              {t('settings.advancedHint')}
+            </p>
           </section>
 
           <div className="settings-actions">
