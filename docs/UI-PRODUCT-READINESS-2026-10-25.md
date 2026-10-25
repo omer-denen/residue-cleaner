@@ -10,9 +10,9 @@
 > Faz 0 kabul detayları ve Gelişmiş mod kapsamı eklendi (§8).
 > Sıradaki yine Faz 0'dır.
 > **Kapsam:** web arayüzü (`web/`), görsel sistem ve ekran yerleşimleri.
-> **25.10.2026 3. tur:** **Faz 0 kapandı** (UI-001..UI-003; sonuç ve ölçümler
-> §9). **Faz 1 kapandı** (UI-004..UI-006; §10). Sıradaki: Faz 2
-> (UI-007..UI-008).
+> **25.10.2026 3. tur:** **Faz 0 kapandı** (UI-001..UI-003; §9), **Faz 1
+> kapandı** (UI-004..UI-006; §10) ve **Faz 2 kapandı** (UI-007..UI-008; §11).
+> Sıradaki: Faz 3 (UI-009 — ortak ekran cilası).
 > **Değişmez kurallar:** `AGENTS.md` kural 18 (karar motorda), iki aşamalı
 > onay, `report-only`, `guard.ts`, localhost + çerez kapıları.
 > **İlke:** bu turda **hiçbir karar kuralı değişmez**; yalnız görünüm,
@@ -246,8 +246,8 @@ tıklaması sağ panelde detay; tarama yoksa eylemli boş durum. Bu faz
 
 | Kimlik | İş | Durum |
 |---|---|---|
-| UI-007 | Bağlamsal seçim çubuğu (plan/seçim yokken gizli) | ⬜ bekliyor |
-| UI-008 | Tablo/araç çubuğu/skeleton/boş durum | ⬜ bekliyor |
+| UI-007 | Bağlamsal seçim çubuğu (plan/seçim yokken gizli) | ✅ 25.10.2026 |
+| UI-008 | Tablo/araç çubuğu/skeleton/boş durum | ✅ 25.10.2026 |
 
 **Çıkış kapısı:** seçim yokken çubuk yok; satır seçince çubuk var; plana
 ekleme sayfadan ayrılmadan; sağ panelde `Planda` rozeti; filtre boşken
@@ -427,3 +427,29 @@ hatası yok. Ekran görüntüleri: `scratch/ui-product-2026-10-25/faz1-*.png`.
 
 **Sıradaki:** **Faz 2 — UI-007..UI-008** (Disk: bağlamsal seçim çubuğu,
 tablo/araç çubuğu/skeleton/boş durum).
+
+---
+
+## 11. Faz 2 sonucu — 25.10.2026 (kapandı)
+
+**Durum:** UI-007 · UI-008 ✅. Motor/API/onay kuralı değişmedi.
+
+| İş | Uygulama | Kanıt (DOM) |
+|---|---|---|
+| UI-007 | Plan/seçim yokken `.selection-bar` **hiç basılmaz**; yerine tek satır ipucu ("Henüz plan yok. Satırdan seçin veya varsayılanları ekleyin.") + **"Varsayılanları plana ekle"** ve "Görünenleri plana ekle" düğmeleri. Canlı `sr-only` duyuru **her zaman** yayında. Plan varken çubuk: solda **istatistik**, sağda **eylem** bloğu (dar ekranda eylemler kendi satırına sağa hizalı iner). | plan yokken `bar:false, hint:true`, duyuru "0 Planda · 0 B"; satır seçilince `bar:true`, istatistik/eylem `sameRow:false` + `actionsRightAligned:true` (78 px iki satır), satırda "Plana Eklendi" + `×`, sağ panel `PLAN DURUMU 1`; "Planı boşalt" sonrası `bar:false, hint:true` |
+| UI-008 | Tablo: satır **44 px**, küme adı 13.5/600, yol 11.5 mono soluk, boyut sağa hizalı **600**, karar rozeti **tonlu** (Önerilen yeşil, Doğrulama sarı, Yalnız rapor mavi), başlık 11 px/0.08em. Yüklemede **6 satır iskelet** (shimmer, `aria-hidden` + `sr-only` "Yükleniyor"). Liste boşsa **eylemli boş durum**: tarama yoksa "Henüz tarama yok" + "Tara"; filtre boşsa "Bu filtrede küme yok" + **"Filtreleri temizle"** (tarama seçenekleri korunur). | satır `44`, başlık `13.5/600`, yol `11.5`, boyut `600`, rozet sınıfları `badge warn/ok`; ağ 2.5 s geciktirilince `skeleton` 6 satır + `sk-shimmer`; filtre boş `disk-empty` metni + temizle → 17 satır geri, arama `""`; 1024'te yatay taşma yok |
+| Ek | Disk sağ paneli seçim yokken artık **kendi içeriğini basmaz**; panelin anlamlı boş durumu (UI-003) görünür — "Bir satır seçin" tekrarı kaldırıldı. | `panelTitle: "Kanıt burada görünür"`, eski `.disk-detail h2` yok |
+
+**Kapılar:** typecheck (src + web) 0 · `npm test` **388/388** · `smoke` temiz ·
+`build:web` CSS 53.20 kB (9.66 gzip) / JS 475.97 kB (134.62 gzip) ·
+1440 + 1024 · TR/EN · ekran görüntüleri
+`scratch/ui-product-2026-10-25/faz2-*.png`.
+
+**Deney notu:** iskeleti görmek için `Network.emulateNetworkConditions`
+(2.5 s gecikme) kullanıldı; ilk denemede `/api/disk` **engellenince** hata
+bandı çıktı (iskelet değil) — doğru davranış, ama iskelet yalnız "hata yok +
+veri yok" durumunda görünür.
+
+**Sıradaki:** **Faz 3 — UI-009** (Projeler, Araçlar, PATH, Graf, Plan,
+Ayarlar, Kasa, Zamanlanmış için ortak başlık/panel/form/boş durum stilleri;
+`.advanced-wall`, `.badge.advanced`, `.signal-badge` denetimi).

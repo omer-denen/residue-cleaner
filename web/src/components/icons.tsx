@@ -25,7 +25,8 @@ export type IconName =
   | 'chevronDown'
   | 'file'
   | 'lock'
-  | 'arrowRight';
+  | 'arrowRight'
+  | 'search';
 
 const PATHS: Record<IconName, ReactElement> = {
   menu: <path d="M2 4h12M2 8h12M2 12h12" />,
@@ -118,6 +119,12 @@ const PATHS: Record<IconName, ReactElement> = {
     </>
   ),
   arrowRight: <path d="M3 8h10M9 4l4 4-4 4" />,
+  search: (
+    <>
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="M10.5 10.5L14 14" />
+    </>
+  ),
 };
 
 export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {

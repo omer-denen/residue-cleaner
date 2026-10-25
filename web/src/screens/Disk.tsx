@@ -35,6 +35,14 @@ const KINDS: Array<{ id: ClusterKindFilter; label: MessageKey }> = [
   { id: 'git', label: 'disk.kind.git' },
 ];
 
+/** Karar rozeti tonu (yalniz sunum; metin i18n'den, karar motordan). */
+const VERDICT_TONE: Record<string, string> = {
+  recommend: ' ok',
+  ask: ' warn',
+  'report-only': ' info',
+  keep: '',
+};
+
 interface Props {
   meta: MetaResponse | null;
   status: ScanStatusResponse | null;
@@ -383,7 +391,7 @@ export function Disk({
   const virtualizer = useVirtualizer({
     count: view?.clusters.length ?? 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 40,
+    estimateSize: () => 44,
     overscan: 8,
   });
 
@@ -391,6 +399,16 @@ export function Disk({
 
   // Motor secimi: plan bos iken 0; dolu iken plan kapsami.
   const selectionCount = view?.selection.clusterCount ?? 0;
+
+  /** Liste filtrelerini sifirla (tarama secenekleri KORUNUR). */
+  const clearListFilters = (): void => {
+    setText('');
+    setKind('all');
+    setCategory('all');
+    setBig(false);
+    setRisky(false);
+    setZombie(false);
+  };
 
   return (
     <div className="disk">
@@ -614,58 +632,89 @@ export function Disk({
           </div>
         )}
 
-        <div className="selection-bar">
-          <span className="sr-only" role="status" aria-live="polite">
-            {`${selectionCount} ${t('disk.selection.planned')} · ${formatBytes(
-              view?.selection.bytes ?? 0,
-            )}`}
-          </span>
-          <span>
-            <strong className="mono">{selectionCount}</strong> {t('disk.selection.planned')}
-          </span>
-          <span>
-            {t('disk.selection.bytes')}:{' '}
-            <strong className="mono">{formatBytes(view?.selection.bytes ?? 0)}</strong>
-          </span>
-          <span>
-            <strong className="mono">{view?.selection.targetCount ?? 0}</strong>{' '}
-            {t('disk.selection.targets')}
-          </span>
-          <span className="spacer" />
-          <button
-            type="button"
-            className="ghost"
-            disabled={busy || !view}
-            onClick={() => void addKeysToPlan(view!.defaultSelectedKeys)}
-          >
-            {t('disk.defaults')}
-          </button>
-          <button
-            type="button"
-            className="ghost"
-            disabled={busy || !view}
-            onClick={() => void addKeysToPlan(view!.plannableKeys)}
-          >
-            {t('disk.selectVisible')}
-          </button>
-          <button
-            type="button"
-            className="ghost"
-            disabled={busy || plannedKeys.length === 0}
-            onClick={() => void clearPlanAll()}
-          >
-            {t('disk.selection.clear')}
-          </button>
-          <button
-            type="button"
-            className="primary"
-            disabled={!view || selectionCount === 0}
-            title={selectionCount === 0 ? t('rightPanel.planned.applyHint') : undefined}
-            onClick={onOpenPlan}
-          >
-            {t('rightPanel.planned.apply')}
-          </button>
-        </div>
+        {/* Secim duyurusu HER ZAMAN yayinda: cubuk gizliyken de ekran
+            okuyucu plan degisimini duyar. */}
+        <span className="sr-only" role="status" aria-live="polite">
+          {`${selectionCount} ${t('disk.selection.planned')} · ${formatBytes(
+            view?.selection.bytes ?? 0,
+          )}`}
+        </span>
+
+        {selectionCount > 0 || plannedKeys.length > 0 ? (
+          <div className="selection-bar">
+            <div className="selection-stats">
+              <span>
+                <strong className="mono">{selectionCount}</strong> {t('disk.selection.planned')}
+              </span>
+              <span>
+                {t('disk.selection.bytes')}:{' '}
+                <strong className="mono">{formatBytes(view?.selection.bytes ?? 0)}</strong>
+              </span>
+              <span>
+                <strong className="mono">{view?.selection.targetCount ?? 0}</strong>{' '}
+                {t('disk.selection.targets')}
+              </span>
+            </div>
+            <div className="selection-actions">
+              <button
+                type="button"
+                className="ghost"
+                disabled={busy || !view}
+                onClick={() => void addKeysToPlan(view!.defaultSelectedKeys)}
+              >
+                {t('disk.defaults')}
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                disabled={busy || !view}
+                onClick={() => void addKeysToPlan(view!.plannableKeys)}
+              >
+                {t('disk.selectVisible')}
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                disabled={busy || plannedKeys.length === 0}
+                onClick={() => void clearPlanAll()}
+              >
+                {t('disk.selection.clear')}
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={!view || selectionCount === 0}
+                title={selectionCount === 0 ? t('rightPanel.planned.applyHint') : undefined}
+                onClick={onOpenPlan}
+              >
+                {t('rightPanel.planned.apply')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="selection-hint">
+            <span className="dim">
+              {t('disk.selection.none')} {t('disk.selection.noneHint')}
+            </span>
+            <span className="spacer" />
+            <button
+              type="button"
+              className="ghost"
+              disabled={busy || !view || view.defaultSelectedKeys.length === 0}
+              onClick={() => void addKeysToPlan(view!.defaultSelectedKeys)}
+            >
+              {t('disk.defaults')}
+            </button>
+            <button
+              type="button"
+              className="ghost"
+              disabled={busy || !view || view.plannableKeys.length === 0}
+              onClick={() => void addKeysToPlan(view!.plannableKeys)}
+            >
+              {t('disk.selectVisible')}
+            </button>
+          </div>
+        )}
 
         <div className="cluster-head">
           <span />
@@ -678,10 +727,46 @@ export function Disk({
           <span />
         </div>
 
-        {!view && !error && <div className="state">{t('common.loading')}</div>}
+        {!view && !error && (
+          <>
+            <span className="sr-only" role="status">
+              {t('common.loading')}
+            </span>
+            <div className="skeleton-list" aria-hidden="true">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div className="skeleton-row" key={i}>
+                  <span className="sk sk-dot" />
+                  <span className="sk sk-title" />
+                  <span className="sk sk-badge" />
+                  <span className="sk sk-badge2" />
+                  <span className="sk sk-size" />
+                  <span className="sk sk-age" />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         {view && view.clusters.length === 0 && (
-          <div className="state">
-            {view.scan.at === null ? t('disk.noScan') : t('disk.empty')}
+          <div className="disk-empty">
+            <span className="rp-empty-icon" aria-hidden="true">
+              <Icon name={view.scan.at === null ? 'disk' : 'search'} size={18} />
+            </span>
+            <h2>
+              {view.scan.at === null ? t('disk.noScan.title') : t('disk.empty.title')}
+            </h2>
+            <p className="dim">
+              {view.scan.at === null ? t('disk.noScan.body') : t('disk.empty.body')}
+            </p>
+            {view.scan.at === null ? (
+              <button type="button" className="primary" onClick={() => void startScan()}>
+                {t('disk.scan')}
+              </button>
+            ) : (
+              <button type="button" className="ghost" onClick={clearListFilters}>
+                {t('disk.empty.clear')}
+              </button>
+            )}
           </div>
         )}
 
@@ -756,9 +841,13 @@ export function Disk({
                       <span className="cluster-title">{c.title}</span>
                       <span className="cluster-path mono">{c.primaryPath}</span>
                     </button>
-                    <span className="badge">{t(VERDICT_LABEL[c.verdictKind] ?? 'verdict.keep')}</span>
+                    <span className={`badge${VERDICT_TONE[c.verdictKind] ?? ''}`}>
+                      {t(VERDICT_LABEL[c.verdictKind] ?? 'verdict.keep')}
+                    </span>
                     <span className="badge">{t(CATEGORY_LABEL[c.category] ?? 'category.unknown')}</span>
-                    <span className="mono num">{formatBytes(c.reclaimableBytes)}</span>
+                    <span className="mono num cluster-size">
+                      {formatBytes(c.reclaimableBytes)}
+                    </span>
                     <span className="dim num">
                       {c.idleDays} {t('vault.days')}
                     </span>
@@ -801,13 +890,12 @@ export function Disk({
         )}
       </section>
 
+      {/* Secim yoksa panel KENDI bos durumunu gosterir (Faz 0/UI-003):
+          oge yokken baska bir "bir sey secin" cumlesi basmayiz. */}
       <RightPanelPortal>
-        <aside className="disk-detail">
-        <h2>{tu('disk.detail')}</h2>
-        {!detail ? (
-          <p className="dim">{t('disk.detail.empty')}</p>
-        ) : (
-          <>
+        {detail && (
+          <aside className="disk-detail">
+            <h2>{tu('disk.detail')}</h2>
             <h3>{detail.cluster.title}</h3>
             <div className="detail-badges">
               <span className={`risk-badge risk-${detail.risk}`}>
@@ -893,15 +981,14 @@ export function Disk({
                 </ul>
               </>
             )}
-          </>
-        )}
 
-        {/* W2-e2: oge kaniti -> bagimliliklar -> (panel footer'da) baglam. */}
-        <DependenciesSection
-          query={detail?.cluster.parts[0]?.path ?? null}
-          lang={lang}
-        />
-      </aside>
+            {/* W2-e2: oge kaniti -> bagimliliklar -> (panel footer'da) baglam. */}
+            <DependenciesSection
+              query={detail.cluster.parts[0]?.path ?? null}
+              lang={lang}
+            />
+          </aside>
+        )}
       </RightPanelPortal>
     </div>
   );
