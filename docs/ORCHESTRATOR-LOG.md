@@ -847,3 +847,18 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
   `26ac889` W6 · `0c21723` W3-c · `b0e4df2` W7 + 5 kayıt commit'i.
 - Test: **347 → 361**. typecheck her adımda temiz. Bundle 129.09 → **130.38 kB gzip**.
 - **Gerçek silme yapılmadı**; kasa değişmedi.
+
+### Entegrasyon (kapı 6) + flake düzeltmesi
+
+- `orkestrator` → `main` **fast-forward** (`9ef1377`), ardından flake düzeltmesi
+  `6fd9b21` ile `main` güncellendi.
+- **Ana repoda kapı:** typecheck temiz · **361/361** (iki ardışık koşu).
+- **Bulunan flake:** `tests/scan-verify.test.ts` "karışık durum" testi,
+  `finishedAt = Date.now()` ile `mkdir` aynı milisaniyeye düştüğünde NTFS
+  alt-ms mtime yüzünden `okDir` "suspicious" sayılıp `changed` üretiyordu
+  (`'changed' !== 'ok'`, main'de 1 hata). **Düzeltme:** `finishedAt` 5 s
+  geçmişe alındı ve `okDir` mtime'ı `utimes` ile sabitlendi → deterministik.
+  Orkestratör düzeltmesi (test doğruluğu), 3 ardışık koşu temiz.
+- **Kopyalanan dosyalar:** `state.json` (wave **D6** + `lastSession`) ve
+  `SESSION_LOG.md` (25.10.2026 devir notu) worktree'den **ana repoya** elle
+  kopyalandı (gitignore'da).
