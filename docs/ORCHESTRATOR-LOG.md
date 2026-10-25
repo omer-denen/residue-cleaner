@@ -686,3 +686,31 @@ armed, doğrulama bandı).
 ölçümünden farklı: `minAgeDays=0` tam tarama + disk/Defender durumu).
 `daily` doğrulaması **24.9 s** — "hızlı" beklentisinin üzerinde; hedefler
 sıralı prob ediliyor → **W3-c** (paralel prob, hedef başına düşen süre).
+
+### W5-c — TAMAMLANDI
+
+- Commit `88a541b` (işçi: Beam Free, `scratch/logs/w5c.log`,
+  rapor `scratch/raporlar/w5c.md`).
+- `src/core/contract.ts`: `ScanHeaderKind` + `ScanStatusHeader` tipleri ve
+  `ScanStatusViewResponse.header` alanı **kaldırıldı** (gereksizdi: chip
+  zaten `kind` taşıyor).
+- `src/core/scan-status-view.ts`: `private header()` ve `view().header`
+  kaldırıldı; `kind`/`tone`/`reasons`/`rows`/`action`/`showAge` aynı.
+- `web/src/components/ScanStatus.tsx`: rozet metni
+  `t(SCAN_STATUS_LABEL[view.kind])` → "Tarama güncel", "Disk değişti",
+  "Tarama eski", "Taranıyor", "Tarama yok".
+- `web/src/i18n.ts`: `scan.header.age|none|scanning` (TR+EN) silindi.
+- `tests/scan-status-view.test.ts`: `header` beklentileri yerine aynı
+  senaryolarda `kind` + `rows` (yaş satırı) doğrulaması — **test sayısı
+  düşmedi (358)**.
+- **Kapı:** typecheck temiz · **358/358** · `build:web` **461.10 kB /
+  129.71 kB gzip**.
+- **Risk:** yaş bilgisi kaybolmadı (ayrıntı raporunda `scan.row.age` duruyor);
+  arayüzde hesap yok.
+- **Not:** işçinin bıraktığı "ayrnti" yazım hatası orkestratörce düzeltildi.
+
+### W3-c / W5-d — paket metinleri hazır
+
+- `scratch/gorev-w5d.md` (`unknown` defter değeri taşması; yalnız CSS +
+  sınıf), `scratch/gorev-w3c.md` (doğrulamada eşzamanlılık 4, deterministik
+  sıra korunur).
