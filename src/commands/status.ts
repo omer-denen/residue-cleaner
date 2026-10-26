@@ -1,5 +1,6 @@
 import { readState, writeState, renderHandoff, type ProjectState } from '../util/state.ts';
 import { info } from '../util/log.ts';
+import { BugViewList } from '../core/bug-view.ts';
 
 const C = {
   reset: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m',
@@ -37,7 +38,8 @@ export async function runStatus(args: string[]): Promise<void> {
   const wip = s.tasks.filter((t) => t.status === 'wip');
   const done = s.tasks.filter((t) => t.status === 'done');
   const todo = s.tasks.filter((t) => t.status === 'todo');
-  const openBugs = s.bugs.filter((b) => b.status !== 'fixed');
+  const open = BugViewList.open(s.bugs);
+  const counts = BugViewList.counts(s.bugs);
 
   console.log(`\n${C.bold}${s.project.name}${C.reset} ${C.gray}— ${s.project.purpose}${C.reset}`);
   console.log(`${C.dim}Guncelleme: ${s.updatedAt}${C.reset}`);
@@ -50,10 +52,8 @@ export async function runStatus(args: string[]): Promise<void> {
   console.log('');
 
   console.log(`  ${C.green}${done.length} tamamlandi${C.reset} · ${C.yellow}${wip.length} yarida${C.reset} · ${C.gray}${todo.length} planli${C.reset}`);
-  if (openBugs.length > 0) {
-    const crit = openBugs.filter((b) => b.severity === 'critical').length;
-    const high = openBugs.filter((b) => b.severity === 'high').length;
-    console.log(`  ${C.red}${openBugs.length} acik hata${C.reset}${crit ? ` (${crit} kritik)` : ''}${high ? ` (${high} yuksek)` : ''}`);
+  if (open.length > 0) {
+    console.log(`  ${C.red}${open.length} acik hata${C.reset}${counts.critical ? ` (${counts.critical} kritik)` : ''}${counts.high ? ` (${counts.high} yuksek)` : ''}`);
   }
   console.log('');
 
@@ -66,13 +66,14 @@ export async function runStatus(args: string[]): Promise<void> {
     console.log('');
   }
 
-  if (openBugs.length) {
+  if (open.length) {
     console.log(`${C.bold}ACIK HATALAR${C.reset}`);
-    for (const b of openBugs.slice(0, 6)) {
+    for (const b of open.slice(0, 6)) {
       const col = b.severity === 'critical' ? C.red : b.severity === 'high' ? C.yellow : C.gray;
-      console.log(`  ${col}!${C.reset} [${b.severity}] ${b.title}`);
+      const idPart = b.id ? `[${b.id}] ` : '';
+      console.log(`  ${col}!${C.reset} [${b.severity}] ${idPart}${b.label}`);
     }
-    if (openBugs.length > 6) console.log(`  ${C.dim}... +${openBugs.length - 6}${C.reset}`);
+    if (open.length > 6) console.log(`  ${C.dim}... +${open.length - 6}${C.reset}`);
     console.log('');
   }
 
@@ -87,7 +88,7 @@ export async function runStatus(args: string[]): Promise<void> {
   console.log(`${C.dim}Detay: residue status --export${C.reset}`);
   console.log(`${C.dim}Gunluk: residue log --summary${C.reset}\n`);
 
-  info('status goruntulendi', { done: done.length, wip: wip.length, todo: todo.length, acikHata: openBugs.length });
+  info('status goruntulendi', { done: done.length, wip: wip.length, todo: todo.length, acikHata: open.length });
 }
 
 function initialState(cwd: string): ProjectState {

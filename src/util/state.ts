@@ -8,6 +8,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { longPath } from './longpath.ts';
+import { BugViewList } from '../core/bug-view.ts';
 
 export interface TaskState {
   id: string;
@@ -98,8 +99,10 @@ export function renderHandoff(s: ProjectState): string {
   const L: string[] = [];
   const wip = s.tasks.filter((t) => t.status === 'wip');
   const todo = s.tasks.filter((t) => t.status === 'todo');
-  const openBugs = s.bugs.filter((b) => b.status !== 'fixed');
-  const crit = s.bugs.filter((b) => b.severity === 'critical' || b.severity === 'high');
+  const bugs = s.bugs ?? [];
+  const views = BugViewList.normalize(bugs);
+  const openViews = BugViewList.open(bugs);
+  const crit = views.filter((b) => b.severity === 'critical' || b.severity === 'high');
 
   L.push('# Oturum devri');
   L.push('');
@@ -131,7 +134,7 @@ export function renderHandoff(s: ProjectState): string {
     L.push('## KRITIK / YUKSEK ONCELIKLI HATALAR');
     L.push('');
     for (const b of crit) {
-      L.push(`### [${b.severity.toUpperCase()}] ${b.title} (${b.status})`);
+      L.push(`### [${b.severity.toUpperCase()}] ${b.label} (${b.status})`);
       L.push(`- Belirti: ${b.symptom}`);
       L.push(`- Kok neden: ${b.cause}`);
       L.push(`- Duzeltme: ${b.fix}`);
@@ -139,13 +142,13 @@ export function renderHandoff(s: ProjectState): string {
     }
   }
 
-  if (openBugs.length) {
-    const other = openBugs.filter((b) => b.severity !== 'critical' && b.severity !== 'high');
+  if (openViews.length) {
+    const other = openViews.filter((b) => b.severity !== 'critical' && b.severity !== 'high');
     if (other.length) {
       L.push('## ACIK HATALAR');
       L.push('');
       for (const b of other) {
-        L.push(`- [${b.severity}] ${b.title} — ${b.symptom}`);
+        L.push(`- [${b.severity}] ${b.label} — ${b.symptom}`);
       }
       L.push('');
     }
