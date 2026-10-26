@@ -1,10 +1,11 @@
 import type {
-  CliExecuteResponse,
+  CliExecuteResultView,
   CliInventoryStartResponse,
-  CliPlanResponse,
+  CliRemoveRequest,
   CliSort,
   CliSourceFilter,
   CliStatusFilter,
+  CliTool,
   CliViewResponse,
   ClusterDetailView,
   DashboardResponse,
@@ -165,14 +166,8 @@ export const api = {
   cliCancel: (jobId: string): Promise<{ ok: boolean }> =>
     post<{ ok: boolean }>(`/api/cli/inventory/${jobId}/cancel`, {}),
 
-  cliPlan: (body: {
-    commands: string[];
-    backup: boolean;
-    unusedDays?: number;
-  }): Promise<CliPlanResponse> => post<CliPlanResponse>('/api/cli/plan', body),
-
-  cliExecute: (planId: string, phrase: string): Promise<CliExecuteResponse> =>
-    post<CliExecuteResponse>('/api/cli/execute', { planId, phrase }),
+  cliRemove: (body: CliRemoveRequest): Promise<CliExecuteResultView> =>
+    post<CliExecuteResultView>('/api/cli/remove', body),
 
   envAnalyze: (): Promise<EnvAnalysis> => request<EnvAnalysis>('/api/env'),
 

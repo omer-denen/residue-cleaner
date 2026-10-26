@@ -929,58 +929,13 @@ export interface CliInventoryCancelResponse {
   ok: boolean;
 }
 
-export interface CliPlanRequest {
-  commands: string[];
-  /** Durum klasorlerini kasaya kopyala */
-  backup: boolean;
-  unusedDays?: number;
-}
-
-export interface CliPlanItemView {
+export interface CliRemoveRequest {
   id: string;
-  command: string;
-  source: string;
-  packageName: string;
-  version: string;
-  installPath: string;
-  shims: string[];
-  stateDirs: string[];
-  status: string;
-  confidence: string;
-  idleDays: number;
-  /** Aracin toplam boyutu (plan satiri). */
-  totalBytes: number;
-  evidence: string[];
-  uninstallCommand: string;
-  reinstallCommand: string;
-  /** Golgede kalan paket kaldirilinca shim'i onarmak icin komut */
-  repairCommand?: string;
-  manual: boolean;
-  backupPaths: string[];
-  backupBytes: number;
-  backupSkipped: Array<{ path: string; reason: string }>;
-}
-
-export interface CliPlanResponse {
-  planId: string;
-  items: CliPlanItemView[];
-  totalBytes: number;
-  backupBytes: number;
-  /** CLI kaldirma her zaman yazili onay ister */
-  requiresPhrase: true;
   /** Yazili onay ifadesi (ApprovalRules.delete). */
   phrase: string;
-  approvalKind: 'delete';
-  expiresAt: number;
-  /** Bagimlilik grafigi nedeniyle plana ALINMAYAN araclar. */
-  blocked?: Array<{ id: string; command: string; reason: string; dependents: string[] }>;
+  /** Durum klasorlerini kasaya kopyala (varsayilan true). */
+  backup?: boolean;
 }
-
-export interface CliExecuteRequest {
-  planId: string;
-  phrase: string;
-}
-
 export interface CliExecuteResultView {
   command: string;
   ok: boolean;
@@ -989,10 +944,6 @@ export interface CliExecuteResultView {
   error?: string;
   backupDir?: string;
   verified: boolean;
-}
-
-export interface CliExecuteResponse {
-  results: CliExecuteResultView[];
 }
 
 // ---------------------------------------------------------------------------

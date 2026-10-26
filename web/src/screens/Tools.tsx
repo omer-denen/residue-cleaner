@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
-  CliExecuteResponse,
+  CliExecuteResultView,
   CliInventoryStreamEvent,
-  CliPlanResponse,
   CliSort,
   CliSourceFilter,
   CliStatusFilter,
@@ -74,11 +73,11 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
   const [scanError, setScanError] = useState<string | null>(null);
   const closeStream = useRef<(() => void) | null>(null);
 
-  const [plan, setPlan] = useState<CliPlanResponse | null>(null);
   const [phrase, setPhrase] = useState('');
   const [executing, setExecuting] = useState(false);
-  const [results, setResults] = useState<CliExecuteResponse | null>(null);
-  const [planError, setPlanError] = useState<string | null>(null);
+  const [result, setResult] = useState<CliExecuteResultView | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [backup, setBackup] = useState(true);
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedText(text), 250);
@@ -107,8 +106,8 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
 
   const startScan = async (): Promise<void> => {
     setScanError(null);
-    setResults(null);
-    setPlan(null);
+    setResult(null);
+    setRemoveError(null);
     setPhrase('');
     try {
       const { jobId } = await api.startCliInventory(unusedDays);
@@ -165,71 +164,40 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
 
   const selectable = new Set(view?.selectableIds ?? []);
 
-  const toggle = (id: string): void => {
-    setSelected((previous) => {
-      const next = new Set(previous);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const detail: CliTool | null =
+    detailId === null ? null : (view?.tools.find((tool) => tool.id === detailId) ?? null);
 
-  const selectVisible = (): void => {
-    if (!view) return;
-    setSelected((previous) => {
-      const next = new Set(previous);
-      for (const id of view.selectableIds) next.add(id);
-      return next;
-    });
-  };
-
-  const createPlan = async (): Promise<void> => {
-    if (selected.size === 0) return;
-    setPlanError(null);
-    setResults(null);
-    try {
-      const next = await api.cliPlan({
-        commands: [...selected],
-        backup: true,
-        unusedDays,
-      });
-      setPlan(next);
-      setPhrase('');
-      panel?.activate('action');
-    } catch (err) {
-      setPlanError(err instanceof ApiError ? err.message : String(err));
-    }
-  };
-
-  const execute = async (): Promise<void> => {
-    if (!plan) return;
-    setPlanError(null);
+  const removeSingle = async (): Promise<void> => {
+    if (!detail) return;
+    setRemoveError(null);
+    setResult(null);
     setExecuting(true);
     try {
-      const out = await api.cliExecute(plan.planId, phrase);
-      setResults(out);
-      setPlan(null);
+      const out = await api.cliRemove({
+        id: detail.id,
+        phrase,
+        backup,
+      });
+      setResult(out);
       setPhrase('');
-      setSelected(new Set());
       setDetailId(null);
       setView(null);
       setLoaded(false);
       await loadView();
       onChanged?.();
     } catch (err) {
-      setPlanError(err instanceof ApiError ? err.message : String(err));
+      setRemoveError(err instanceof ApiError ? err.message : String(err));
     } finally {
       setExecuting(false);
     }
   };
 
   const canExecute =
-    plan !== null &&
+    detail !== null &&
+    detail.uninstall !== null &&
     !executing &&
-    ApprovalRules.matches(plan.approvalKind, phrase);
+    ApprovalRules.matches('delete', phrase);
 
-  const detail: CliTool | null =
-    detailId === null ? null : (view?.tools.find((tool) => tool.id === detailId) ?? null);
 
   const duplicateOf = (id: string) =>
     (view?.duplicates ?? []).filter(
@@ -323,7 +291,7 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
           </div>
         )}
         {error && <div className="banner danger" role="alert">{error}</div>}
-        {planError && <div className="banner danger" role="alert">{planError}</div>}
+        {removeError && <div className="banner danger" role="alert">{removeError}</div>}
 
         {!loaded && !error && <div className="state">{t('common.loading')}</div>}
 
@@ -350,9 +318,6 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
         {view && (
           <>
             <div className="selection-bar" aria-label={t('tools.total')}>
-              <span className="sr-only" role="status" aria-live="polite">
-                {`${selected.size} ${t('tools.selected')}`}
-              </span>
               <span>
                 <strong className="mono">{view.summary.total}</strong> {t('tools.total')}
               </span>
@@ -424,31 +389,6 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
               </select>
             </div>
 
-            <div className="selection-bar">
-              <span>
-                <strong className="mono">{selected.size}</strong> {t('tools.selected')}
-              </span>
-              <span className="spacer" />
-              <button type="button" className="ghost" onClick={selectVisible}>
-                {t('tools.selectVisible')}
-              </button>
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => setSelected(new Set())}
-              >
-                {t('tools.clear')}
-              </button>
-              <button
-                type="button"
-                className="primary"
-                disabled={selected.size === 0 || executing}
-                onClick={() => void createPlan()}
-              >
-                {t('tools.plan')}
-              </button>
-            </div>
-
             {view.tools.length === 0 && (
               <EmptyState variant="fill" icon="tools" title={t('tools.empty')} />
             )}
@@ -479,18 +419,9 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                     className={`cli-row${detailId === tool.id ? ' active' : ''}`}
                     onClick={() => {
                       setDetailId(tool.id);
-                      setPlan(null);
                       panel?.activate('evidence');
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={selected.has(tool.id)}
-                      disabled={!selectable.has(tool.id)}
-                      onChange={() => toggle(tool.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label={`${t('tools.selected')}: ${tool.command}`}
-                    />
                     <button
                       type="button"
                       className="cli-name-wrap row-open"
@@ -499,7 +430,6 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                       onClick={(e) => {
                         e.stopPropagation();
                         setDetailId(tool.id);
-                        setPlan(null);
                         panel?.activate('evidence');
                       }}
                     >
@@ -560,64 +490,70 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
       </section>
 
       <RightPanelPortal module="action">
-        {plan && (
+        {removeError && (
+          <div className="banner danger" role="alert">
+            {removeError}
+          </div>
+        )}
+
+        {result && (
+          <section className="plan-panel">
+            <h2>{tu('tools.plan.done')}</h2>
+            <ul className="detail-list">
+              <li>
+                <span className="mono">
+                  {result.ok ? '✓' : '✗'} {result.command}
+                </span>
+                <span className="dim">
+                  {result.verified ? t('plan.done') : t('tools.plan.failed')}
+                  {result.manual ? ` · ${t('tools.manual')}` : ''}
+                </span>
+                {result.backupDir && (
+                  <span className="dim mono">
+                    {t('tools.backup')}: {result.backupDir}
+                  </span>
+                )}
+                {result.error && <span className="dim">{result.error}</span>}
+              </li>
+            </ul>
+            <div className="approval-actions">
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setResult(null)}
+              >
+                {t('common.back')}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {!result && detail && (
           <section className="plan-panel">
             <h2>{tu('tools.plan.title')}</h2>
-            <p className="dim">{t('tools.plan.phraseHint', { phrase: plan.phrase })}</p>
+            <p className="dim">{t('tools.plan.phraseHint', { phrase: ApprovalRules.phrase('delete') })}</p>
 
             <dl className="meta-list">
-              <dt>{t('tools.plan.items')}</dt>
-              <dd className="mono">{plan.items.length}</dd>
-              <dt>{t('tools.plan.total')}</dt>
-              <dd className="mono">{formatBytes(plan.totalBytes)}</dd>
-              <dt>{t('tools.plan.backup')}</dt>
-              <dd className="mono">{formatBytes(plan.backupBytes)}</dd>
+              <dt>{t('tools.command')}</dt>
+              <dd className="mono">{detail.command}</dd>
+              {detail.uninstall && (
+                <>
+                  <dt>{t('tools.uninstall')}</dt>
+                  <dd className="mono">
+                    <code>{detail.uninstall.display}</code>
+                  </dd>
+                </>
+              )}
             </dl>
 
-            <ul className="detail-list">
-              {plan.items.map((item) => (
-                <li key={item.id}>
-                  <span className="mono">
-                    {item.command} · {item.packageName}@{item.version}
-                  </span>
-                  <span className="dim">
-                    {t(CLI_SOURCE_LABEL[item.source] ?? 'cli.source.standalone')} ·{' '}
-                    {formatBytes(item.totalBytes)}
-                  </span>
-                  <span className="artifact-command">
-                    <span className="dim">{t('tools.uninstall')}</span>
-                    <code>{item.uninstallCommand}</code>
-                  </span>
-                  {item.manual && (
-                    <span className="badge warn">{t('tools.manual')}</span>
-                  )}
-                  {item.backupSkipped.length > 0 && (
-                    <span className="dim">
-                      {t('tools.plan.backupSkipped')}: {item.backupSkipped.length}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-
-            {(plan.blocked ?? []).length > 0 && (
-              <>
-                <h4>{tu('tools.plan.blocked')}</h4>
-                <ul className="detail-list">
-                  {(plan.blocked ?? []).map((blocked) => (
-                    <li key={blocked.id}>
-                      <span className="mono">{blocked.command}</span>
-                      <span className="dim">{blocked.reason}</span>
-                      {blocked.dependents.length > 0 && (
-                        <span className="dim">
-                          {t('tools.plan.dependents')}: {blocked.dependents.join(', ')}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
+            <label className="approval-row">
+              <input
+                type="checkbox"
+                checked={backup}
+                onChange={(e) => setBackup(e.target.checked)}
+              />
+              <span>{t('tools.backup')}</span>
+            </label>
 
             <label className="approval-row">
               <span>{t('tools.plan.phrase')}</span>
@@ -625,9 +561,10 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                 className="control mono"
                 value={phrase}
                 onChange={(e) => setPhrase(e.target.value)}
-                placeholder={plan.phrase}
+                placeholder={ApprovalRules.phrase('delete')}
                 aria-label={t('tools.plan.phrase')}
                 autoComplete="off"
+                disabled={executing || detail.uninstall === null}
               />
             </label>
 
@@ -637,8 +574,9 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                 className="ghost"
                 disabled={executing}
                 onClick={() => {
-                  setPlan(null);
+                  setDetailId(null);
                   setPhrase('');
+                  setResult(null);
                 }}
               >
                 {t('common.back')}
@@ -647,12 +585,25 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                 type="button"
                 className="danger-button"
                 disabled={!canExecute}
-                onClick={() => void execute()}
+                onClick={() => void removeSingle()}
               >
                 {executing ? t('tools.plan.running') : t('tools.plan.execute')}
               </button>
             </div>
+
+            {detail.uninstall === null && (
+              <p className="dim">{t('cli.status.protected')}</p>
+            )}
           </section>
+        )}
+
+        {!result && !detail && (
+          <EmptyState
+            icon="tools"
+            tone="warn"
+            title={t('rightPanel.action.emptyTitle')}
+            body={t('rightPanel.action.emptyBody')}
+          />
         )}
       </RightPanelPortal>
 
@@ -858,33 +809,6 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
           </aside>
       </RightPanelPortal>
 
-      <RightPanelPortal module="action">
-
-        {results && (
-          <section className="plan-panel">
-            <h2>{tu('tools.plan.done')}</h2>
-            <ul className="detail-list">
-              {results.results.map((result, index) => (
-                <li key={`${result.command}:${index}`}>
-                  <span className="mono">
-                    {result.ok ? '✓' : '✗'} {result.command}
-                  </span>
-                  <span className="dim">
-                    {result.verified ? t('plan.done') : t('tools.plan.failed')}
-                    {result.manual ? ` · ${t('tools.manual')}` : ''}
-                  </span>
-                  {result.backupDir && (
-                    <span className="dim mono">
-                      {t('tools.backup')}: {result.backupDir}
-                    </span>
-                  )}
-                  {result.error && <span className="dim">{result.error}</span>}
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-      </RightPanelPortal>
     </div>
   );
 }

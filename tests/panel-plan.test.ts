@@ -111,10 +111,10 @@ test('panel plani: islem ekranlari kendi eylemiyle acilir', () => {
   }
 });
 
-test('panel plani: Araclar kaldirma eylemi + kompakt plan tasir', () => {
+test('panel plani: Araclar kaldirma eylemi tasir, plan tasimaz', () => {
   const plan = panelPlanFor('tools');
-  assert.deepEqual(plan.modules, ['evidence', 'action', 'planned']);
-  assert.equal(plan.planned, 'compact');
+  assert.deepEqual(plan.modules, ['evidence', 'action']);
+  assert.equal(plan.planned, null);
   // Baglam sekmesi yok: baglam Kanitlar modulunun footer'inda kalir.
   assert.equal(plan.modules.includes('context'), false);
 });

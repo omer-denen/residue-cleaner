@@ -56,8 +56,7 @@ import type {
   CliInventoryRequest,
   CliInventoryStartResponse,
   CliInventoryStreamEvent,
-  CliExecuteRequest,
-  CliPlanRequest,
+  CliRemoveRequest,
   CliRepairExecuteRequest,
   CliRepairPlanRequest,
   CliQuarantineExecuteRequest,
@@ -1008,19 +1007,12 @@ async function handleRequest(
     return;
   }
 
-  if (route === 'POST /api/cli/plan') {
-    const body = await readJson<CliPlanRequest>(req);
-    const commands = Array.isArray(body.commands)
-      ? body.commands.filter((c): c is string => typeof c === 'string' && c.length > 0)
-      : [];
-    sendJson(res, 200, await ctx.removal.plan(commands, body.backup !== false));
-    return;
-  }
-
-  if (route === 'POST /api/cli/execute') {
-    const body = await readJson<CliExecuteRequest>(req);
-    const planId = typeof body.planId === 'string' ? body.planId : '';
-    sendJson(res, 200, await ctx.removal.execute(planId, body.phrase));
+  if (route === 'POST /api/cli/remove') {
+    const body = await readJson<CliRemoveRequest>(req);
+    const id = typeof body.id === 'string' ? body.id : '';
+    const phrase = typeof body.phrase === 'string' ? body.phrase : '';
+    const backup = body.backup !== false;
+    sendJson(res, 200, await ctx.removal.removeSingle(id, phrase, backup));
     return;
   }
 

@@ -62,8 +62,9 @@ const PLANS: Record<PanelScreen, PanelPlan> = {
   disk: { modules: ['evidence', 'planned', 'context'], planned: 'full' },
   // Projeler: SALT OKUNUR kesif; plan yalnizca hatirlatma.
   projects: { modules: ['evidence', 'planned', 'context'], planned: 'compact' },
-  // Araclar: kendi kaldirma islemi `action`; disk plani kompakt hatirlatma.
-  tools: { modules: ['evidence', 'action', 'planned'], planned: 'compact' },
+  // Araclar: kendi kaldirma islemi `action`; disk plani kompakt hatirlatma YOK
+  // (kaldirma artik arac basina tek islem).
+  tools: { modules: ['evidence', 'action'], planned: null },
   // PATH & Ortam: birincil is etkilesim -> TEMIZLE plani (action).
   env: { modules: ['action', 'planned', 'context'], planned: 'compact' },
   // Graf: birincil is etkilesim -> what-if engeli (action).

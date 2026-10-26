@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { longPath } from '../util/longpath.ts';
@@ -8,7 +7,6 @@ import {
   executeToolBackup,
   planToolBackup,
   reinstallCommand,
-  type BackupPlan,
 } from './cli-backup.ts';
 
 /**
@@ -19,29 +17,6 @@ import {
  * de birlikte temizlenir. Paket yoneticisi bilinmiyorsa (standalone)
  * arac "manual" isaretlenir ve HICBIR SEY silinmez.
  */
-
-export interface CliRemovalItem {
-  tool: CliTool;
-  backup: BackupPlan;
-  manual: boolean;
-  uninstallCommand: string;
-  reinstallCommand: string;
-  /**
-   * Golgede kalan bir paket kaldirildiginda npm shim'i de silebilir.
-   * Bu durumda komutu geri getirmek icin aktif paketi yeniden baglar.
-   */
-  repair?: UninstallSpec;
-}
-
-export interface CliRemovalPlan {
-  id: string;
-  createdAt: number;
-  expiresAt: number;
-  backup: boolean;
-  items: CliRemovalItem[];
-  totalBytes: number;
-  backupBytes: number;
-}
 
 export interface CliRemovalResult {
   command: string;
@@ -54,52 +29,7 @@ export interface CliRemovalResult {
   verified: boolean;
 }
 
-const PLAN_TTL_MS = 10 * 60_000;
 const MAX_OUTPUT = 4096;
-
-export async function planCliRemoval(
-  tools: CliTool[],
-  backup: boolean,
-  repairs: Map<string, UninstallSpec> = new Map(),
-): Promise<CliRemovalPlan> {
-  const items: CliRemovalItem[] = [];
-  let totalBytes = 0;
-  let backupBytes = 0;
-
-  // Ayni paket birden fazla komut saglayabilir (or. ornek-cli + ornek-cli2).
-  // Ayni paketi plana iki kez koymak uninstall'i iki kez calistirir.
-  const seenPackages = new Set<string>();
-
-  for (const tool of tools) {
-    const packageKey = `${tool.source}:${tool.packageName.toLowerCase()}`;
-    if (seenPackages.has(packageKey)) continue;
-    seenPackages.add(packageKey);
-
-    const backupPlan = await planToolBackup(tool, backup);
-    const repair = repairs.get(tool.id);
-    items.push({
-      tool,
-      backup: backupPlan,
-      manual: tool.uninstall === null,
-      uninstallCommand: tool.uninstall?.display ?? 'elle kaldir',
-      reinstallCommand: reinstallCommand(tool),
-      ...(repair ? { repair } : {}),
-    });
-    totalBytes += tool.totalBytes;
-    backupBytes += backupPlan.totalBytes;
-  }
-
-  const now = Date.now();
-  return {
-    id: randomBytes(8).toString('hex'),
-    createdAt: now,
-    expiresAt: now + PLAN_TTL_MS,
-    backup,
-    items,
-    totalBytes,
-    backupBytes,
-  };
-}
 
 /**
  * Golgede kalan paket kaldirildiktan sonra komutu geri baglamak icin
@@ -162,89 +92,84 @@ export function reinstallSpec(tool: CliTool): UninstallSpec | null {
   }
 }
 
-export async function executeCliRemoval(plan: CliRemovalPlan): Promise<CliRemovalResult[]> {
-  const out: CliRemovalResult[] = [];
-
-  for (const item of plan.items) {
-    const tool = item.tool;
-
-    if (item.manual || !tool.uninstall) {
-      out.push({
-        command: tool.command,
-        ok: false,
-        manual: true,
-        output: 'Paket yoneticisi bilinmiyor; kurulum klasorune dokunulmadi. Elle kaldirilmali.',
-        verified: false,
-      });
-      continue;
-    }
-
-    let backupDir: string | undefined;
-    if (plan.backup) {
-      try {
-        const b = await executeToolBackup(tool, item.backup, item.reinstallCommand);
-        backupDir = b.vaultDir;
-      } catch (err) {
-        out.push({
-          command: tool.command,
-          ok: false,
-          manual: false,
-          output: 'Yedek alinamadi; kaldirma baslatilmadi.',
-          error: describe(err),
-          verified: false,
-        });
-        continue;
-      }
-    }
-
-    const r = await runProcess(tool.uninstall.program, tool.uninstall.args);
-
-    // Golgede kalan paket kaldirildiginda npm, paylasilan shim'i de
-    // silebilir. Bu durumda aktif paketi yeniden baglayip komutu
-    // geri getir; aksi halde "basarili" gorunen kaldirma komutu bozar.
-    let repairOutput = '';
-    if (item.repair) {
-      const shimsAlive = tool.shims.some((p) => existsSync(longPath(p)));
-      const still = await Promise.all(
-        tool.shims.map((p) => shimPointsTo(p, tool.installPath)),
-      );
-      if (!shimsAlive || still.some(Boolean)) {
-        const rr = await runProcess(item.repair.program, item.repair.args);
-        repairOutput = truncate(
-          [rr.stdout, rr.stderr].filter(Boolean).join('\n').trim() ||
-            `onarim cikis kodu ${rr.code ?? '?'}`,
-        );
-      }
-    }
-
-    // Ayni komutu baska bir paket de sagliyorsa shim SILINMEZ; hedefi
-    // degisir. Bu yuzden "shim yok" yerine "paket gitti ve shim artik
-    // bu paketi gostermiyor" kontrol edilir.
-    const packageGone = !existsSync(longPath(tool.installPath));
-    const stillPoints = await Promise.all(
-      tool.shims.map((p) => shimPointsTo(p, tool.installPath)),
-    );
-    const shimsAliveAfter = tool.shims.some((p) => existsSync(longPath(p)));
-    const verified =
-      packageGone && !stillPoints.some(Boolean) && (!item.repair || shimsAliveAfter);
-
-    const output = [r.stdout, r.stderr, repairOutput ? `shim onarimi: ${repairOutput}` : '']
-      .filter(Boolean)
-      .join('\n')
-      .trim();
-
-    out.push({
+export async function removeSingleTool(
+  tool: CliTool,
+  backup: boolean,
+  repair: UninstallSpec | null = null,
+): Promise<CliRemovalResult> {
+  if (!tool.uninstall) {
+    return {
       command: tool.command,
-      ok: r.code === 0,
-      manual: false,
-      output: truncate(output || `cikis kodu ${r.code ?? '?'}`),
-      ...(r.code !== 0 ? { error: `cikis kodu ${r.code ?? '?'}${r.timedOut ? ' (zaman asimi)' : ''}` } : {}),
-      ...(backupDir ? { backupDir } : {}),
-      verified,
-    });
+      ok: false,
+      manual: true,
+      output: 'Paket yoneticisi bilinmiyor; kurulum klasorune dokunulmadi. Elle kaldirilmali.',
+      verified: false,
+    };
   }
 
-  return out;
+  let backupDir: string | undefined;
+  if (backup) {
+    const backupPlan = await planToolBackup(tool, true);
+    try {
+      const b = await executeToolBackup(tool, backupPlan, reinstallCommand(tool));
+      backupDir = b.vaultDir;
+    } catch (err) {
+      return {
+        command: tool.command,
+        ok: false,
+        manual: false,
+        output: 'Yedek alinamadi; kaldirma baslatilmadi.',
+        error: describe(err),
+        verified: false,
+      };
+    }
+  }
+
+  const r = await runProcess(tool.uninstall.program, tool.uninstall.args);
+
+  // Golgede kalan paket kaldirildiginda npm, paylasilan shim'i de
+  // silebilir. Bu durumda aktif paketi yeniden baglayip komutu
+  // geri getir; aksi halde "basarili" gorunen kaldirma komutu bozar.
+  let repairOutput = '';
+  if (repair) {
+    const shimsAlive = tool.shims.some((p) => existsSync(longPath(p)));
+    const still = await Promise.all(
+      tool.shims.map((p) => shimPointsTo(p, tool.installPath)),
+    );
+    if (!shimsAlive || still.some(Boolean)) {
+      const rr = await runProcess(repair.program, repair.args);
+      repairOutput = truncate(
+        [rr.stdout, rr.stderr].filter(Boolean).join('\n').trim() ||
+          `onarim cikis kodu ${rr.code ?? '?'}`,
+      );
+    }
+  }
+
+  // Ayni komutu baska bir paket de sagliyorsa shim SILINMEZ; hedefi
+  // degisir. Bu yuzden "shim yok" yerine "paket gitti ve shim artik
+  // bu paketi gostermiyor" kontrol edilir.
+  const packageGone = !existsSync(longPath(tool.installPath));
+  const stillPoints = await Promise.all(
+    tool.shims.map((p) => shimPointsTo(p, tool.installPath)),
+  );
+  const shimsAliveAfter = tool.shims.some((p) => existsSync(longPath(p)));
+  const verified =
+    packageGone && !stillPoints.some(Boolean) && (!repair || shimsAliveAfter);
+
+  const output = [r.stdout, r.stderr, repairOutput ? `shim onarimi: ${repairOutput}` : '']
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+
+  return {
+    command: tool.command,
+    ok: r.code === 0,
+    manual: false,
+    output: truncate(output || `cikis kodu ${r.code ?? '?'}`),
+    ...(r.code !== 0 ? { error: `cikis kodu ${r.code ?? '?'}${r.timedOut ? ' (zaman asimi)' : ''}` } : {}),
+    ...(backupDir ? { backupDir } : {}),
+    verified,
+  };
 }
 
 export interface ProcessResult {
