@@ -45,6 +45,7 @@ import { ProjectService } from '../services/project-service.ts';
 import { GraphService } from '../services/graph-service.ts';
 import { ScheduleService } from '../services/schedule-service.ts';
 import { DashboardService } from '../services/dashboard-service.ts';
+import { AuditService } from '../services/audit-service.ts';
 import { interruptedOperations } from '../core/operation-journal.ts';
 import { info as logInfo } from '../util/log.ts';
 import { ServiceError, describeError } from '../services/errors.ts';
@@ -88,6 +89,7 @@ import type {
   VaultRestoreAllResponse,
   VaultRestoreRequest,
   VaultRestoreResponse,
+  AuditResponse,
 } from '../core/contract.ts';
 
 /**
@@ -149,6 +151,7 @@ interface WebContext {
   graph: GraphService;
   schedules: ScheduleService;
   dashboard: DashboardService;
+  audit: AuditService;
   /** jobId -> SSE istemcileri (HTTP adaptorune ait gecici durum). */
   streams: Map<string, Set<ServerResponse>>;
 }
@@ -188,6 +191,7 @@ export function createApiServer(opts: WebOptions = {}): { server: Server; token:
   const graph = new GraphService(inventory);
   const schedules = new ScheduleService(scan, remove);
   const dashboard = new DashboardService(scan, env, graph, schedules, inventory);
+  const audit = new AuditService();
 
   const ctx: WebContext = {
     token,
@@ -203,6 +207,7 @@ export function createApiServer(opts: WebOptions = {}): { server: Server; token:
     graph,
     schedules,
     dashboard,
+    audit,
     streams,
   };
 
@@ -413,6 +418,7 @@ async function handleRequest(
           'GET  /api/projects/discover',
           'GET  /api/schedules',
           'GET  /api/recover',
+          'GET  /api/audit',
         ],
       });
       return;
@@ -1118,6 +1124,16 @@ async function handleRequest(
       failed: r.failed,
     };
     sendJson(res, 200, out);
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/api/audit') {
+    const since = url.searchParams.get('since') ?? undefined;
+    const kind = url.searchParams.get('kind') ?? 'all';
+    const limitRaw = url.searchParams.get('limit');
+    const limit = limitRaw !== null ? Number(limitRaw) : undefined;
+    const body: AuditResponse = await ctx.audit.list({ since, kind, limit });
+    sendJson(res, 200, body);
     return;
   }
 

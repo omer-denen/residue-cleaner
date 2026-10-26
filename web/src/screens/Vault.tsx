@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { VaultListResponse } from '../../../src/core/contract.ts';
+import type { VaultListResponse, AuditResponse } from '../../../src/core/contract.ts';
 import { ApprovalRules } from '../../../src/core/approval.ts';
 import { api, ApiError } from '../api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
-import { formatAge, formatBytes } from '../format.ts';
+import { formatAge, formatBytes, formatTimestamp } from '../format.ts';
 import { EmptyState } from '../components/EmptyState.tsx';
 
 interface Props {
@@ -35,6 +35,27 @@ export function Vault({ lang, onChanged }: Props) {
   const [purgeBusy, setPurgeBusy] = useState(false);
   const busy = purgeBusy || busyId !== null;
   const [rowError, setRowError] = useState<Record<string, string>>({});
+
+  const [tab, setTab] = useState<'vault' | 'audit'>('vault');
+  const [auditData, setAuditData] = useState<AuditResponse | null>(null);
+  const [auditError, setAuditError] = useState<string | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  const loadAudit = useCallback(async (): Promise<void> => {
+    setAuditLoading(true);
+    setAuditError(null);
+    try {
+      setAuditData(await api.audit({ limit: 200 }));
+    } catch (err) {
+      setAuditError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setAuditLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'audit') void loadAudit();
+  }, [tab, loadAudit]);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -136,6 +157,17 @@ export function Vault({ lang, onChanged }: Props) {
         )}
       </header>
 
+      <div className="kind-tabs" style={{ marginBottom: 12 }}>
+        <button type="button" className={`chip${tab === 'vault' ? ' active' : ''}`} onClick={() => setTab('vault')}>
+          {t('vault.tab.vault')}
+        </button>
+        <button type="button" className={`chip${tab === 'audit' ? ' active' : ''}`} onClick={() => setTab('audit')}>
+          {t('vault.tab.audit')}
+        </button>
+      </div>
+
+      {tab === 'vault' && (
+        <>
       {error && <div className="banner danger" role="alert">{error}</div>}
       {notice && <div className="banner success">{notice}</div>}
 
@@ -244,6 +276,58 @@ export function Vault({ lang, onChanged }: Props) {
             </div>
           </section>
         </>
+      )}
+        </>
+      )}
+
+      {tab === 'audit' && (
+        <section className="panel">
+          <h2>{t('audit.title')}</h2>
+          <p className="dim">{t('audit.hint')}</p>
+          {auditLoading && <div className="state">{t('common.loading')}</div>}
+          {auditError && <div className="banner danger" role="alert">{auditError}</div>}
+          {auditData && auditData.auditFileExists === false && (
+            <EmptyState variant="wide" icon="vault" title={t('audit.empty')} body="" />
+          )}
+          {auditData && auditData.events.length > 0 && (
+            <>
+              <div className="dim" style={{ marginBottom: 8 }}>
+                {t('audit.counts.total')}: {auditData.counts.total} · {t('audit.counts.delete')}: {auditData.counts.delete} · {t('audit.counts.restore')}: {auditData.counts.restore} · {t('audit.counts.purge')}: {auditData.counts.purge} · {t('audit.counts.failed')}: {auditData.counts.failed}
+              </div>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>{t('audit.col.date')}</th>
+                    <th>{t('audit.col.type')}</th>
+                    <th>{t('audit.col.result')}</th>
+                    <th>{t('audit.col.path')}</th>
+                    <th className="num">{t('audit.col.size')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditData.events.map((e, i) => (
+                    <tr key={i}>
+                      <td className="dim">{formatTimestamp(e.at, lang)}</td>
+                      <td>{t(`audit.kind.${e.kind}` as any)}</td>
+                      <td>
+                        <span className={`badge ${e.ok ? 'ok' : 'danger'}`}>{e.ok ? t('audit.ok') : t('audit.failed')}</span>
+                        {!e.ok && e.code && <span className="dim"> {e.code}</span>}
+                        {!e.ok && e.reason && <div className="danger-text">{e.reason}</div>}
+                      </td>
+                      <td>
+                        <div className="mono">{e.path ?? ''}</div>
+                        {e.paths && e.paths.length > 0 && (
+                          <div className="dim">{t('audit.paths')}: {e.paths.slice(0,3).join(', ')}{e.paths.length > 3 ? ` +${e.paths.length - 3}` : ''}</div>
+                        )}
+                      </td>
+                      <td className="num mono">{e.bytes !== undefined ? formatBytes(e.bytes) : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+        </section>
       )}
     </div>
   );

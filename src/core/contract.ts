@@ -463,6 +463,32 @@ export interface VaultPurgeResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Denetim (audit)
+// ---------------------------------------------------------------------------
+
+export interface AuditEventView {
+  at: number;
+  kind: 'delete' | 'restore' | 'purge' | 'other';
+  event: string;
+  ok: boolean;
+  id?: string;
+  path?: string;
+  bytes?: number;
+  code?: string;
+  reason?: string;
+  paths?: string[];
+  pathsTruncated?: boolean;
+  counts?: { removed?: number; freed?: number; skipped?: number; failed?: number; batches?: number; bytes?: number; items?: number };
+}
+
+export interface AuditResponse {
+  events: AuditEventView[];
+  counts: { total: number; delete: number; restore: number; purge: number; failed: number };
+  journalCount: number;
+  auditFileExists: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Plan ve silme
 // ---------------------------------------------------------------------------
 

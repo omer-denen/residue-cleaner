@@ -38,6 +38,7 @@ ${C.bold}Gelismis${C.reset}
   residue explain <ad>         Bir kumenin karar gerekcesi
   residue undo [--restore]     Son silmeyi geri al
   residue vault                Kasa envanteri / saklama / kalici silme
+  residue audit [--since 24h] [--kind delete|restore|purge] [--json]  Denetim gecmisi (salt okunur)
   residue recover              Yarim kalan islemleri raporla (journal)
   residue env                  Ortam degiskenleri / PATH analizi (salt okunur)
   residue project [dir]        Proje bagimliliklari ve yeniden kurulum tarifi
@@ -322,6 +323,12 @@ async function main(): Promise<void> {
   if (cmd === 'vault') {
     const { runVault } = await import('./commands/vault.ts');
     await runVault(rest);
+    return;
+  }
+
+  if (cmd === 'audit') {
+    const { runAudit } = await import('./commands/audit.ts');
+    await runAudit(rest);
     return;
   }
 

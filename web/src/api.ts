@@ -40,6 +40,7 @@ import type {
   VaultListResponse,
   VaultPurgeResponse,
   VaultRestoreResponse,
+  AuditResponse,
 } from '../../src/core/contract.ts';
 
 /**
@@ -289,6 +290,15 @@ export const api = {
     post<ExecuteStartResponse>('/api/execute', { planId, phrase, acknowledgeHigh }),
 
   vault: (): Promise<VaultListResponse> => request<VaultListResponse>('/api/vault'),
+
+  audit: (params?: { since?: string; kind?: string; limit?: number }): Promise<AuditResponse> => {
+    const qs = new URLSearchParams();
+    if (params?.since) qs.set('since', params.since);
+    if (params?.kind) qs.set('kind', params.kind);
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+    const q = qs.toString();
+    return request<AuditResponse>(`/api/audit${q ? `?${q}` : ''}`);
+  },
 
   restore: (id: string): Promise<VaultRestoreResponse> =>
     post<VaultRestoreResponse>('/api/vault/restore', {

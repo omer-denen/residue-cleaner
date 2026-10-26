@@ -1008,3 +1008,39 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
   yok mu?" Cevap: **dosya var (audit.log JSONL), okuyucusu yok**
   (`src/util/audit.ts`: "okuma araci yoktur"). `delete.done`, `vault.restore`,
   `vault.purge-*` kayıtları tutuluyor ama ne CLI ne arayüz gösteriyor.
+
+### B22 — denetim geçmişi görünürlüğü (26.10.2026, kullanıcı sorusu)
+
+- **Kullanıcı sorusu:** "Geri alınan ve/veya silinen öğeleri tutan bir audit geçmişi yok mu?"
+  Orkestratör cevabı: **kayıt var, okuyucu yok** — `src/util/audit.ts` başlığında
+  "JSONL yazilir; okuma araci yoktur" diyor; ne CLI ne arayüz gösteriyordu.
+- **Doğrulanan olay yükleri** (çağrı yerlerinden): `delete.high-ack`, `delete.done`
+  (`{freed, removed, skipped, failed, journal}`), `delete.error`, `vault.restore`,
+  `vault.restore.failed` (B13), `vault.purge-items`, `vault.purge-all`.
+  `journals/<opId>.jsonl` `kind:"item"` satırları gerçek **yol + bayt** taşıyor;
+  `delete.done` içindeki `journal` alanı o dosyayı gösteriyor.
+- **Görev paketi:** `scratch/gorev-b22-denetim.md` (işçi Beam Free,
+  `scratch/logs/b22-denetim.log`). Beyaz liste 12 dosya; **yalnız okuma** şartı.
+- **Motor (saf TS):** `src/core/audit-view.ts` → `AuditView.parse / parseLines / filter /
+  counts`; olay sınıflandırma (`delete|restore|purge|other`), `ok = !(.failed|.error)`,
+  `path` sırası `to → from → items[0]`, sayaçlar (`removed/freed/skipped/failed/batches/bytes/items`),
+  bozuk satır atlanır, sıralama en yeni önce.
+- **Servis:** `src/services/audit-service.ts` (IO): son **5000 satır**, `limit` üst sınırı 500,
+  `delete.*` için journal'dan en fazla **200** yol (best-effort), `journals/` sayımı,
+  `audit.log` yoksa boş liste (hata değil).
+- **Sözleşme:** `AuditEventView` + `AuditResponse` (`counts` = **dosyadaki** toplamlar,
+  `journalCount`, `auditFileExists`).
+- **CLI:** `residue audit [--since 24h|7d] [--kind …] [--limit N] [--json]`; başlık
+  `(gösterilen / dosyada)` ayrımı (orkestratör düzeltmesi), satırda tür + sonuç + boyut + yol.
+- **API:** `GET /api/audit` (token kapısı aynı); `kind`/`since` geçersizse **400**.
+- **Arayüz:** Kasa ekranında **Kasa / Denetim** sekmeleri; salt okunur tablo
+  (tarih, tür, sonuç rozeti, yol + hedefler, boyut), sayaç satırı, kayıt yoksa `EmptyState`.
+  Tablo başlıkları orkestratör tarafından i18n'e taşındı (`audit.col.*`), inline TR/EN kaldırıldı.
+- **Kapı:** typecheck temiz · **430 → 446/446** (+16) · `build:web` yeşil.
+- **Gerçek veri kanıtı:** `residue audit` → **5 olay**: 4 geri yükleme (25.10 23:35) +
+  1 silme (22.10 20:55, journal'dan `rattler, uv, @opencode-aidesktop-updater +3`).
+  Komut öncesi/sonrası `audit.log` **1056 B / 25.10 23:35** — değişmedi (salt okuma).
+- **Gerçek tarayıcı doğrulaması YAPILMADI** (Denetim sekmesi); build + tip kapısı yeşil,
+  sekme bir sonraki tarayıcı turunda kontrol edilecek.
+- **Açık kalem:** arayüzde tarih aralığı/tür filtresi yok (v1 yalnız liste); `B22` devamı
+  olarak eklenebilir.
