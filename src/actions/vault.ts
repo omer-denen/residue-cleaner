@@ -3,6 +3,7 @@ import { cp, lstat, mkdir, readFile, readdir, rename, rm, stat, writeFile } from
 import { dirname, join, resolve, sep } from 'node:path';
 import { longPath } from '../util/longpath.ts';
 import { dataDir } from '../core/data-dir.ts';
+import { RestoreTarget } from '../core/restore-target.ts';
 import { walk } from '../core/walker.ts';
 import { warn } from '../util/log.ts';
 import { audit } from '../util/audit.ts';
@@ -74,6 +75,8 @@ export interface RestoreResult {
   mode: RestoreMode;
   verified: boolean;
   reason?: string;
+  attempts?: number;
+  code?: string;
 }
 
 export interface PurgeItemsResult {
@@ -411,58 +414,126 @@ export async function restoreVaultEntry(
   try {
     exists = await pathExists(entry.originalPath);
   } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    const reason = `hedef kontrol edilemedi: ${(err as Error).message}`;
+    try {
+      await audit('vault.restore.failed', {
+        id: entry.id,
+        from: entry.storedPath,
+        to: entry.originalPath,
+        code,
+        reason,
+        attempts: 0,
+      });
+    } catch {
+      /* audit hatasi yutulur */
+    }
     return {
       restored: false,
       to: entry.originalPath,
       conflict: false,
       mode,
       verified: false,
-      reason: `hedef kontrol edilemedi: ${(err as Error).message}`,
+      reason,
+      attempts: 0,
+      code,
     };
   }
 
-  let to = entry.originalPath;
-  if (exists) {
-    if (conflictPolicy === 'cancel') {
+  // Cakisma politikasi: hedef ASLA ezilmez (overwrite haric, o da yedekler).
+  let to: string;
+  if (!exists) {
+    to = RestoreTarget.initial(entry.originalPath, now, false);
+  } else if (conflictPolicy === 'cancel') {
+    return {
+      restored: false,
+      to: entry.originalPath,
+      conflict: true,
+      mode,
+      verified: false,
+      reason: 'hedef dolu; cakisma politikasi "cancel"',
+    };
+  } else if (conflictPolicy === 'overwrite') {
+    const backup = `${entry.originalPath}.replaced-${now}`;
+    try {
+      await rename(longPath(entry.originalPath), longPath(backup));
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      const reason = `mevcut hedef yedeklenemedi: ${(err as Error).message}`;
+      try {
+        await audit('vault.restore.failed', {
+          id: entry.id,
+          from: entry.storedPath,
+          to: entry.originalPath,
+          code,
+          reason,
+          attempts: 0,
+        });
+      } catch {
+        /* audit hatasi yutulur */
+      }
       return {
         restored: false,
         to: entry.originalPath,
         conflict: true,
         mode,
         verified: false,
-        reason: 'hedef dolu; cakisma politikasi "cancel"',
+        reason,
+        attempts: 0,
+        code,
       };
     }
-    if (conflictPolicy === 'overwrite') {
-      const backup = `${entry.originalPath}.replaced-${now}`;
-      try {
-        await rename(longPath(entry.originalPath), longPath(backup));
-      } catch (err) {
-        return {
-          restored: false,
-          to: entry.originalPath,
-          conflict: true,
-          mode,
-          verified: false,
-          reason: `mevcut hedef yedeklenemedi: ${(err as Error).message}`,
-        };
-      }
-    } else {
-      to = `${entry.originalPath}.restored-${now}`;
-      if (await pathExists(to)) to = `${to}-${randomBytes(2).toString('hex')}`;
+    to = entry.originalPath;
+  } else {
+    to = RestoreTarget.initial(entry.originalPath, now, true);
+  }
+
+  // Ilk suffix de doluysa benzersiz yeniden deneme adi.
+  if (await pathExists(to)) {
+    to = RestoreTarget.retry(entry.originalPath, now, 1, randomBytes(2).toString('hex'));
+  }
+
+  // moveBack en fazla 3 deneme: retryable kodlarda yeni ad uret.
+  let attempts = 0;
+  let moveErr: unknown = null;
+  while (attempts < 3) {
+    attempts++;
+    try {
+      await moveBack(entry.storedPath, to);
+      moveErr = null;
+      break;
+    } catch (err) {
+      moveErr = err;
+      const code = (err as NodeJS.ErrnoException).code;
+      if (!RestoreTarget.isRetryableCode(code) || attempts >= 3) break;
+      to = RestoreTarget.retry(entry.originalPath, now, attempts, randomBytes(2).toString('hex'));
     }
   }
 
-  try {
-    await moveBack(entry.storedPath, to);
-  } catch (err) {
+  if (moveErr) {
+    const code = (moveErr as NodeJS.ErrnoException).code;
+    const reason = (moveErr as Error).message;
+    try {
+      await audit('vault.restore.failed', {
+        id: entry.id,
+        from: entry.storedPath,
+        to,
+        code,
+        reason,
+        attempts,
+      });
+    } catch {
+      /* audit hatasi yutulur */
+    }
     return {
       restored: false,
       to,
       conflict: exists,
       mode,
       verified: false,
-      reason: (err as Error).message,
+      reason,
+      attempts,
+      code,
     };
   }
 
@@ -480,6 +551,7 @@ export async function restoreVaultEntry(
     conflict: exists,
     mode,
     verified,
+    attempts,
   });
   return {
     restored: true,
@@ -487,6 +559,7 @@ export async function restoreVaultEntry(
     conflict: exists,
     mode,
     verified,
+    attempts,
     ...(verified ? {} : { reason: 'geri yukleme sonrasi dogrulama basarisiz' }),
   };
 }
