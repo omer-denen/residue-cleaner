@@ -69,7 +69,8 @@
 
 1. `npm run typecheck` + `npm test` + `npm run smoke` yeşil; 0 fail.
 2. **SAFE-01…11** ✅; açık P0/P1 yok.
-3. **CLI-01…06** otomatik E2E (gerçek `node bin/residue.mjs`).
+3. **CLI-01…06** otomatik E2E (gerçek `node bin/residue.mjs`). ✅ 26.10.2026
+   (`tests/cli-e2e.test.ts`, 6 test)
 4. **PARITY-01…05** otomatik (CLI JSON ↔ API JSON normalize eşitlik).
 5. **PERF-01…03** ilk ölçüm + yazılı eşik (p95, RSS).
 6. **SEC-01…08** yeşil (401, 403 Host/Origin, çerez, gövde sınırı).
@@ -77,7 +78,7 @@
    (mevcut 79.93 / 74.87 / 67.27 → satır+dallar geçer, fonksiyon geçer).
 8. Bilinen sınırlar `README` + bu belgede yazılı.
 
-**Alpha durumu:** ❌ — CLI E2E, parity ve perf ölçümü eksik.
+**Alpha durumu:** ❌ — parity ve perf ölçümü eksik (CLI E2E 26.10.2026'da kapandı).
 
 ### Beta (yayın öncesi)
 
@@ -102,12 +103,20 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 
 | ID | Senaryo | Kabul | Durum |
 |---|---|---|---|
-| CLI-01 | `scan --json` (fixture kök) | Geçerli JSON; küme/karar alanları; yazma yok | 🟡 |
-| CLI-02 | `clean --dry-run` | Plan basılır; 0 silme; 0 kasa taşıma | 🟡 |
-| CLI-03 | `inventory --json` | Araç + kanıt + güven; salt okunur | 🟡 |
-| CLI-04 | `repair --dry-run` | Plan; `ONAR` olmadan uygulama yok | 🟡 |
-| CLI-05 | `quarantine <ad> --dry-run` | `KARANTINA` olmadan taşıma yok | 🟡 |
-| CLI-06 | `status` / `log --summary` | Sayımlar tutarlı; hata yok | 🟡 |
+| CLI-01 | `scan --json` (fixture kök) | Geçerli JSON; küme/karar alanları; yazma yok | ✅ |
+| CLI-02 | `clean --dry-run` | Plan basılır; 0 silme; 0 kasa taşıma | ✅ |
+| CLI-03 | `inventory --json` | Araç + kanıt + güven; salt okunur | ✅ |
+| CLI-04 | `repair --dry-run` | Plan; `ONAR` olmadan uygulama yok | ✅ |
+| CLI-05 | `quarantine <ad> --dry-run` | `KARANTINA` olmadan taşıma yok | ✅ |
+| CLI-06 | `status` / `log --summary` | Sayımlar tutarlı; hata yok | ✅ |
+
+> **CLI-01…06 otomatik E2E (26.10.2026):** `tests/cli-e2e.test.ts` — gerçek
+> `node bin/residue.mjs` süreci, izole sandbox (`LOCALAPPDATA`, `APPDATA`,
+> `USERPROFILE`, `TEMP` geçici dizine yönlendirilir; `PATH` yalnız node).
+> 6 test; `npm test` **415 → 421**; süre +2 sn. Gerçek `%TEMP%`, gerçek veri
+> dizini ve kurulu araçlar üzerinde işlem yapılmaz. `--root` taraması
+> report-only (0 hedef), `clean --dry-run` 0 silme, `quarantine` npm-global
+> aracı taşımıyor. Parity ve PERF maddeleri hâlâ açık.
 
 ### 5.2 SAFE (yanlış silme)
 
@@ -260,7 +269,8 @@ güncellenmez.
 1. **`delete.ts` / `vault.ts` düşük kapsam** — hata enjeksiyonu yok (beta kapısı).
 2. **Git tracked + junction silme koruması `npm test` dışında** — scratch
    kanıtı var; otomatik regresyon yok.
-3. **CLI E2E ve parity yok** — motor doğru olsa da adaptör farkı görülmez.
+3. **Parity yok** — CLI E2E kapandı (26.10.2026) ama CLI JSON ↔ API JSON
+   eşitliği süreç düzeyinde test edilmiyor.
 4. **Performans/yük ölçümü yok** — eşik tanımsız; alpha puanı 68.0'da kalıyor.
 5. **Web UI otomatik E2E yok** — M5 elle doğrulandı; T74 profilleri eklenince
    matris genişleyecek.

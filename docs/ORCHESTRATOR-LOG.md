@@ -939,3 +939,30 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
 - **Gerçek silme YAPILMADI**; kasa ve disk değişmedi.
 - **Sıradaki:** W0-b (CLI E2E + CLI/API parity + perf/load eşiği) veya B19
   (iptal geri bildirimi, web). Karar kullanıcıya soruldu.
+
+### W0-b-1 — CLI-01…06 otomatik E2E (26.10.2026)
+
+- **Bulgu kaynağı:** `docs/READINESS-MATRIX.md` §5.1 (CLI-01…06 hepsi 🟡) ve §4 alpha
+  maddesi 3 (`npm test` içinde gerçek CLI E2E yok). Alpha eşiği 70; skor 68.
+- **Orkestratör ön doğrulaması (gerçek komutlar, 26.10.2026):** sandbox env ile
+  `scan --json --quiet --root` 21 ms / exit 0 / 0 silme hedefi (report-only),
+  `clean --dry-run --env temp` 452 ms / exit 0 / DRY-RUN, `inventory --json` 408 ms /
+  exit 0 / fixture `source=npm-global`, `repair --dry-run` 293 ms / exit 0,
+  `quarantine` (arg yok) exit 1 + kullanım, `quarantine <ad>` exit 1 + standalone yok,
+  `status` + `log --summary` exit 0.
+- **Görev paketi:** `scratch/gorev-cli-e2e.md`; işçi Beam Free (`scratch/logs/cli-e2e.log`).
+  Beyaz liste **tek dosya**: `tests/cli-e2e.test.ts` (yeni). Ürün kodu değişimi yasak.
+- **Sonuç:** 6 test (CLI-01…06), gerçek `node bin/residue.mjs` süreci; sandbox
+  (`LOCALAPPDATA`/`APPDATA`/`USERPROFILE`/`TEMP` geçici dizin, `PATH` yalnız node,
+  `RESIDUE_*`/`CLICLEANER_*`/`npm_*` temizlenir). `after()` sandbox'ı siler.
+- **Kapı:** typecheck **temiz** · **415 → 421/421** (+6) · süre 2.7 → 4.8 sn.
+- **Kabul edilen sapma (işçi raporu):** fixture `package.json`a `bin` alanı eklendi;
+  ürünün npm-global algılaması komutu `bin`den türetiyor. Ürün kodu değişmedi,
+  beklenti gevşetilmedi.
+- **Test zayıflatma yok:** report-only (0 hedef), 0 silme, vault oluşmaması,
+  `ONAR` istemi olmaması ve fixture'ların yerinde kalması ayrı ayrı doğrulanıyor.
+- **Matris:** CLI-01…06 → ✅ (tarih + dosya kanıtı), alpha maddesi 3 ✅; alpha hâlâ
+  ❌ (parity + perf). §7 risk 3 → "Parity yok".
+- **Gerçek silme YAPILMADI**; gerçek `%TEMP%`, gerçek veri dizini ve kurulu araçlar
+  üzerinde işlem yapılmadı.
+- **Sıradaki:** W0-b-2 (PARITY-01…05, süreç düzeyi) → W0-b-3 (PERF-01…03 eşikleri).
