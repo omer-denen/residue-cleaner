@@ -65,6 +65,7 @@
     "typecheck": "tsc --noEmit && tsc -p web/tsconfig.json --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "smoke": "node scripts/smoke-web.mjs",
+    "perf": "node scripts/perf.mjs",
     "smoke:package": "node scripts/smoke-package.mjs",
     "build:web": "vite build",
     "prepublishOnly": "npm run build:web && npm run typecheck",

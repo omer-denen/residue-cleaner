@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "measuredAt": "2026-10-26T23:55:00.000Z",
+  "machine": {
+    "platform": "win32",
+    "node": "v24.19.0",
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12450HX",
+    "cores": 12
+  },
+  "budgets": {
+    "scan10kMs": 6000,
+    "scan10kRssMb": 90,
+    "diskView100P95Ms": 12,
+    "vaultFilesPerSecMin": 1500,
+    "load100kMs": 45000,
+    "load100kRssMb": 90
+  },
+  "measured": {
+    "scan10kMs": 1856.1,
+    "scan10kRssMb": 30.38,
+    "diskView100P95Ms": 1.82,
+    "vaultFilesPerSecMin": 4304.34,
+    "load100kMs": 8675.87,
+    "load100kRssMb": 22.43
+  },
+  "worstObserved": {
+    "scan10kMs": 2469.6,
+    "scan10kRssMb": 31.2,
+    "diskView100P95Ms": 4.12,
+    "vaultFilesPerSecMin": 2703.7,
+    "load100kMs": 19853.4,
+    "load100kRssMb": 30.55
+  },
+  "rationale": {
+    "scan10kMs": "Ilk olcum 1856 ms, ayni makinede sonraki olcum 2470 ms (1.33x sapma). Butce 6000 ms = taban 3.2x / en kotu 2.4x.",
+    "scan10kRssMb": "Olculen 30.4 MB (en kotu 31.2). Butce 90 MB = ~3x pay; GC zamanlamasi dalgalanir.",
+    "diskView100P95Ms": "Taban 1.82 ms ama 100 kumede p95 ayni makinede 4.12 ms'e cikti. Butce 12 ms = taban 6.6x / en kotu 2.9x.",
+    "vaultFilesPerSecMin": "Olculen 4304 dosya/sn, en kotu 2704. Alt sinir 1500 dosya/sn = en kotunun %55'i (hiz dususu felaket regresyonu yakalar).",
+    "load100kMs": "Ilk olcum 8.7 sn, ayni makinede 19.9 sn (2.3x sapma: disk onbellegi + eszamanli yuk). Butce 45 sn = en kotunun 2.3x.",
+    "load100kRssMb": "Olculen 22.4 MB (en kotu 30.6). Butce 90 MB = ~3x pay."
+  },
+  "notes": [
+    "npm run perf kalici bir butce kapisidir; npm test icindeki kaba kapi budgets.scan10kMs * 5 kullanir.",
+    "Eşikler 26.10.2026'da iki gercek kosunun taban + en kotu degerlerine gore kalibre edildi (2x kurali tek basina yetmedi: 100k taramada 2.3x sapma olctu)."
+  ]
+}
