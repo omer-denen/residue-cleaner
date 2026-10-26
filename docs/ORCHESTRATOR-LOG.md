@@ -1101,3 +1101,27 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
 - **Gerçek silme YAPILMADI**; `clean` yalnız `--dry-run`; gerçek `%TEMP%`/veri dizini
   kullanılmadı; kasa değişmedi.
 - **Sıradaki:** W0-b-3 (PERF-01…03 eşikleri) veya T79 (PARITY-04/05).
+
+### W0-b-3 — performans/yük ölçümü + yazılı bütçe (26.10.2026)
+
+- **Kapsam:** matris §5.8 + alpha maddesi 5. Performans (5) ve yük (5) alt skoru 0 idi;
+  alpha kapısı 70, skor 68.
+- **Görev paketi:** `scratch/gorev-w0b3-perf.md` → işçi Beam Free (`scratch/logs/w0b3-perf.log`).
+  Beyaz liste: `scripts/perf.mjs`, `scripts/perf-budget.json`, `tests/perf-budget.test.ts`,
+  `package.json` (yalnız `perf` betiği).
+- **Ölçümler (taban):** PERF-01 10k dosya tarama **1856 ms / 30.4 MB RSS**; PERF-02 100 küme
+  DiskView+JSON p95 **1.82 ms**; PERF-03 kasa taşıma **4304 dosya/sn**; LOAD-01 100k dosya
+  **8.7 sn / 22.4 MB**; LOAD-04 10 eşzamanlı istek p95 **146 ms**, 5xx **0**.
+- **Kapı:** typecheck temiz · **450 → 453/453** (+3) · `npm run perf` → **PERF TEMİZ** (177 sn).
+- **ORKESTRATÖR BULGUSU (eşik kalibrasyonu):** ilk bütçe "ölçülen × 2" kuralıyla yazıldı;
+  aynı makinede bir sonraki koşu **diskView100 p95 4.12 ms > 4** ve
+  **load100k 19.9 sn > 17.4 sn** ile kapıyı kırdı. Sapma gerçek: 100k taramada **2.3x**
+  (disk önbelleği + eşzamanlı yük). Bütçe **taban + en kötü gözlem** üzerinden yeniden
+  kalibre edildi (`measured` + `worstObserved` + `rationale` alanları eklendi):
+  scan10k 6000 ms, RSS 90 MB, diskView100 12 ms, kasa ≥1500 dosya/sn, load100k 45 sn,
+  RSS 90 MB. Sonraki koşu: **PERF TEMİZ**.
+- **Dürüstlük notu:** 2x kuralı tek başına yetersizdi; eşik dosyası artık hem taban hem en
+  kötü gözlemi taşıyor ve gerekçesini yazıyor (uydurma eşik yok).
+- **Gerçek silme YAPILMADI:** `clean` hiç çağrılmadı; kasa taşıma ölçümü yalnız sandbox
+  fixture'ında `deleteTarget` ile yapıldı.
+- **Kalan:** LOAD-02 (5k küme sanal liste), LOAD-03 (1k SSE olayı) ve T79 (PARITY-04/05).
