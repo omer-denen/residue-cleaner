@@ -6,6 +6,7 @@ import type {
 import { formatBytes } from '../format.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { RISK_LABEL } from '../labels.ts';
+import type { PlannedVariant } from '../panel-plan.ts';
 import { EmptyState } from './EmptyState.tsx';
 import { Icon } from './icons.tsx';
 
@@ -172,6 +173,7 @@ export function PlannedModule({
   onApply,
   onOpenTools,
   onOpenDisk,
+  variant = 'full',
 }: {
   plan: PlanResponse | null;
   lang: Lang;
@@ -186,15 +188,25 @@ export function PlannedModule({
   onApply: () => void;
   onOpenTools: () => void;
   onOpenDisk: () => void;
+  /**
+   * `full`: eylem + ozet + kume listesi (planin konusu olan ekranlar).
+   * `compact`: eylem + ozet; liste/satir cikarma asil ekranda (Disk).
+   * Varyant `panel-plan.ts` kararidir (kural 18).
+   */
+  variant?: PlannedVariant;
 }) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
   const tu = (key: MessageKey) => translateUpper(lang, key);
+  const full = variant === 'full';
 
   const hasPlan = plan !== null && plan.panel.keys.length > 0;
 
   return (
-    <section className="rp-planned" aria-label={tu('rightPanel.planned')}>
+    <section
+      className={`rp-planned${full ? '' : ' is-compact'}`}
+      aria-label={tu('rightPanel.planned')}
+    >
       {error && (
         <div className="banner danger" role="alert">
           {error}
@@ -254,6 +266,11 @@ export function PlannedModule({
               >
                 {t('rightPanel.planned.clearAll')}
               </button>
+              {!full && (
+                <button type="button" className="ghost" onClick={onOpenDisk}>
+                  {t('rightPanel.planned.openDisk')}
+                </button>
+              )}
             </div>
 
             <div className="rp-planned-summary">
@@ -273,35 +290,44 @@ export function PlannedModule({
             </div>
           </div>
 
-          <div className="rp-planned-groups">
-            {plan.panel.groups.map((group) => (
-              <PlannedGroup
-                key={group.key}
-                group={group}
-                lang={lang}
-                busy={busy}
-              />
-            ))}
-          </div>
+          {full ? (
+            <div className="rp-planned-groups">
+              {plan.panel.groups.map((group) => (
+                <PlannedGroup
+                  key={group.key}
+                  group={group}
+                  lang={lang}
+                  busy={busy}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="dim rp-planned-note">
+              {t('rightPanel.planned.compactNote')}
+            </p>
+          )}
         </>
       )}
 
       {/* Araclar: disk planindan AYRI bolum; plan bos olsa da gorunur
-          (orkestrator duzeltmesi: "Araclar plani yok" durumu da gorunmeli). */}
-      <section
-        className="rp-planned-tools"
-        aria-label={tu('rightPanel.planned.tools')}
-      >
-        <h3>{tu('rightPanel.planned.tools')}</h3>
-        <p className="dim">
-          {plan ? t('rightPanel.planned.toolsHint') : t('rightPanel.planned.toolsNone')}
-        </p>
-        <div className="rp-plan-actions">
-          <button type="button" className="ghost" onClick={onOpenTools}>
-            {t('rightPanel.planned.toolsOpen')}
-          </button>
-        </div>
-      </section>
+          (orkestrator duzeltmesi: "Araclar plani yok" durumu da gorunmeli).
+          KOMPAKT varyantta basilMAZ: ekranin konusu plan degil (P4). */}
+      {full && (
+        <section
+          className="rp-planned-tools"
+          aria-label={tu('rightPanel.planned.tools')}
+        >
+          <h3>{tu('rightPanel.planned.tools')}</h3>
+          <p className="dim">
+            {plan ? t('rightPanel.planned.toolsHint') : t('rightPanel.planned.toolsNone')}
+          </p>
+          <div className="rp-plan-actions">
+            <button type="button" className="ghost" onClick={onOpenTools}>
+              {t('rightPanel.planned.toolsOpen')}
+            </button>
+          </div>
+        </section>
+      )}
     </section>
   );
 }

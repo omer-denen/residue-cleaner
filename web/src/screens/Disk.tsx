@@ -13,11 +13,12 @@ import type {
 import { api, ApiError } from '../api.ts';
 import { openEvents } from '../sse.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
-import { formatBytes } from '../format.ts';
+import { formatBytes, formatCount } from '../format.ts';
 import { ScanStatusChip } from '../components/ScanStatus.tsx';
 import { DependenciesSection } from '../components/DependenciesSection.tsx';
 import { Icon } from '../components/icons.tsx';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
+import { PanelSummary } from '../components/PanelSummary.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import {
   CATEGORY_LABEL,
@@ -957,6 +958,60 @@ export function Disk({
           </div>
         )}
       </section>
+
+      {/* Kanitlar modulu: secim YOKKEN taranan kumelerin ozeti (P2).
+          Tarama surerken ESKI sayilar gosterilmez (liste de gizlenir). */}
+      {detail === null && !scanning && view !== null && (
+        <RightPanelPortal>
+          <PanelSummary
+            lang={lang}
+            title="rightPanel.summary.disk.title"
+            body="rightPanel.summary.disk.body"
+            note="rightPanel.summary.note"
+            stats={[
+              {
+                label: 'rightPanel.stat.clusters',
+                value: formatCount(view.totals.clusters, lang),
+              },
+              {
+                label: 'rightPanel.stat.files',
+                value: formatCount(view.totals.files, lang),
+              },
+              {
+                label: 'rightPanel.stat.total',
+                value: formatBytes(view.totals.totalBytes),
+              },
+              {
+                label: 'rightPanel.stat.reclaimable',
+                value: formatBytes(view.totals.reclaimableBytes),
+                tone: 'ok',
+              },
+              {
+                label: 'rightPanel.stat.selected',
+                value: `${formatCount(view.selection.clusterCount, lang)} · ${formatBytes(
+                  view.selection.bytes,
+                )}`,
+              },
+              {
+                label: VERDICT_LABEL['recommend'] ?? 'verdict.recommend',
+                value: formatCount(view.counts.recommend, lang),
+              },
+              {
+                label: VERDICT_LABEL['ask'] ?? 'verdict.ask',
+                value: formatCount(view.counts.ask, lang),
+              },
+              {
+                label: VERDICT_LABEL['report-only'] ?? 'verdict.report-only',
+                value: formatCount(view.counts['report-only'], lang),
+              },
+              {
+                label: VERDICT_LABEL['keep'] ?? 'verdict.keep',
+                value: formatCount(view.counts.keep, lang),
+              },
+            ]}
+          />
+        </RightPanelPortal>
+      )}
 
       {/* Secim yoksa panel KENDI bos durumunu gosterir (Faz 0/UI-003):
           oge yokken baska bir "bir sey secin" cumlesi basmayiz. */}

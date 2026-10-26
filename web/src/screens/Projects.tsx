@@ -8,8 +8,9 @@ import type {
 } from '../../../src/core/contract.ts';
 import { api, ApiError } from '../api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
-import { formatAge, formatBytes } from '../format.ts';
+import { formatAge, formatBytes, formatCount } from '../format.ts';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
+import { PanelSummary } from '../components/PanelSummary.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 
 const TABS: Array<{ id: ProjectTab; label: MessageKey }> = [
@@ -304,6 +305,42 @@ export function Projects({ lang }: Props) {
           </>
         )}
       </section>
+
+      {/* Kanitlar modulu: proje secilmeden once kesif ozeti (P2). */}
+      <RightPanelPortal when={selected === null && list !== null}>
+        <PanelSummary
+          lang={lang}
+          title="rightPanel.summary.projects.title"
+          body="rightPanel.summary.projects.body"
+          note="rightPanel.summary.note"
+          stats={[
+            {
+              label: 'projects.total',
+              value: list ? formatCount(list.summary.total, lang) : '—',
+            },
+            {
+              label: 'rightPanel.stat.visible',
+              value: list ? formatCount(list.summary.visible, lang) : '—',
+            },
+            {
+              label: 'projects.withArtifacts',
+              value: list ? formatCount(list.summary.withArtifacts, lang) : '—',
+            },
+            {
+              label: 'projects.tab.git',
+              value: list ? formatCount(list.summary.git, lang) : '—',
+            },
+            {
+              label: 'projects.tab.agent',
+              value: list ? formatCount(list.summary.agentWorkspace, lang) : '—',
+            },
+            {
+              label: 'rightPanel.stat.lockfile',
+              value: list ? formatCount(list.summary.lockfile, lang) : '—',
+            },
+          ]}
+        />
+      </RightPanelPortal>
 
       <RightPanelPortal when={selected !== null}>
         <aside className="disk-detail projects-detail">

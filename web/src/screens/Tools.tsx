@@ -13,9 +13,10 @@ import { ApprovalRules } from '../../../src/core/approval.ts';
 import { api, ApiError } from '../api.ts';
 import { openEvents } from '../sse.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
-import { formatAge, formatBytes } from '../format.ts';
+import { formatAge, formatBytes, formatCount } from '../format.ts';
 import { CLI_SOURCE_LABEL, CLI_STATUS_LABEL, CONFIDENCE_LABEL } from '../labels.ts';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
+import { PanelSummary } from '../components/PanelSummary.tsx';
 import { DependenciesSection } from '../components/DependenciesSection.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 
@@ -653,6 +654,52 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
             </div>
           </section>
         )}
+      </RightPanelPortal>
+
+      {/* Kanitlar modulu: arac secilmeden once envanter ozeti (P2). */}
+      <RightPanelPortal when={detail === null && view !== null}>
+        <PanelSummary
+          lang={lang}
+          title="rightPanel.summary.tools.title"
+          body="rightPanel.summary.tools.body"
+          note="rightPanel.summary.note"
+          stats={
+            view
+              ? [
+                  {
+                    label: 'rightPanel.stat.totalTools',
+                    value: formatCount(view.summary.total, lang),
+                  },
+                  {
+                    label: 'rightPanel.stat.visible',
+                    value: formatCount(view.summary.visible, lang),
+                  },
+                  {
+                    label: 'cli.status.unused',
+                    value: formatCount(view.summary.unused, lang),
+                    tone: 'warn',
+                  },
+                  {
+                    label: 'rightPanel.stat.removable',
+                    value: formatCount(view.summary.removable, lang),
+                    tone: 'ok',
+                  },
+                  {
+                    label: 'rightPanel.stat.unusedBytes',
+                    value: formatBytes(view.summary.unusedBytes),
+                  },
+                  {
+                    label: 'rightPanel.stat.total',
+                    value: formatBytes(view.summary.totalBytes),
+                  },
+                  {
+                    label: 'cli.status.protected',
+                    value: formatCount(view.summary.protected, lang),
+                  },
+                ]
+              : []
+          }
+        />
       </RightPanelPortal>
 
       <RightPanelPortal module="evidence" when={detail !== null}>

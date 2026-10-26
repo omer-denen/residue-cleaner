@@ -24,6 +24,11 @@ import {
 } from './components/RightPanel.tsx';
 import { PlannedModule, PlanValidity } from './components/PlannedModule.tsx';
 import { ContextBlock } from './components/ContextBlock.tsx';
+import {
+  panelPlanFor,
+  primaryModuleFor,
+  type PanelScreen,
+} from './panel-plan.ts';
 import { Dashboard } from './screens/Dashboard.tsx';
 import { Disk } from './screens/Disk.tsx';
 import { Env } from './screens/Env.tsx';
@@ -35,17 +40,9 @@ import { Settings } from './screens/Settings.tsx';
 import { Tools } from './screens/Tools.tsx';
 import { Vault } from './screens/Vault.tsx';
 
-type Screen =
-  | 'dashboard'
-  | 'disk'
-  | 'plan'
-  | 'projects'
-  | 'tools'
-  | 'env'
-  | 'graph'
-  | 'schedules'
-  | 'vault'
-  | 'settings';
+// Ekran kimlikleri tek kaynaktan gelir (`web/src/panel-plan.ts`); sag panel
+// modul secimi de ayni dosyadadir.
+type Screen = PanelScreen;
 
 const NAV: Array<{ id: Screen; label: MessageKey; icon: IconName }> = [
   { id: 'dashboard', label: 'nav.dashboard', icon: 'dashboard' },
@@ -78,27 +75,6 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return (
     tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable === true
   );
-}
-
-/** Ekran -> sag panel modulleri (VS Code "3-5 modul" siniri).
- *  (W2-d) Baglam ayrı sekme degil; Kanitalar footer'i oldugu icin
- *  yalnizca Plan ekraninda oge yok, orada kanit slotu da YOK. */
-function modulesFor(screen: Screen): RightPanelModuleId[] {
-  switch (screen) {
-    case 'dashboard':
-    case 'disk':
-    case 'projects':
-      return ['evidence', 'planned'];
-    case 'tools':
-      return ['evidence', 'action', 'planned'];
-    case 'env':
-    case 'graph':
-      return ['action', 'planned'];
-    case 'plan':
-      return ['context'];
-    default:
-      return ['planned'];
-  }
 }
 
 const PANEL_MIN = 300;
@@ -172,14 +148,14 @@ export function App() {
   const tu = (key: MessageKey, vars?: Record<string, string | number>) =>
     translateUpper(lang, key, vars);
 
-  // Ekran degisince o ekranin BIRINCIL modulunu ac (Office baglam deseni).
-  // Ayni ekranda kullanici baska sekmeye gecerse korunur.
+  // Ekran degisince o ekranin BIRINCIL modulunu ac (Office baglam deseni);
+  // sira `panel-plan.ts` kararidir. Ayni ekranda kullanici baska sekmeye
+  // gecerse korunur (ekran ici secim o sekmeyi kendi acar).
   const previousScreenRef = useRef(screen);
   useEffect(() => {
     if (previousScreenRef.current === screen) return;
     previousScreenRef.current = screen;
-    const primary = modulesFor(screen)[0];
-    if (primary) setRightTab(primary);
+    setRightTab(primaryModuleFor(screen));
   }, [screen]);
 
   /** Plan gecersiz oldugunda (404/410) ortak temizlik + uyarı bayragi. */
@@ -602,62 +578,66 @@ export function App() {
     );
   };
 
-  // Sag panel modulleri: karar YOK; yalnizca sunum + motordan gelen sayilar.
-  // (W2-d) Baglam ayrı modul YALNIZ Plan ekraninda (kanit slotu yok);
-  // diger ekranlarda Kanitalar modulunun footer'idir.
-  const panelModules: RightPanelModule[] = [];
-  if (['dashboard', 'disk', 'projects', 'tools'].includes(screen)) {
-    panelModules.push({
-      id: 'evidence',
-      label: 'rightPanel.evidence',
-      slot: true,
-      empty: 'rightPanel.evidence.empty',
-      emptyKind: 'evidence',
-      emptyAction: {
-        label: 'rightPanel.empty.cta',
-        onClick: () => setScreen('disk'),
-      },
-      footer: <ContextBlock meta={meta} lang={lang} />,
-    });
-  }
-  if (['tools', 'env', 'graph'].includes(screen)) {
-    panelModules.push({
-      id: 'action',
-      label: 'rightPanel.action',
-      slot: true,
-      empty: 'rightPanel.action.empty',
-      emptyKind: 'action',
-    });
-  }
-  if (screen !== 'plan') {
-    panelModules.push({
-      id: 'planned',
-      label: 'rightPanel.planned',
-      // Motorun panel sayimi (`plan.panel.clusterCount`); rozet kararidir.
-      badge: planned?.panel.clusterCount ?? null,
-      content: (
-        <PlannedModule
-          plan={planned}
-          lang={lang}
-          busy={planBusy}
-          error={planError}
-          expired={planExpired}
-          onDismissExpired={() => setPlanExpired(false)}
-          onClearAll={() => void clearPlanned()}
-          onApply={() => void armPlan()}
-          onOpenTools={() => setScreen('tools')}
-          onOpenDisk={() => setScreen('disk')}
-        />
-      ),
-    });
-  }
-  if (screen === 'plan') {
-    panelModules.push({
+  // Sag panel modulleri: sira ve varyant `panel-plan.ts` kararidir; burada
+  // yalnizca modul tanimlari (etiket, slot, rozet) kurulur.
+  const panelPlan = panelPlanFor(screen);
+  const hasContextTab = panelPlan.modules.includes('context');
+  const panelModules: RightPanelModule[] = panelPlan.modules.map((id) => {
+    if (id === 'evidence') {
+      return {
+        id: 'evidence',
+        label: 'rightPanel.evidence',
+        slot: true,
+        empty: 'rightPanel.evidence.empty',
+        emptyKind: 'evidence',
+        emptyAction: {
+          label: 'rightPanel.empty.cta',
+          onClick: () => setScreen('disk'),
+        },
+        // Baglam kendi sekmesiyse footer TEKRAR basilmaz (P5).
+        footer: hasContextTab ? undefined : (
+          <ContextBlock meta={meta} status={status} lang={lang} headingLevel="h3" />
+        ),
+      };
+    }
+    if (id === 'action') {
+      return {
+        id: 'action',
+        label: 'rightPanel.action',
+        slot: true,
+        empty: 'rightPanel.action.empty',
+        emptyKind: 'action',
+      };
+    }
+    if (id === 'planned') {
+      return {
+        id: 'planned',
+        label: 'rightPanel.planned',
+        // Motorun panel sayimi (`plan.panel.clusterCount`); rozet kararidir.
+        badge: planned?.panel.clusterCount ?? null,
+        content: (
+          <PlannedModule
+            plan={planned}
+            lang={lang}
+            busy={planBusy}
+            error={planError}
+            expired={planExpired}
+            onDismissExpired={() => setPlanExpired(false)}
+            onClearAll={() => void clearPlanned()}
+            onApply={() => void armPlan()}
+            onOpenTools={() => setScreen('tools')}
+            onOpenDisk={() => setScreen('disk')}
+            variant={panelPlan.planned ?? 'full'}
+          />
+        ),
+      };
+    }
+    return {
       id: 'context',
       label: 'rightPanel.context',
-      content: <ContextBlock meta={meta} lang={lang} />,
-    });
-  }
+      content: <ContextBlock meta={meta} status={status} lang={lang} />,
+    };
+  });
 
   return (
     <div
@@ -810,7 +790,9 @@ export function App() {
           {/* Plan 404/410 ya da TTL: uyarı HER ekranda görünür (sessiz
               kaybolma yok). Plan Durumu sekmesi açıkken panelin kendi
               uyarısı gösterilir; çiftlemeyi önlemek için burada gizlenir. */}
-          {planExpired && screen !== 'plan' && rightTab !== 'planned' && (
+          {planExpired &&
+            screen !== 'plan' &&
+            !(rightTab === 'planned' && panelPlan.planned !== null) && (
             <div className="banner danger" role="alert">
               <span>{t('rightPanel.planned.expired')}</span>
               <button

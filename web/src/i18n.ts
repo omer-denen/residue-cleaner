@@ -159,6 +159,43 @@ const tr = {
     'Süre, “Planı uygula” ile başlar (10 dk). Seçim yaparken geri sayım yok.',
   'rightPanel.planned.removeGroup': 'Kümeyi plandan çıkar',
   'rightPanel.planned.removeTarget': 'Hedefi plandan çıkar',
+  'rightPanel.planned.openDisk': "Disk'e git",
+  'rightPanel.planned.compactNote':
+    'Küme listesi ve satır çıkarma Disk ekranında yapılır.',
+  // --- Kanitlar: secim yokken ekran ozeti (P2) ---------------------------
+  'rightPanel.summary.dashboard.title': 'Genel özet',
+  'rightPanel.summary.dashboard.body':
+    'Defterlerden birine tıklayın; ayrıntısı burada açılır.',
+  'rightPanel.summary.disk.title': 'Tarama özeti',
+  'rightPanel.summary.disk.body':
+    'Bir satır seçin; kanıt, bağımlılık ve plan eylemi burada açılır.',
+  'rightPanel.summary.projects.title': 'Keşif özeti',
+  'rightPanel.summary.projects.body':
+    'Bir proje seçin; artifact, tarif ve risk raporu burada açılır.',
+  'rightPanel.summary.tools.title': 'Envanter özeti',
+  'rightPanel.summary.tools.body':
+    'Bir araç seçin; kurulum kanıtı ve kaldırma komutu burada açılır.',
+  'rightPanel.summary.note': 'Seçim yaptığınızda bu bölüm o öğenin kanıtına döner.',
+  'rightPanel.stat.clusters': 'Küme',
+  'rightPanel.stat.files': 'Dosya',
+  'rightPanel.stat.scanned': 'Taranan alan',
+  'rightPanel.stat.reclaimable': 'Geri kazanılabilir',
+  'rightPanel.stat.visible': 'Görünen',
+  'rightPanel.stat.total': 'Toplam boyut',
+  'rightPanel.stat.totalTools': 'Araç',
+  'rightPanel.stat.selected': 'Seçili',
+  'rightPanel.stat.unusedBytes': 'Atıl alan',
+  'rightPanel.stat.removable': 'Kaldırılabilir',
+  'rightPanel.stat.lockfile': 'Lockfile',
+  // --- Baglam modulu: tarama durumu (P5) ---------------------------------
+  'context.scan': 'Tarama',
+  'context.scanState': 'Durum',
+  'context.lastScan': 'Son tarama',
+  'context.scanAge': 'Tarama yaşı',
+  'context.ttl': 'Önbellek süresi',
+  'context.clusters': 'Taranan küme',
+  'context.never': 'Hiç taranmadı',
+  'context.version': 'Sürüm',
   'detail.ledger.protected': 'Korunan içerik',
   'detail.ledger.reclaimable': 'Geri kazanılabilir içerik',
   'detail.ledger.vault': 'Kasa içeriği',
@@ -1016,6 +1053,44 @@ const en: Record<keyof typeof tr, string> = {
     'The 10-minute timer starts when you apply the plan; there is no countdown while selecting.',
   'rightPanel.planned.removeGroup': 'Remove cluster from plan',
   'rightPanel.planned.removeTarget': 'Remove target from plan',
+  'rightPanel.planned.openDisk': 'Go to Disk',
+  'rightPanel.planned.compactNote':
+    'The cluster list and per-row removal live on the Disk screen.',
+  // --- Evidence: screen summary when nothing is selected (P2) ------------
+  'rightPanel.summary.dashboard.title': 'Overview summary',
+  'rightPanel.summary.dashboard.body':
+    'Click a ledger; its detail opens here.',
+  'rightPanel.summary.disk.title': 'Scan summary',
+  'rightPanel.summary.disk.body':
+    'Select a row; its evidence, dependencies and plan action open here.',
+  'rightPanel.summary.projects.title': 'Discovery summary',
+  'rightPanel.summary.projects.body':
+    'Select a project; artifacts, recipe and risk report open here.',
+  'rightPanel.summary.tools.title': 'Inventory summary',
+  'rightPanel.summary.tools.body':
+    'Select a tool; install evidence and uninstall command open here.',
+  'rightPanel.summary.note':
+    'When you make a selection this section switches to that item’s evidence.',
+  'rightPanel.stat.clusters': 'Clusters',
+  'rightPanel.stat.files': 'Files',
+  'rightPanel.stat.scanned': 'Scanned',
+  'rightPanel.stat.reclaimable': 'Reclaimable',
+  'rightPanel.stat.visible': 'Visible',
+  'rightPanel.stat.total': 'Total size',
+  'rightPanel.stat.totalTools': 'Tools',
+  'rightPanel.stat.selected': 'Selected',
+  'rightPanel.stat.unusedBytes': 'Idle size',
+  'rightPanel.stat.removable': 'Removable',
+  'rightPanel.stat.lockfile': 'Lockfile',
+  // --- Context module: scan status (P5) ---------------------------------
+  'context.scan': 'Scan',
+  'context.scanState': 'State',
+  'context.lastScan': 'Last scan',
+  'context.scanAge': 'Scan age',
+  'context.ttl': 'Cache lifetime',
+  'context.clusters': 'Clusters scanned',
+  'context.never': 'Never scanned',
+  'context.version': 'Version',
   'detail.ledger.protected': 'Protected content',
   'detail.ledger.reclaimable': 'Reclaimable content',
   'detail.ledger.vault': 'Vault content',

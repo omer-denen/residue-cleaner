@@ -15,6 +15,7 @@ import {
   formatTimestamp,
 } from '../format.ts';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
+import { PanelSummary } from '../components/PanelSummary.tsx';
 import { ScanStamp } from '../components/ScanStamp.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { Icon } from '../components/icons.tsx';
@@ -28,6 +29,7 @@ import {
   SCAN_REASON_LABEL,
   SCAN_ROW_LABEL,
   SCAN_STATUS_LABEL,
+  VERDICT_LABEL,
 } from '../labels.ts';
 
 const LEDGER_LABEL: Record<DashboardLedgerId, MessageKey> = {
@@ -304,6 +306,53 @@ export function Dashboard({
           </div>
         </section>
       )}
+
+      {/* Kanitlar modulu: secim YOKKEN ekranin birincil verisi basilir (P2);
+          boylece panel "bir sey secin" bosluguna dusmez. */}
+      <RightPanelPortal when={detail === null}>
+        <PanelSummary
+          lang={lang}
+          title="rightPanel.summary.dashboard.title"
+          body="rightPanel.summary.dashboard.body"
+          note="rightPanel.summary.note"
+          action={{ label: 'dash.openDisk', onClick: onOpenDisk }}
+          stats={[
+            {
+              label: 'rightPanel.stat.clusters',
+              value: formatCount(data.totals.clusters, lang),
+            },
+            {
+              label: 'rightPanel.stat.files',
+              value: formatCount(data.totals.files, lang),
+            },
+            {
+              label: 'rightPanel.stat.scanned',
+              value: formatBytes(data.totals.scannedBytes),
+            },
+            {
+              label: 'rightPanel.stat.reclaimable',
+              value: formatBytes(data.totals.deletableBytes),
+              tone: 'ok',
+            },
+            {
+              label: VERDICT_LABEL['recommend'] ?? 'verdict.recommend',
+              value: formatCount(data.totals.verdicts.recommend, lang),
+            },
+            {
+              label: VERDICT_LABEL['ask'] ?? 'verdict.ask',
+              value: formatCount(data.totals.verdicts.ask, lang),
+            },
+            {
+              label: VERDICT_LABEL['report-only'] ?? 'verdict.report-only',
+              value: formatCount(data.totals.verdicts['report-only'], lang),
+            },
+            {
+              label: VERDICT_LABEL['keep'] ?? 'verdict.keep',
+              value: formatCount(data.totals.verdicts.keep, lang),
+            },
+          ]}
+        />
+      </RightPanelPortal>
 
       <RightPanelPortal>
         {detail && (

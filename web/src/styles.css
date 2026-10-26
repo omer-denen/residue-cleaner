@@ -804,6 +804,87 @@ code,
   margin: 4px 0;
 }
 
+/* --- Kanitlar: secim yokken ekran ozeti (P2) ---------------------------
+   Panelin "bir sey secin" bosluguna dusmemesi icin ekranin birincil
+   sayilari burada basilir. Baslik + tek cumle + iki kolonlu sayi listesi +
+   kapanis notu. Deger sutunu mono; renk yalnizca tonda (ok/warn/info). */
+
+.rp-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.rp-summary h2 {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 600;
+}
+
+.rp-summary > p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.rp-summary-stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 12px;
+  font-size: 12px;
+}
+
+.rp-summary-stats dt {
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-summary-stats dd {
+  margin: 0;
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.rp-summary-stats dd.tone-ok {
+  color: var(--accent);
+}
+
+.rp-summary-stats dd.tone-warn {
+  color: var(--warn);
+}
+
+.rp-summary-stats dd.tone-info {
+  color: var(--info);
+}
+
+.rp-summary-stats dd.tone-vault {
+  color: var(--vault);
+}
+
+/* Kapanis notu: sayilardan ayrilir, ustunde ince cizgi. */
+.rp-summary > p.rp-summary-note {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.rp-summary-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 /* --- Bos durum = ogrenme yuzeyi (UI-003 / Faz 3) -----------------------
    Tek bilesen (`EmptyState`), uc boyut: panel (varsayilan), wide, fill.
    "Bir sey secin" yerine ne olacagi 3 adimda anlatilir; eylem verilirse
@@ -972,6 +1053,25 @@ code,
   flex-direction: column;
   min-height: 100%;
   gap: 10px;
+}
+
+/* Kompakt varyant (P4): ekranin konusu plan DEGILSE yalniz eylem + ozet.
+   Kume listesi ve "Araçlar" bolumu basilMAZ; kalan icerik ust uste
+   yigilmasin diye aralik daralir. */
+.rp-planned.is-compact {
+  min-height: 0;
+  gap: 8px;
+}
+
+.rp-planned.is-compact .rp-plan-head {
+  gap: 6px;
+}
+
+/* Kompakt not: listenin nerede yapildigini tek cumleyle soyler. */
+.rp-planned-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
 }
 
 /* Ozet: panel govdesi (.rp-body) kaydirilir; ozet ustte sabit kalir.
@@ -1262,16 +1362,61 @@ code,
   overflow-wrap: anywhere;
 }
 
-/* (W2-d) Baglam: Kanitalar modulunun footer'i; slotun altinda ayirici. */
+/* (W2-d) Baglam: Kanitalar modulunun footer'i; slotun altinda ayirici.
+   P5: Ayni blok `context` modulu olarak BAGIMSIZ sekmede de gorunur; bu
+   yuzden ayirici cizgi yalnizca footer yerlesiminde basilir (sekmede ust
+   cizgi, basliksiz bir kesik gibi dururdu). */
 .rp-footer {
   margin-top: 10px;
   min-width: 0;
 }
 
-.rp-context {
+.rp-footer .rp-context {
   border-top: 1px solid var(--line);
-  padding: 14px 2px 2px;
+  padding-top: 14px;
+}
+
+.rp-context {
+  padding: 0 2px 2px;
   min-width: 0;
+}
+
+/* Baglam ici bolumler: Tarama · Guvenlik/sunucu. Aralarinda ince cizgi. */
+.rp-context-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rp-context-inner + .rp-context-inner {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.rp-context-inner .meta-list {
+  margin-top: 0;
+}
+
+/* Tarama durumu tonu motordan gelir (`status.view.kind`); burada yalniz
+   renk eslemesi var (kural 18: karar motorda). */
+.scan-state-current {
+  color: var(--accent);
+}
+
+.scan-state-expired,
+.scan-state-dirty,
+.scan-state-dirty-expired {
+  color: var(--warn);
+}
+
+.scan-state-scanning {
+  color: var(--info);
+}
+
+.scan-state-never {
+  color: var(--dim);
 }
 
 .rp-context h2 {
@@ -1283,7 +1428,8 @@ code,
   font-weight: 600;
 }
 
-.rp-context h3 {
+.rp-context h3,
+.rp-context h4 {
   margin: 0 0 4px;
   font-size: 11.5px;
   letter-spacing: 0.08em;
