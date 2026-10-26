@@ -1068,3 +1068,36 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
 - **Ekran görüntüleri:** `scratch/audit-tr.png`, `scratch/audit-en.png`
   (gitignore'da; ürüne girmez).
 - **Sıradaki:** W0-b-2 (parity) veya B24 (denetim filtresi + dışa aktarma).
+
+### W0-b-2 — PARITY-01…03 süreç düzeyi (26.10.2026)
+
+- **Kapsam:** `docs/READINESS-MATRIX.md` §5.6. Önceki durum: yalnız motor düzeyi parity
+  (`tests/parity.test.ts`); adaptör (CLI JSON ↔ HTTP yanıtı) test edilmiyordu.
+- **Görev paketi:** `scratch/gorev-w0b2-parity.md` → işçi Beam Free
+  (`scratch/logs/w0b2-parity.log`). Beyaz liste **tek dosya**: `tests/parity-e2e.test.ts`
+  (yeni). Ürün kodu değişimi yasak.
+- **Test altyapısı:** tek sandbox + iki adaptör — gerçek `node bin/residue.mjs` çocuk süreci
+  ve **in-process** `createApiServer`; sandbox env hem `process.env`e (API için) hem çocuk
+  sürece verilir, `after()` eski değerleri geri yazar.
+- **BULGU 1 (ürün davranışı, tasarım gereği):** PARITY-01 ilk kurgusu (`scan --root` ↔
+  `GET /api/disk`) **ürünle çelişiyordu**: `ScanService.runJob` kök taramalarını bilerek
+  `lastScan`e yazmıyor (T27/T10 — kısmi proje taraması "son tam tarama" gibi görünmesin).
+  API `/api/disk` bu yüzden boş dönüyordu. **Ürün değiştirilmedi**; test yeniden kuruldu:
+  - PARITY-01: env kapsamlı tarama (`--env temp`) iki adaptörde; küme anahtarı sırası,
+    `totalBytes`, `reclaimableBytes`, hedef yolu kümesi ve karar türü eşit; her iki tarafta
+    en az bir hedef (boş eşitlik kanıt sayılmaz).
+  - **PARITY-01b (yeni):** kök taraması `/api/disk`i **değiştirmez** — T27/T10 tasarımı
+    artık sistematik beklenti.
+- **BULGU 2 (test izolasyonu, orkestratör düzeltmesi):** PARITY-03 `npm test` ile
+  çalıştırıldığında kırmızı, doğrudan `node --test` ile yeşildi. Kök neden: npm
+  `npm_config_prefix` değişkenini gerçek global prefixe işaret ederek enjekte ediyor;
+  CLI çocuk süreci `npm_*` değişkenlerini temizlediği için sandbox APPDATAya düşüyor,
+  in-process API ise gerçek prefixi görüyordu. Düzeltme: sandbox anahtar listesine
+  `npm_config_prefix` + `NPM_CONFIG_PREFIX` eklendi (kaydet → sil → geri yaz).
+- **Kapı:** typecheck temiz · **446 → 450/450** (+4) · **iki ardışık temiz koşu** ·
+  doğrudan `node --test` koşusunda da 4/4.
+- **Matris:** PARITY-01, 01b, 02, 03 → ✅; PARITY-04 (graph) ve PARITY-05 (project) → ❌
+  **T79** olarak ayrıldı (derived-view normalizasyonu + proje kök yapılandırması gerekir).
+- **Gerçek silme YAPILMADI**; `clean` yalnız `--dry-run`; gerçek `%TEMP%`/veri dizini
+  kullanılmadı; kasa değişmedi.
+- **Sıradaki:** W0-b-3 (PERF-01…03 eşikleri) veya T79 (PARITY-04/05).
