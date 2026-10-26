@@ -71,14 +71,14 @@
 2. **SAFE-01…11** ✅; açık P0/P1 yok.
 3. **CLI-01…06** otomatik E2E (gerçek `node bin/residue.mjs`). ✅ 26.10.2026
    (`tests/cli-e2e.test.ts`, 6 test)
-4. **PARITY-01…05** otomatik (CLI JSON ↔ API JSON normalize eşitlik).
+4. **PARITY-01…05** otomatik (CLI JSON ↔ API JSON normalize eşitlik). 🟡 01–03 ✅ (26.10.2026); 04–05 T79
 5. **PERF-01…03** ilk ölçüm + yazılı eşik (p95, RSS).
 6. **SEC-01…08** yeşil (401, 403 Host/Origin, çerez, gövde sınırı).
 7. Kapsam: satır **≥ 70**, dal **≥ 65**, fonksiyon **≥ 60**
    (mevcut 79.93 / 74.87 / 67.27 → satır+dallar geçer, fonksiyon geçer).
 8. Bilinen sınırlar `README` + bu belgede yazılı.
 
-**Alpha durumu:** ❌ — parity ve perf ölçümü eksik (CLI E2E 26.10.2026'da kapandı).
+**Alpha durumu:** ❌ — PARITY-04/05 ve perf ölçümü eksik (CLI E2E + PARITY-01…03 26.10.2026'da kapandı).
 
 ### Beta (yayın öncesi)
 
@@ -180,11 +180,21 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 
 | ID | Senaryo | Kabul | Durum |
 |---|---|---|---|
-| PARITY-01 | `scan --json` ↔ `GET /api/disk` | Normalleştirilmiş eşitlik | ❌ |
-| PARITY-02 | `clean --dry-run` ↔ `POST /api/plan` | Aynı hedef/ifade | ❌ |
-| PARITY-03 | `inventory --json` ↔ `GET /api/cli/view` | Aynı sayaç/kanıt | ❌ |
-| PARITY-04 | `graph` ↔ `GET /api/graph` | Aynı düğüm/kenar | ❌ |
-| PARITY-05 | `project` ↔ `GET /api/projects` | Aynı artifact/tarif | ❌ |
+| PARITY-01 | `scan --json` ↔ `GET /api/disk` | Normalleştirilmiş eşitlik | ✅ (env taraması) |
+| PARITY-01b | `scan --root` ↔ `/api/disk` | Kök taraması sonucu değiştirmez (T27) | ✅ |
+| PARITY-02 | `clean --dry-run` ↔ `POST /api/plan` | Aynı hedef/ifade | ✅ |
+| PARITY-03 | `inventory --json` ↔ `GET /api/cli/view` | Aynı sayaç/kanıt | ✅ (id/source/bayt) |
+| PARITY-04 | `graph` ↔ `GET /api/graph` | Aynı düğüm/kenar | ❌ (T79) |
+| PARITY-05 | `project` ↔ `GET /api/projects` | Aynı artifact/tarif | ❌ (T79) |
+
+> **PARITY-01…03 otomatik (26.10.2026):** `tests/parity-e2e.test.ts` — gerçek CLI
+> çocuk süreci + in-process API sunucusu, **tek sandbox**. PARITY-01 env kapsamlı
+> tarama (`--env temp`) üzerinde küme anahtarı sırası, baytlar, hedef yolları ve
+> karar türü eşitliğini doğrular; **PARITY-01b** kök taramasının `/api/disk`'i
+> değiştirmediğini kanıtlar (T27/T10 tasarımı; eski "kök taraması ↔ `/api/disk`"
+> beklentisi ürünle çelişiyordu ve bu yüzden ayrı alt test oldu). PARITY-03
+> `status`/`confidence`/`evidence` alanlarını kapsam dışı bırakır (zamana duyarlı);
+> eşitlik id + source + totalBytes üzerinde. `npm test` 446 → **450**.
 
 ### 5.7 SCHED / ENV
 
@@ -269,8 +279,8 @@ güncellenmez.
 1. **`delete.ts` / `vault.ts` düşük kapsam** — hata enjeksiyonu yok (beta kapısı).
 2. **Git tracked + junction silme koruması `npm test` dışında** — scratch
    kanıtı var; otomatik regresyon yok.
-3. **Parity yok** — CLI E2E kapandı (26.10.2026) ama CLI JSON ↔ API JSON
-   eşitliği süreç düzeyinde test edilmiyor.
+3. **Parity kısmi** — PARITY-01…03 süreç düzeyinde test ediliyor (26.10.2026);
+   graph ve project adaptörleri (PARITY-04/05) hâlâ açık (T79).
 4. **Performans/yük ölçümü yok** — eşik tanımsız; alpha puanı 68.0'da kalıyor.
 5. **Web UI otomatik E2E yok** — M5 elle doğrulandı; T74 profilleri eklenince
    matris genişleyecek.
