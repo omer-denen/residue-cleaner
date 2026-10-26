@@ -1044,3 +1044,27 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
   sekme bir sonraki tarayıcı turunda kontrol edilecek.
 - **Açık kalem:** arayüzde tarih aralığı/tür filtresi yok (v1 yalnız liste); `B22` devamı
   olarak eklenebilir.
+
+### B22 tarayıcı doğrulaması (26.10.2026, ego-browser space 6)
+
+- **K15 sırası uygulandı:** 4300–4500 portlarında eski süreç yok (0 dinleyici) →
+  `node bin/residue.mjs ui --web --no-browser --port 4411` → kök `HTTP 200`,
+  bundle `index-BpSLwB6v.js` (yeni derleme). Sunucu doğrulamadan sonra kapatıldı
+  (**0 dinleyici** kaldı), otomatik tarama da süreçle birlikte durdu.
+- **TR/Denetim sekmesi:** sekmeler `Kasa` (pasif) / `Denetim` (aktif);
+  başlıklar **Tarih · Tür · Sonuç · Yol / hedefler · Boyut** (i18n `audit.col.*`);
+  **5 satır** — 4 geri yükleme (25 Eki 23:35) + 1 silme (22 Eki 20:55) ve silme
+  satırında journal'dan gelen **hedefler: rattler, uv, @opencode-aidesktop-updater +3**
+  ile **5.5 GB**. Hata bandı yok (`banner.danger` = null).
+- **EN:** dil düğmesi → sekmeler `Vault` / `Audit`, başlıklar
+  `Date · Type · Result · Path / targets · Size`, sayaç satırı
+  `total: 5 · delete: 1 · restore: 4 · purge: 0 · failed: 0`, `html lang="en"`;
+  satırlar da EN (`Oct 25, 2026, 11:35 PM`, `delete`, `ok`).
+- **Kasa sekmesi (regresyon):** 2 satır (`Local\uv`, `Local\rattler`), her satırda
+  **etkin** `Restore` düğmesi — B13'teki `disabled={busyId === entry.id}` davranışı
+  doğru: satırlar artık global `busy` ile kilitlenmiyor.
+- **Bilinçli olarak YAPILMAYAN:** gerçek geri yükleme tıklanmadı (2.5 + 2.7 GB veri
+  taşır; kullanıcı kararı). Satır içi hata/meşgul mesajları bu turda tetiklenmedi.
+- **Ekran görüntüleri:** `scratch/audit-tr.png`, `scratch/audit-en.png`
+  (gitignore'da; ürüne girmez).
+- **Sıradaki:** W0-b-2 (parity) veya B24 (denetim filtresi + dışa aktarma).
