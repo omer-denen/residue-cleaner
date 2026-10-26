@@ -904,3 +904,38 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
 
 - **Gerçek silme/kaldırma YAPILMADI.**
 - **Sıradaki:** W0-b (CLI/API parity) → T37 (sentetik fixture ile) → T74 W2.
+
+## 26.10.2026 — orkestratör oturumu: durum hijyeni (B12)
+
+- **Oturum kurulumu:** çalışma alanı orkestratör worktree'sine taşındı; gitignore'da
+  olan `AGENTS.md`, `state.json`, `SESSION_LOG.md` ana repodan kopyalandı
+  (main ile aynı commit: `8a3f8b3`).
+- **Baseline (kapı 1):** `npm run typecheck` temiz · `npm test` **407/407**.
+- **Doğrulanan gerçek durum (state.json ↔ kod):**
+  - **T37** kodda bitmişti (commit `1b03faa`: classifier partial-install markeri,
+    analyze yaş kapısı, `tests/partial-install.test.ts` 9 test) ama `todo` görünüyordu.
+  - **T69** F1–F5 kapanmıştı (F5 = `fe8c1b7`) ama `todo` görünüyordu.
+  - **B7–B11** düzeltilmişti fakat `status` alanı olmadığı için "5 açık hata" sayılıyordu.
+  - **B12 (yeni):** `residue status` her açık hata satırını `! [undefined] undefined`
+    basıyordu; `status --export` de aynı şekilde. Kök neden: `bugs[]` iki şema taşıyor
+    (eski `{id,symptom,cause,fix,at}` / yeni `{title,symptom,cause,fix,status,severity}`),
+    `src/commands/status.ts:71-74` ve `src/util/state.ts` `renderHandoff` ham alan
+    okuyordu; `BugEntry` tipi alanları zorunlu ilan ettiği için TypeScript yakalamadı.
+- **Görev paketi:** `scratch/gorev-durum-hijyeni.md`; işçi Beam Free ayrı pencerede
+  (`scratch/logs/durum-hijyeni.log`). Beyaz liste: `src/core/bug-view.ts` (yeni),
+  `src/commands/status.ts`, `src/util/state.ts`, `tests/bug-view.test.ts` (yeni).
+- **Motor:** `BugViewList.normalize/open/counts` (saf TS, node builtin yok). Etiket:
+  `title` > belirtinin ilk cümlesi (≤80) > `id` > `hata`; önem yoksa `unknown`;
+  `status` yoksa **açık**. `status.ts` ve `renderHandoff` yalnız gösterir (kural 12/18).
+- **Kapı 3 (ölçüm):** işçi "typecheck temiz" dedi ama **düştü** — yeni testte
+  `noUncheckedIndexedAccess` yüzünden 7 × TS2532. Orkestratör mekanik düzeltme yaptı
+  (`firstOf()` yardımcısı). Sonuç: typecheck **temiz** · **407 → 415/415** (+8).
+- **Gerçek CLI kanıtı:** `residue status` → `! [unknown] [B7] Tarama surerken…`
+  (5 satır, gerçek etiketler); `status --export` çıktısında `undefined` **0**.
+- **Kapı 4 (inceleme):** diff yalnız beyaz listede; güvenlik kapısı, `report-only`,
+  onay dili ve `state.json` değişmedi. Kapsam dışı dosya yok.
+- **state.json (orkestratör verisi):** T37 + T69 → `done`; B7–B11 → başlık + önem +
+  `fixed`; B12 eklendi (`fixed`). Sonuç: **73 tamam / 0 yarıda / 0 todo / 0 açık hata**.
+- **Gerçek silme YAPILMADI**; kasa ve disk değişmedi.
+- **Sıradaki:** W0-b (CLI E2E + CLI/API parity + perf/load eşiği) veya B19
+  (iptal geri bildirimi, web). Karar kullanıcıya soruldu.
