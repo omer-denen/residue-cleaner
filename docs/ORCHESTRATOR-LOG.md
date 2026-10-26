@@ -966,3 +966,45 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
 - **Gerçek silme YAPILMADI**; gerçek `%TEMP%`, gerçek veri dizini ve kurulu araçlar
   üzerinde işlem yapılmadı.
 - **Sıradaki:** W0-b-2 (PARITY-01…05, süreç düzeyi) → W0-b-3 (PERF-01…03 eşikleri).
+
+### B13 — kasa geri yükleme sağlamlığı (26.10.2026, kullanıcı raporu)
+
+- **Kullanıcı raporu:** kasada 6 öğe; 4'ü geri yüklendi, 1'i "Klasör dolu" hatası verdi,
+  1'i tıklamaya cevap vermedi.
+- **Orkestratör kanıtı (salt okunur):**
+  - `%LOCALAPPDATA%\residue\vault` → 6 parti; 4'ü boş (25.10 20:35'te dönen updater
+    öğeleri), 2'si dolu: `Local\uv` (2.5 GB / 69.664 dosya) ve `Local\rattler`
+    (2.7 GB / 47.437 dosya). İki hedef yol bugün de diskte (yeniden yaratılmış).
+  - `audit.log`: 25.10.2026 20:35'te **4** `vault.restore` (`mode=files`, `verified=true`);
+    başarısız iki deneme için **hiç kayıt yok** — `audit` yalnız başarıdan sonra çağrılıyordu.
+  - `src/actions/vault.ts:353-367`: `rename` yalnız `EXDEV/EPERM/EACCES` için cp yedeğiyle
+    tekrar deneniyordu; `ENOTEMPTY/EEXIST/ENOTDIR` yeniden denenmiyordu.
+  - `web/src/screens/Vault.tsx`: tek `busy` bayrağı **tüm** satırları disabled yapıyordu →
+    ikinci tıklama sessizce yutuluyordu ("cevap vermedi").
+- **Görev paketi:** `scratch/gorev-b13-kasa-restore.md` (işçi Beam Free,
+  `scratch/logs/b13-kasa.log`). Beyaz liste: `src/actions/vault.ts`,
+  `src/core/restore-target.ts` (yeni), `tests/vault-restore.test.ts` (yeni),
+  `web/src/screens/Vault.tsx`, `web/src/i18n.ts`.
+- **Windows kök neden matrisi (işçi ölçümü, gerçek `fs.rename`):** hedef yok → OK;
+  hedef boş klasör → `EPERM`; hedef dolu klasör → `EPERM`; hedef `.restored-<now>` →
+  `EPERM`; hedef **dosya** → sessizce üzerine yazma (nadir yarış); hedef ebeveyni dosya →
+  `EINVAL`. Yani "klasör dolu" sınıfı Windows'ta `EPERM` olarak dönüyor; eski kod bu
+  kodu cp-yedeğine düşürüp **mevcut klasörün içine birleştiriyordu** (sessiz karışma).
+- **Düzeltme:** saf `RestoreTarget` (initial/retry/isRetryableCode) + `restoreVaultEntry`
+  içinde en fazla 3 deneme, benzersiz `<yol>.restored-<zaman>-<deneme>-<rastgele>`,
+  hedef asla ezilmez, başarısızlıkta manifest temizliği yok, her başarısızlık
+  `vault.restore.failed` audit kaydı (`code`, `reason`, `attempts`). Başarılı kayıt
+  artık `attempts` taşıyor.
+- **Arayüz:** `busyId` satır bazlı + satır içi hata metni (`danger-text`) + meşgulken
+  başka satıra tıklamada "Başka bir geri yükleme sürüyor" bilgisi; kasa boşaltma ayrı
+  `purgeBusy` bayrağı ve geri yükleme ile eşzamanlı çalışmıyor (orkestratör düzeltmesi).
+- **Kapı:** typecheck temiz · **421 → 430/430** (+9) · `build:web` yeşil (137.34 kB gzip).
+- **Veri güvenliği:** hiçbir hedef ezilmiyor; testler yalnız `mkdtemp` sandbox kullanıyor;
+  gerçek kasaya/veri dizinine yazılmadı. **Kullanıcının uv/rattler kayıtlarına dokunulmadı**
+  — hedefleri diskte olduğu için yeni kod onları `.restored-<zaman>` adına çıkarır.
+- **Açık kalem:** (B23) `rename` hedefte dosya varsa sessizce üzerine yazıyor — akıştaki
+  ön kontrol bunu engelliyor ama yarış penceresi kapatılmadı.
+- **Yeni backlog (B22):** kullanıcı sorusu — "silinen/geri alınan öğelerin denetim geçmişi
+  yok mu?" Cevap: **dosya var (audit.log JSONL), okuyucusu yok**
+  (`src/util/audit.ts`: "okuma araci yoktur"). `delete.done`, `vault.restore`,
+  `vault.purge-*` kayıtları tutuluyor ama ne CLI ne arayüz gösteriyor.

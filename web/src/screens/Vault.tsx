@@ -31,7 +31,10 @@ export function Vault({ lang, onChanged }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [phrase, setPhrase] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [purgeBusy, setPurgeBusy] = useState(false);
+  const busy = purgeBusy || busyId !== null;
+  const [rowError, setRowError] = useState<Record<string, string>>({});
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -56,22 +59,37 @@ export function Vault({ lang, onChanged }: Props) {
   };
 
   const restore = async (id: string): Promise<void> => {
-    setBusy(true);
+    if (purgeBusy || (busyId !== null && busyId !== id)) {
+      setNotice(t('vault.busyOther'));
+      return;
+    }
+    setBusyId(id);
     setError(null);
     setNotice(null);
+    setRowError((previous) => {
+      const next = { ...previous };
+      delete next[id];
+      return next;
+    });
     try {
       const result = await api.restore(id);
-      setNotice(
-        result.ok
-          ? `${t('vault.restored')}: ${result.to}${result.conflict ? ` (${t('vault.conflict')})` : ''}`
-          : `${t('vault.error')}: ${result.error ?? ''}`,
-      );
+      if (result.ok) {
+        setNotice(
+          `${t('vault.restored')}: ${result.to}${result.conflict ? ` (${t('vault.conflict')})` : ''}`,
+        );
+      } else {
+        const msg = result.error ?? t('vault.restoreFailed');
+        setRowError((previous) => ({ ...previous, [id]: msg }));
+        setError(msg);
+      }
       await load();
       onChanged();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err));
+      const msg = err instanceof ApiError ? err.message : String(err);
+      setRowError((previous) => ({ ...previous, [id]: msg }));
+      setError(msg);
     } finally {
-      setBusy(false);
+      setBusyId(null);
     }
   };
 
@@ -80,7 +98,7 @@ export function Vault({ lang, onChanged }: Props) {
 
   const purge = async (): Promise<void> => {
     if (!data || selected.size === 0) return;
-    setBusy(true);
+    setPurgeBusy(true);
     setError(null);
     setNotice(null);
     try {
@@ -95,7 +113,7 @@ export function Vault({ lang, onChanged }: Props) {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     } finally {
-      setBusy(false);
+      setPurgeBusy(false);
     }
   };
 
@@ -161,6 +179,9 @@ export function Vault({ lang, onChanged }: Props) {
                       {entry.originalExists && (
                         <span className="badge warn">{t('vault.conflict')}</span>
                       )}
+                      {rowError[entry.id] && (
+                        <div className="danger-text">{rowError[entry.id]}</div>
+                      )}
                     </td>
                     <td className="num mono">{formatBytes(entry.bytes)}</td>
                     <td className="num dim">{formatAge(entry.ageMs, lang)}</td>
@@ -171,10 +192,10 @@ export function Vault({ lang, onChanged }: Props) {
                       <button
                         type="button"
                         className="ghost"
-                        disabled={busy}
+                        disabled={busyId === entry.id}
                         onClick={() => void restore(entry.id)}
                       >
-                        {t('vault.restore')}
+                        {busyId === entry.id ? t('vault.restoring') : t('vault.restore')}
                       </button>
                     </td>
                   </tr>
