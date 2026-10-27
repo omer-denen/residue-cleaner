@@ -1172,3 +1172,19 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
   doğruydu ama benim worktree kopyam eski kaldı. Ders: **işçi raporu tek başına kanıt
   değil** — `git status` + dosyada `grep` ile fiili değişiklik doğrulanır, sürüm
   farklıysa birleştirme yapılır (K15'in kardeşi: "hangi kopya?" sorusu).
+
+### Oturum kapanışı — arşiv kararı ve devir (27.10.2026)
+
+- **Kullanıcı kararı:** `docs/CLI-REMOVE-PLAN-REMOVAL.md` depoya alınsın. Belge
+  **zaten uygulanmış** bir planı gelecek zamanla anlatıyordu (CLI plan sistemi
+  26.10.2026'da kaldırıldı; `removeSingleTool`, `POST /api/cli/remove`,
+  `web/src/panel-plan.ts` → `tools: { modules: ['evidence','action'] }`).
+  Kural 8 gereği içerik aynen alınmadı: başlığa ve kapanışa **"UYGULANDI
+  (26.10.2026) — karar kaydı"** notu, güncel davranışın yeri eklendi. Commit `7475215`.
+- **Devir eki:** `docs/HANDOVER-2026-10-27.md` §4/2 kapatıldı (commit `491014a`).
+- **Dal hijyeni:** `orkestrator` → `main` fast-forward; iki çalışma ağacı da
+  `491014a` üzerinde ve temiz. `state.json` (gitignore) ana repoya kopyalandı.
+- **Kapı:** kod değişmedi; son kod commit'i `a8e7110` üzerinde typecheck temiz +
+  **469/469** doğrulandı (main, 5 sn). Sonraki iki commit **yalnız belge**.
+- **Kalan:** B24 (görev paketi hazır), LOAD-02/03 (T83), T74/W2 personası,
+  UX-042/B19/B21 · kullanıcı kararı: `Local\uv` + `Local\rattler` (kasada).
