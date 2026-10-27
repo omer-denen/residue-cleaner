@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { cp, lstat, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, cp, lstat, mkdir, readFile, readdir, readlink, rename, rm, stat, symlink, utimes, writeFile } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import { longPath } from '../util/longpath.ts';
 import { dataDir } from '../core/data-dir.ts';
@@ -353,20 +354,99 @@ export async function removeVaultEntry(entry: VaultEntry): Promise<void> {
   await rebuildVaultIndex().catch(() => undefined);
 }
 
-async function moveBack(src: string, dst: string): Promise<void> {
+/**
+ * src'i dst'ye TEKIL (exclusive) olarak tasir: dst zaten varsa asla ezmez.
+ *
+ * Turler:
+ *  - sembolik bag: bagi yeniden olusturur (symlink() EEXIST uretir, ezmez);
+ *    basari sonrasi kaynak bagi silinir. Ayricalik hatasinda (EPERM/EACCES)
+ *    kopyalama YAPILMAZ (hedef dereference edilmez); geri denemez bir hata
+ *    (ELINK) firlatilir.
+ *  - dizin: existedBefore ise hic rename denenmeden EEXIST firlatir;
+ *    aksi halde rename, EXDEV/EPERM/EACCES durumunda kopyala+sil yedegine duser.
+ *  - dosya: existedBefore ise EEXIST; aksi halde rename, fallback kopyala+sil
+ *    (COPYFILE_EXCL ile ezme engellenir).
+ */
+export async function moveToTargetExclusive(src: string, dst: string): Promise<void> {
   await mkdir(longPath(dirname(dst)), { recursive: true });
+  const st = await lstat(longPath(src));
+  const existedBefore = await pathExists(dst);
+
+  if (st.isSymbolicLink()) {
+    if (existedBefore) {
+      const e = new Error('hedef zaten var');
+      (e as NodeJS.ErrnoException).code = 'EEXIST';
+      throw e;
+    }
+    const linkTarget = await readlink(longPath(src));
+    try {
+      await symlink(linkTarget, longPath(dst));
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'EEXIST') throw err;
+      if (code === 'EPERM' || code === 'EACCES') {
+        // Hedef yoktu ama ayrıcalık eksik: kopyalama yapma (dereference etme).
+        const e = new Error(
+          'sembolik bag geri yuklenemedi (yonetici/Developer Mode gerekli); bag kasada korundu',
+        );
+        (e as NodeJS.ErrnoException).code = 'ELINK';
+        throw e;
+      }
+      throw err;
+    }
+    await rm(longPath(src), { force: true });
+    return;
+  }
+
+  if (st.isDirectory()) {
+    if (existedBefore) {
+      const e = new Error('hedef zaten var');
+      (e as NodeJS.ErrnoException).code = 'EEXIST';
+      throw e;
+    }
+    try {
+      await rename(longPath(src), longPath(dst));
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== 'EXDEV' && code !== 'EPERM' && code !== 'EACCES') throw err;
+      await cp(longPath(src), longPath(dst), {
+        recursive: true,
+        preserveTimestamps: true,
+        force: false,
+        errorOnExist: true,
+      });
+      await verifyCopy(src, dst, 0, 0);
+      await rm(longPath(src), { recursive: true, force: true });
+    }
+    return;
+  }
+
+  // dosya
+  if (existedBefore) {
+    const e = new Error('hedef zaten var');
+    (e as NodeJS.ErrnoException).code = 'EEXIST';
+    throw e;
+  }
   try {
     await rename(longPath(src), longPath(dst));
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code !== 'EXDEV' && code !== 'EPERM' && code !== 'EACCES') throw err;
-    await cp(longPath(src), longPath(dst), {
-      recursive: true,
-      preserveTimestamps: true,
-      force: true,
-    });
-    await rm(longPath(src), { recursive: true, force: true });
+    await copyFile(longPath(src), longPath(dst), fsConstants.COPYFILE_EXCL);
+    // Zaman damgasi korunur (Date nesnesi; sayi ms Windows'ta EINVAL — K21).
+    const srcStat = await stat(longPath(src));
+    await utimes(longPath(dst), new Date(srcStat.atimeMs), new Date(srcStat.mtimeMs));
+    const dstStat = await stat(longPath(dst));
+    if (Number(dstStat.size) !== Number(srcStat.size)) {
+      await rm(longPath(dst), { force: true }).catch(() => undefined);
+      throw new Error('kasa kopyasi dogrulanamadi (boyut farkli)');
+    }
+    await rm(longPath(src), { force: true });
   }
+}
+
+async function moveBack(src: string, dst: string): Promise<void> {
+  return moveToTargetExclusive(src, dst);
 }
 
 async function pathExists(p: string): Promise<boolean> {
