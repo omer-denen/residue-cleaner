@@ -1,6 +1,6 @@
 # READINESS MATRIX — 0.3.x (T74 / W0-a)
 
-> **Durum:** ilk baseline · 23.10.2026 · kod `276fb62` (310 test)
+> **Durum:** güncellendi · 27.10.2026 · `orkestrator` dalı (469 test)
 > **Kapsam:** alpha/beta kapıları + E2E senaryo kataloğu (CLI, SAFE, ERR,
 > SEC, API, PARITY, SCHED, ENV, PERF, LOAD, WEB, PROFILE).
 > **Kaynak kararlar:** `docs/HANDOVER-2026-10-23c.md` §4, `AGENTS.md`,
@@ -29,20 +29,21 @@
 
 | Boyut | Ağırlık | Alt skor | Katkı | Gerekçe |
 |---|---:|---:|---:|---|
-| İşlevsel doğruluk | 25 | 80 | 20.00 | Motor + API geniş; CLI E2E ve parity eksik |
+| İşlevsel doğruluk | 25 | 85 | 21.25 | Motor + API geniş; CLI E2E ve PARITY-01…05 tamam; web tarayıcı E2E hâlâ yok |
 | Güvenlik değişmezleri | 25 | 85 | 21.25 | guard/onay/vault güçlü; Git/junction E2E `npm test` dışında |
-| Hata yönetimi | 15 | 55 | 8.25 | `delete.ts` / `vault.ts` kapsamı düşük; hata enjeksiyonu yok |
+| Hata yönetimi | 15 | 55 | 8.25 | `delete.ts` / `vault.ts` kapsamı düşük; hata enjeksiyonu yok (B23 yarış/ezme testleri eklendi) |
 | Güvenlik (HTTP/kapılar) | 15 | 70 | 10.50 | 401/403/token test edildi; Origin ve gövde sınırı E2E değil |
 | Gözlemlenebilirlik | 10 | 80 | 8.00 | Günlük + journal + `log --summary`; metrik yok |
-| Performans | 5 | 0 | 0.00 | Ölçüm ve eşik yok (yalnız walker mikro ölçümü) |
-| Yük | 5 | 0 | 0.00 | Ölçüm yok |
-| **Toplam** | **100** | | **68.00** | |
+| Performans | 5 | 85 | 4.25 | PERF-01…03 ölçüldü, `scripts/perf-budget.json` kapısı var (taban + en kötü gözlem) |
+| Yük | 5 | 60 | 3.00 | LOAD-01/04 ölçüldü; LOAD-02/03 (5k küme, 1k SSE) açık |
+| **Toplam** | **100** | | **76.50** | |
 
 **Kapılar:** alpha **≥ 70**, beta **≥ 85**.
 
-> **Not:** Devir belgesi "≈68 → alpha" diyor; sayısal kapı **70** olduğu için
-> alpha henüz **açık**. Fark 2.0 puandır ve performans/yük ölçümüyle
-> (5 + 5 ağırlık) kapanır. Güvenlik puanı düşürülerek kapatılmaz.
+> **Not (27.10.2026):** Performans ve yük ölçümü 26.10.2026'da tamamlandı
+> (W0-b-3) ve skor **68.00 → 76.50** oldu; alpha kapısı (70) **açık**. Fark
+> performans/yük ölçümüyle kapandı, güvenlik puanı düşürülmedi. Kalan beta
+> maddeleri: LOAD-02/03 ve web E2E.
 
 ---
 
@@ -71,14 +72,20 @@
 2. **SAFE-01…11** ✅; açık P0/P1 yok.
 3. **CLI-01…06** otomatik E2E (gerçek `node bin/residue.mjs`). ✅ 26.10.2026
    (`tests/cli-e2e.test.ts`, 6 test)
-4. **PARITY-01…05** otomatik (CLI JSON ↔ API JSON normalize eşitlik). 🟡 01–03 ✅ (26.10.2026); 04–05 T79
-5. **PERF-01…03** ilk ölçüm + yazılı eşik (p95, RSS).
+4. **PARITY-01…05** otomatik (CLI JSON ↔ API JSON normalize eşitlik). ✅
+   01–03 26.10.2026 (`tests/parity-e2e.test.ts`); 04–05 27.10.2026
+   (`tests/parity-t79.test.ts`, commit `16f29db`)
+5. **PERF-01…03** ilk ölçüm + yazılı eşik (p95, RSS). ✅ 26.10.2026
+   (`scripts/perf.mjs` + `scripts/perf-budget.json`; `npm run perf` kapı)
 6. **SEC-01…08** yeşil (401, 403 Host/Origin, çerez, gövde sınırı).
 7. Kapsam: satır **≥ 70**, dal **≥ 65**, fonksiyon **≥ 60**
    (mevcut 79.93 / 74.87 / 67.27 → satır+dallar geçer, fonksiyon geçer).
 8. Bilinen sınırlar `README` + bu belgede yazılı.
 
-**Alpha durumu:** ❌ — PARITY-04/05 ve perf ölçümü eksik (CLI E2E + PARITY-01…03 26.10.2026'da kapandı).
+**Alpha durumu:** ✅ — 27.10.2026. Tüm alpha maddeleri kapandı (CLI E2E, PARITY-01…05,
+PERF-01…03, SEC-01…08, skor 76.50 ≥ 70). Kapsam eşikleri en son 23.10.2026 ölçümüne
+dayaniyor (79.93 / 74.87 / 67.27); yeni testlerden sonra **tazelenmeli**.
+Kalan açıklar beta maddeleridir: LOAD-02/03, web E2E, PROFIL.
 
 ### Beta (yayın öncesi)
 
@@ -214,13 +221,13 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 
 | ID | Senaryo | Kabul | Durum |
 |---|---|---|---|
-| PERF-01 | 10k dosya tarama | p95 süre + bellek eşiği yazılı | ❌ |
-| PERF-02 | 100 küme disk görünümü | API p95 < eşik | ❌ |
-| PERF-03 | Kasa taşıma | dosya/sn + hata oranı | ❌ |
-| LOAD-01 | 100k dosya | Çökme yok; RSS sınırı | ❌ |
+| PERF-01 | 10k dosya tarama | p95 süre + bellek eşiği yazılı | ✅ 1856 ms / 30.4 MB |
+| PERF-02 | 100 küme disk görünümü | API p95 < eşik | ✅ p95 1.82 ms |
+| PERF-03 | Kasa taşıma | dosya/sn + hata oranı | ✅ 4304 dosya/sn |
+| LOAD-01 | 100k dosya | Çökme yok; RSS sınırı | ✅ 8.7 sn / 22.4 MB |
 | LOAD-02 | 5k küme | API + sanal liste dayanır | ❌ |
 | LOAD-03 | 1k SSE olayı | Tampon taşmaz; sıra korunur | ❌ |
-| LOAD-04 | 10 eşzamanlı istek | 5xx yok; kuyruk davranışı yazılı | ❌ |
+| LOAD-04 | 10 eşzamanlı istek | 5xx yok; kuyruk davranışı yazılı | ✅ p95 146 ms, 0 5xx |
 
 ### 5.9 WEB (gerçek tarayıcı)
 

@@ -1125,3 +1125,50 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
 - **Gerçek silme YAPILMADI:** `clean` hiç çağrılmadı; kasa taşıma ölçümü yalnız sandbox
   fixture'ında `deleteTarget` ile yapıldı.
 - **Kalan:** LOAD-02 (5k küme sanal liste), LOAD-03 (1k SSE olayı) ve T79 (PARITY-04/05).
+
+### T79 — PARITY-04/05 süreç düzeyi parity (27.10.2026)
+
+- **Kapsam:** matris §5.6. PARITY-01…03 T78 altyapısını kullanıyordu; graph ve project
+  için **derived view** normalizasyonu gerekiyordu (zaman duyarlı alanlar).
+- **Görev paketi:** `scratch/gorev-t79-parity45.md` → işçi Beam Free
+  (`scratch/logs/t79-parity45.log`). Beyaz liste: yalnız `tests/parity-t79.test.ts` (yeni).
+- **Test (3):** PARITY-04 `residue graph --json` ↔ `GET /api/graph`; PARITY-04b what-if
+  (`--what-if ornek-arac` ↔ `POST /api/graph/what-if`); PARITY-05
+  `residue project <dir> --json` ↔ `GET /api/projects?path=`.
+- **Normalizasyon sözleşmesi (dosya başında yazılı):** eşit sayılan = düğüm id kümesi,
+  kind/label/path/role/level, kenar (from,to,kind,strength,state) kümesi, cycles kanonik,
+  rootCauses label+count, summary nodes/edges/cycles/broken. Kapsam dışı (zamana duyarlı):
+  node.meta/active/group/dependents/needs, edge.evidence/id/active, groups, details.
+  **Boş eşitlik kapısı:** graph ≥2 düğüm ve ≥1 kenar, project ≥1 artifact; aksi halde
+  test "boş = boş" diye geçemez.
+- **Ürün bulgusu YOK.** Tek fark: CLI `project --json` `installCommand/verifyCommand`
+  alanlarını `artifact.recipe.*` altında taşıyor, API üst düzeyde → test eşlemeyi yapıyor
+  (sözleşme farkı, hata değil).
+- **Kapı:** typecheck temiz · **453 → 456/456** (+3) · commit **`16f29db`**.
+
+### B23 — kasa geri yüklemede ezme yarışı (27.10.2026)
+
+- **Kusur (B13'ün kök nedeni):** `moveBack` = `rename` (Windows'ta **var olan dosyayı
+  sessizce ezer** — ölçüldü) + EXDEV yedeğinde `cp({force:true})` + doğrulamasız `rm(src)`.
+- **Üç tur işçi (hepsi Beam Free), orkestratör incelemesi her turda:**
+  1. **B23:** `moveToTargetExclusive` (dosya: `COPYFILE_EXCL` + `utimes(Date)` + boyut
+     doğrulama; klasör: `rename` → `cp({force:false,errorOnExist:true})` + `verifyCopy`),
+     `RestoreOptions.beforeMove` test kancası, 6 test. **Kapı 456 → 462.**
+  2. **B23-b (orkestratör bulgusu):** dosya/klasör dalında `EEXIST` dışı hatada
+     `removeQuiet(dst)` **yabancı hedefi siliyordu** → `existedBefore` kapısı; symlink
+     dereference (`copyFile` bağı izliyordu) → yalnız `rename`. 9 test. **Kapı 462 → 465.**
+  3. **B23-c (orkestratör bulgusu, gerçek ölçüm):** `rename` hâlâ iki yerde koşulsuzdu;
+     Windows'ta `rename(dosya → var olan dosya)` **ezdiği** `node -e` ile kanıtlandı
+     (`dst` içeriği kaynakla değişti). Düzeltme: symlink `readlink` + `symlink()` (atomik
+     `EEXIST`, ayrıcalık yoksa `ELINK` — kopyalama yok), klasör/dosya dalında
+     `existedBefore === true` ise `rename` **hiç denenmeden** `EEXIST`. 13 test.
+- **ORKESTRATÖR DÜZELTMESİ (birleştirme):** B23-c turu EXDEV yedeklerinde
+  `utimes`/boyut doğrulaması ve `verifyCopy` adımlarını **düşürmüştü**. İki sürüm
+  birleştirildi: `existedBefore` kapıları + `symlink()` (b23c) **ve** damga koruma +
+  boyut doğrulama + `verifyCopy` (b23b) birlikte.
+- **Kapı (orkestratör kendi koştu):** typecheck temiz · **469/469** ·
+  `tests/vault-rename-race.test.ts` 13 · `tests/vault-restore.test.ts` 9/9.
+- **Olay (kayda geçiyor):** B23-c işçisi worktree yerine **ana repoda** çalıştı; raporu
+  doğruydu ama benim worktree kopyam eski kaldı. Ders: **işçi raporu tek başına kanıt
+  değil** — `git status` + dosyada `grep` ile fiili değişiklik doğrulanır, sürüm
+  farklıysa birleştirme yapılır (K15'in kardeşi: "hangi kopya?" sorusu).
