@@ -4597,3 +4597,11 @@ kbd {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* W2-4: density (presentation only) */
+[data-density="compact"] .cluster-row {
+  height: 36px;
+  padding: 2px 10px;
+}
+[data-density="compact"] .cluster-head {
+  padding: 4px 10px;
+}

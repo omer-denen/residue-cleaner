@@ -58,7 +58,7 @@ ${Object.values(BUILTIN_PROFILES).map((p) => `  ${C.cyan}${p.name.padEnd(16)}${C
 
 ${C.bold}Secenekler${C.reset}
   --env <ad>         Ortam filtresi (tekrar edilebilir). Varsayilan: tumu
-  --profile <ad>     Kayitli profil kullan (lean, audit, full)
+  --profile <ad>     Kayitli tarama kapsami kullan (lean, audit, full)
   --min-age <gun>    Bu yastan eskiyse sadece raporla
   --exclude <ad>     Haric tut (nokta klasoru veya AppData adi)
   --root <dir>       Proje ici artiklar: yalnizca bu dizinin alt klasorleri
