@@ -1375,3 +1375,8 @@ satır **%83.31** / dal **%76.08** / fonksiyon **%74.40** (526 test).
   aynı kimliği taşıyan iki kayıt var.)
 - **Ders:** "kapsam ölçümü" tek başına ölçüm değil, **belge hijyeni** turudur:
   sayıyı yazarken gerekçe satırları ve risk listesi de kanıtla karşılaştırılır.
+- **Flake (kayda geçti):** `main` üzerinde ilk `npm test` koşusunda
+  `tests/scan-verify.test.ts` teardown'u `ENOTEMPTY ... rmdir
+  residue-api-verify2-*\residue` ile düştü; ikinci koşu **526/526**. Aynı
+  commit worktree'de de 526/526 geçmişti → ortam/yarış kaynaklı; risk
+  listesine yazıldı, test zayıflatılmadı.

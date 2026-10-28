@@ -335,3 +335,8 @@ güncellenmez.
    `a8e7110`) ve B24 (28.10, `fd87707`) backlog'da hâlâ `planned`, B22
    `done` ama `doneAt`/`commit` yoktu. 28.10.2026'da üçü `done` + commit ile
    işaretlendi; yeni paket kapanışında bu alan zorunlu.
+6. **Test teardown flake'i** — `tests/scan-verify.test.ts` (uca: cache varken
+   `POST /api/scan/verify`) ana repoda bir kez `ENOTEMPTY: rmdir
+   ...\residue-api-verify2-*\residue` ile düştü; aynı turda tekrar koşuda
+   **526/526** geçti. Windows'ta sandbox silme yarışı; testi zayıflatmadan
+   (retry eklemeden) teardown'un nedeni bulunmalı.
