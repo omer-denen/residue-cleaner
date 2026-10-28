@@ -13,6 +13,7 @@ import type {
   ScanVerifyResponse,
   UserProfile,
 } from '../../src/core/contract.ts';
+import { PlanBadge } from '../../src/core/plan-badge.ts';
 import { api, ApiError } from './api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from './i18n.ts';
 import { formatBytes } from './format.ts';
@@ -283,6 +284,7 @@ export function App() {
     void (async () => {
       // Acilis politikasi: yalniz ILK yuklemede calisir (döngü yok).
       await load();
+      await refreshPlanRecords();
       // 1. Ayarlar
       let mode: 'always' | 'daily' | 'manual' = 'always';
       try {
@@ -354,6 +356,7 @@ export function App() {
           // sessizce yut
         }
         await load();
+        await refreshPlanRecords();
       }
       // manual: hicbir istek yok
     })();
@@ -590,10 +593,17 @@ export function App() {
       id === 'vault'
         ? (dashboard?.ledgers.find((ledger) => ledger.id === 'vault')?.count ?? 0)
         : 0;
+    const planBadge = id === 'plan' ? PlanBadge.view(planRecords) : null;
     const label =
       id === 'vault' && vaultCount > 0
         ? `${t(item.label)} (${vaultCount})`
-        : t(item.label);
+        : planBadge && planBadge.show
+          ? `${t(item.label)} (${planBadge.total})`
+          : t(item.label);
+    const ariaLabel =
+      planBadge && planBadge.show
+        ? t('nav.plan.badge', { total: planBadge.total, pending: planBadge.pending })
+        : label;
     return (
       <button
         key={id}
@@ -602,7 +612,7 @@ export function App() {
         aria-current={screen === id ? 'page' : undefined}
         tabIndex={screen === id ? 0 : -1}
         title={label}
-        aria-label={label}
+        aria-label={ariaLabel}
         onClick={() => {
           navigatedRef.current = true;
           setScreen(id);
@@ -615,6 +625,9 @@ export function App() {
           <span className="rail-badge" aria-hidden="true">
             {vaultCount}
           </span>
+        )}
+        {planBadge && planBadge.show && (
+          <span className="rail-badge" aria-hidden="true">{planBadge.total}</span>
         )}
       </button>
     );

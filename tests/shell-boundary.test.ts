@@ -42,7 +42,10 @@ test('web kabugu node builtin ve servis/aksiyon import edemez', async () => {
           // saf biçimlendirici; Node'a bağımlı değil; sütun sırası ve kaçış kuralı motorda kalır (AGENTS.md kural 18)
           path.endsWith('audit-export.ts') ||
           // tarama kontrolü (faz + tuş niyeti + SSE olay → bilgi türü); saf TS, DOM/node builtin yok (B19/B21)
-          path.endsWith('scan-control.ts'),
+          path.endsWith('scan-control.ts') ||
+          // plan menusu rozeti (kayit sayimi + bekleyen sayisi); saf TS, yalniz
+          // contract tipi import eder — sayim motorda kalir (AGENTS.md kural 18)
+          path.endsWith('plan-badge.ts'),
         `${file}: izin verilmeyen cekirdek importu: ${path}`,
       );
     }
