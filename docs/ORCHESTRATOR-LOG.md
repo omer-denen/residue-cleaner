@@ -1277,3 +1277,33 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
 - **Ek not (süreç):** bu tür "açık kaldı" ifadeleri artık UX-LOG durumu ile
   çapraz kontrol edilecek; UX-LOG `düzeltildi` diyorsa yeni bir devir belgesine
   "açık" olarak taşınmayacak.
+
+### B19 + B21 — iptal geri bildirimi ve sahne klavyesi (28.10.2026)
+
+**Kullanıcı seçimi (m00643):** backlog `planned` B19 + B21 paketi.
+
+- **Keşif:** motor/API zaten hazırdı (`scan-service.cancel/pause/resume`,
+  `POST /api/scan/:id/cancel|pause|resume`, `api.scanAction`). Eksik olan
+  arayüzdü: `Disk.tsx` `case 'cancelled'` sessizce listeye dönüyordu,
+  klavyede `P` yoktu, iptal tek tıktı. `Esc` hiçbir yerde taramayı
+  iptal etmiyordu (korunacak davranış).
+- **Motor:** yeni `src/core/scan-control.ts` (saf TS) — `ScanControl.phase`,
+  `keyIntent`, `cancelNeedsConfirm`, `notice`; `Esc` daima `'none'`;
+  `notice` tam eşleşme ile çalışır. `web/src/keyboard.ts` (`isTypingTarget`)
+  tek kaynağa taşındı. 10 birim test.
+- **Arayüz:** `div.banner[role="status"]` bilgi satırı (iptal/duraklat);
+  hata bandından (`role="alert"`) ayrı; `P` ile duraklat/devam
+  (`aria-keyshortcuts`); iptal iki adımlı (`Vazgeç` / `İptal et`).
+- **Kapılar:** typecheck temiz, **500/500**, build yeşil
+  (`index-FZKG0Nkp.js`, 140.37 kB gzip).
+- **Tarayıcı (ego-browser, port 4425, 1500 klasör):** `P` duraklattı
+  (ilerleme 6/1500'de dondu), tekrar `P` devam ettirdi; `Esc` taramayı
+  durdurmadı; `İptal` → `Vazgeç`/`İptal et`; `Vazgeç` geri aldı;
+  `İptal et` sonrası "Tarama iptal edildi · liste önceki taramadan"
+  (danger bandı yok, 14 satır önceki taramadan). EN metni doğrulandı.
+- **Commit:** `578cedd` (7 dosya, 222+/17-).
+- **Ders:** ego turunda ekran varsayılanı Dashboard'dı; "Tara" düğmesi
+  bulunamayınca ilk tur boş döndü. Ayrıca `/Tara/` deseni "Tarama güncel"
+  rozetine de uyuyor — birincil düğmeyi `main button.primary` ile seçmek
+  gerekir. Tarama sahnesi `Disk` açılışında otomatik başlayabilir; sahneyi
+  bulduktan **hemen** `P` ile duraklatmak yarışı önler.

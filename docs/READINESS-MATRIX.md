@@ -1,6 +1,6 @@
 # READINESS MATRIX — 0.3.x (T74 / W0-a)
 
-> **Durum:** güncellendi · 28.10.2026 · `main` (484 test)
+> **Durum:** güncellendi · 28.10.2026 · `main` (500 test)
 > **Kapsam:** alpha/beta kapıları + E2E senaryo kataloğu (CLI, SAFE, ERR,
 > SEC, API, PARITY, SCHED, ENV, PERF, LOAD, WEB, PROFILE).
 > **Kaynak kararlar:** `docs/HANDOVER-2026-10-23c.md` §4, `AGENTS.md`,
@@ -54,6 +54,12 @@
 > (motor `src/core/audit-export.ts`, 16 test). Tarayıcı kanıtı **elle** alındı
 > (ego-browser: filtre + indirilen dosya içeriği TR/EN); otomatik web E2E
 > olmadığı için **puan değişmedi** — bu satır kanıt kaydıdır, seviye yükseltmez.
+
+> **Not (28.10.2026, B19/B21):** Tarama iptali artık sessiz dönmüyor
+> (`role="status"` bilgi satırı, hata bandından ayrı), `P` ile duraklat/devam
+> ve iptal iki adımlı (B19/B21, motor `src/core/scan-control.ts`, 10 test).
+> WEB-10 (klavye-only tur) satırı **kısmen** ilerledi ama tüm akış + odak
+> tuzağı tamamlanmadığı için **puan değişmedi**.
 
 ---
 
