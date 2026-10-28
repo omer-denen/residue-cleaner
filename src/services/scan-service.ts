@@ -24,6 +24,7 @@ import type {
   ScanStatusResponse,
   ScanStreamEvent,
   SettingsResponse,
+  UserProfile,
 } from '../core/contract.ts';
 import { scanStatusView } from '../core/scan-status-view.ts';
 
@@ -246,6 +247,7 @@ export class ScanService {
       updateCheck: s.updateCheck,
       scanOnLaunch: s.scanOnLaunch,
       advancedDelete: s.advancedDelete,
+      uiProfile: s.uiProfile,
     };
   }
 
@@ -255,6 +257,7 @@ export class ScanService {
     updateCheck?: 'off' | 'daily' | 'weekly';
     scanOnLaunch?: 'always' | 'daily' | 'manual';
     advancedDelete?: boolean;
+    uiProfile?: UserProfile;
   }): Promise<SettingsResponse> {
     const saved = await saveSettings(patch);
     this.ttlMs = saved.scanCacheHours * 3_600_000;

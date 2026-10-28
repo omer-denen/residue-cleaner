@@ -43,6 +43,12 @@ export type { CategoryKey, CategoryStat } from './categories.ts';
 export type DeleteMode = 'recycle' | 'purge';
 export type RiskLevel = 'safe' | 'low' | 'medium' | 'high';
 
+/**
+ * Kullanici profili (persona). YALNIZ sunum secer; tarama/plan/silme
+ * ucuna parametre olarak GITMEZ (docs/PROFILE-MODEL.md §1, §4).
+ */
+export type UserProfile = 'developer' | 'vibe' | 'hybrid';
+
 export interface DeleteTargetView {
   path: string;
   kind: 'whole' | 'older';
@@ -372,6 +378,8 @@ export interface SettingsResponse {
   scanOnLaunch: ScanOnLaunchMode;
   /** Gelismis mod: keep/report-only kumeleri de plana alinabilir. Varsayilan false. */
   advancedDelete: boolean;
+  /** Kullanici profili (persona): yalniz sunum secer; tarama/plan ucuna parametre olarak GITMEZ. */
+  uiProfile: UserProfile;
 }
 
 export interface SettingsUpdateRequest {
@@ -380,6 +388,7 @@ export interface SettingsUpdateRequest {
   updateCheck?: 'off' | 'daily' | 'weekly';
   scanOnLaunch?: ScanOnLaunchMode;
   advancedDelete?: boolean;
+  uiProfile?: UserProfile;
 }
 
 /** Surum kontrolu sonucu (T41). Kapaliyken checked=false, ag istegi yapilmaz. */

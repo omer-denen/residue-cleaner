@@ -598,6 +598,7 @@ async function handleRequest(
       ...(body.updateCheck !== undefined ? { updateCheck: body.updateCheck } : {}),
       ...(body.scanOnLaunch !== undefined ? { scanOnLaunch: body.scanOnLaunch } : {}),
       ...(typeof body.advancedDelete === 'boolean' ? { advancedDelete: body.advancedDelete } : {}),
+      ...(body.uiProfile !== undefined ? { uiProfile: body.uiProfile } : {}),
     });
     sendJson(res, 200, out);
     return;
