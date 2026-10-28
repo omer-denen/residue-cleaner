@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { VaultListResponse, AuditResponse } from '../../../src/core/contract.ts';
 import { ApprovalRules } from '../../../src/core/approval.ts';
+import {
+  AuditExport,
+  AUDIT_SINCE_IDS,
+  AUDIT_KIND_IDS,
+  AUDIT_EXPORT_LIMIT,
+} from '../../../src/core/audit-export.ts';
 import { api, ApiError } from '../api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { formatAge, formatBytes, formatTimestamp } from '../format.ts';
@@ -40,22 +46,79 @@ export function Vault({ lang, onChanged }: Props) {
   const [auditData, setAuditData] = useState<AuditResponse | null>(null);
   const [auditError, setAuditError] = useState<string | null>(null);
   const [auditLoading, setAuditLoading] = useState(false);
-
+  const [auditSince, setAuditSince] = useState<string>('all');
+  const [auditKind, setAuditKind] = useState<string>('all');
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportTruncated, setExportTruncated] = useState(false);
   const loadAudit = useCallback(async (): Promise<void> => {
     setAuditLoading(true);
     setAuditError(null);
+    setExportTruncated(false);
     try {
-      setAuditData(await api.audit({ limit: 200 }));
+      const q = AuditExport.normalize({
+        since: auditSince === 'all' ? null : auditSince,
+        kind: auditKind === 'all' ? null : auditKind,
+      });
+      setAuditData(await api.audit({ ...q, limit: 200 }));
     } catch (err) {
       setAuditError(err instanceof ApiError ? err.message : String(err));
     } finally {
       setAuditLoading(false);
     }
-  }, []);
+  }, [auditSince, auditKind]);
 
   useEffect(() => {
     if (tab === 'audit') void loadAudit();
   }, [tab, loadAudit]);
+
+  const exportAudit = useCallback(
+    async (format: 'csv' | 'json'): Promise<void> => {
+      setExportBusy(true);
+      setExportError(null);
+      try {
+        const q = AuditExport.normalize({
+          since: auditSince === 'all' ? null : auditSince,
+          kind: auditKind === 'all' ? null : auditKind,
+        });
+        const res = await api.audit({ ...q, limit: AUDIT_EXPORT_LIMIT });
+        const labels: Record<string, string> = {
+          at: t('audit.export.col.at'),
+          event: t('audit.export.col.event'),
+          kind: t('audit.export.col.kind'),
+          ok: t('audit.export.col.ok'),
+          path: t('audit.export.col.path'),
+          paths: t('audit.export.col.paths'),
+          bytes: t('audit.export.col.bytes'),
+          code: t('audit.export.col.code'),
+          reason: t('audit.export.col.reason'),
+        };
+        const content =
+          format === 'csv' ? AuditExport.csv(res.events, labels) : AuditExport.json(res.events);
+        const mime = format === 'csv' ? 'text/csv;charset=utf-8' : 'application/json;charset=utf-8';
+        const ext = format === 'csv' ? 'csv' : 'json';
+        const now = new Date();
+        const pad = (n: number): string => String(n).padStart(2, '0');
+        const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const filename = `residue-denetim-${date}.${ext}`;
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setExportTruncated(res.events.length >= AUDIT_EXPORT_LIMIT);
+      } catch (err) {
+        setExportError(err instanceof ApiError ? err.message : String(err));
+      } finally {
+        setExportBusy(false);
+      }
+    },
+    [auditSince, auditKind, t],
+  );
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -284,8 +347,59 @@ export function Vault({ lang, onChanged }: Props) {
         <section className="panel">
           <h2>{t('audit.title')}</h2>
           <p className="dim">{t('audit.hint')}</p>
+
+          <div className="audit-filters" style={{ marginBottom: 12 }}>
+            <div className="kind-tabs">
+              <button
+                type="button"
+                className={`chip${auditSince === 'all' ? ' active' : ''}`}
+                aria-pressed={auditSince === 'all'}
+                onClick={() => setAuditSince('all')}
+                disabled={auditLoading}
+              >
+                {t('audit.since.all')}
+              </button>
+              {AUDIT_SINCE_IDS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`chip${auditSince === id ? ' active' : ''}`}
+                  aria-pressed={auditSince === id}
+                  onClick={() => setAuditSince(id)}
+                  disabled={auditLoading}
+                >
+                  {t(`audit.since.${id}` as MessageKey)}
+                </button>
+              ))}
+            </div>
+            <div className="kind-tabs">
+              <button
+                type="button"
+                className={`chip${auditKind === 'all' ? ' active' : ''}`}
+                aria-pressed={auditKind === 'all'}
+                onClick={() => setAuditKind('all')}
+                disabled={auditLoading}
+              >
+                {t('audit.kind.all')}
+              </button>
+              {AUDIT_KIND_IDS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`chip${auditKind === id ? ' active' : ''}`}
+                  aria-pressed={auditKind === id}
+                  onClick={() => setAuditKind(id)}
+                  disabled={auditLoading}
+                >
+                  {t(`audit.kind.${id}` as MessageKey)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {auditLoading && <div className="state">{t('common.loading')}</div>}
           {auditError && <div className="banner danger" role="alert">{auditError}</div>}
+          {exportError && <div className="banner danger" role="alert">{exportError}</div>}
           {auditData && auditData.auditFileExists === false && (
             <EmptyState variant="wide" icon="vault" title={t('audit.empty')} body="" />
           )}
@@ -327,6 +441,30 @@ export function Vault({ lang, onChanged }: Props) {
               </table>
             </>
           )}
+
+          <div className="audit-export" style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              type="button"
+              className="ghost"
+              disabled={exportBusy || !auditData || auditData.events.length === 0}
+              aria-busy={exportBusy}
+              onClick={() => void exportAudit('csv')}
+            >
+              {t('audit.export.csv')}
+            </button>
+            <button
+              type="button"
+              className="ghost"
+              disabled={exportBusy || !auditData || auditData.events.length === 0}
+              aria-busy={exportBusy}
+              onClick={() => void exportAudit('json')}
+            >
+              {t('audit.export.json')}
+            </button>
+            {exportTruncated && (
+              <span className="dim">{t('audit.export.truncated', { n: AUDIT_EXPORT_LIMIT })}</span>
+            )}
+          </div>
         </section>
       )}
     </div>

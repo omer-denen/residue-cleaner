@@ -37,7 +37,10 @@ test('web kabugu node builtin ve servis/aksiyon import edemez', async () => {
     for (const match of text.matchAll(/from ['"]([^'"]*src\/core\/[^'"]+)['"]/g)) {
       const path = match[1] ?? '';
       assert.ok(
-        path.endsWith('contract.ts') || path.endsWith('approval.ts'),
+        path.endsWith('contract.ts') ||
+          path.endsWith('approval.ts') ||
+          // saf biçimlendirici; Node'a bağımlı değil; sütun sırası ve kaçış kuralı motorda kalır (AGENTS.md kural 18)
+          path.endsWith('audit-export.ts'),
         `${file}: izin verilmeyen cekirdek importu: ${path}`,
       );
     }
