@@ -13,7 +13,10 @@
     "diskView100P95Ms": 12,
     "vaultFilesPerSecMin": 1500,
     "load100kMs": 45000,
-    "load100kRssMb": 90
+    "load100kRssMb": 90,
+    "load5000DiskViewP95Ms": 150,
+    "load5000PayloadMb": 6,
+    "load1kReplayP95Ms": 500
   },
   "measured": {
     "scan10kMs": 1856.1,
@@ -21,7 +24,10 @@
     "diskView100P95Ms": 1.82,
     "vaultFilesPerSecMin": 4304.34,
     "load100kMs": 8675.87,
-    "load100kRssMb": 22.43
+    "load100kRssMb": 22.43,
+    "load5000DiskViewP95Ms": 49.55419999999867,
+    "load5000PayloadMb": 1.9028291702270508,
+    "load1kReplayP95Ms": 159.54529999999795
   },
   "worstObserved": {
     "scan10kMs": 2469.6,
@@ -29,7 +35,10 @@
     "diskView100P95Ms": 4.12,
     "vaultFilesPerSecMin": 2703.7,
     "load100kMs": 19853.4,
-    "load100kRssMb": 30.55
+    "load100kRssMb": 30.55,
+    "load5000DiskViewP95Ms": 49.55419999999867,
+    "load5000PayloadMb": 1.9028291702270508,
+    "load1kReplayP95Ms": 159.54529999999795
   },
   "rationale": {
     "scan10kMs": "Ilk olcum 1856 ms, ayni makinede sonraki olcum 2470 ms (1.33x sapma). Butce 6000 ms = taban 3.2x / en kotu 2.4x.",
@@ -37,10 +46,14 @@
     "diskView100P95Ms": "Taban 1.82 ms ama 100 kumede p95 ayni makinede 4.12 ms'e cikti. Butce 12 ms = taban 6.6x / en kotu 2.9x.",
     "vaultFilesPerSecMin": "Olculen 4304 dosya/sn, en kotu 2704. Alt sinir 1500 dosya/sn = en kotunun %55'i (hiz dususu felaket regresyonu yakalar).",
     "load100kMs": "Ilk olcum 8.7 sn, ayni makinede 19.9 sn (2.3x sapma: disk onbellegi + eszamanli yuk). Butce 45 sn = en kotunun 2.3x.",
-    "load100kRssMb": "Olculen 22.4 MB (en kotu 30.6). Butce 90 MB = ~3x pay."
+    "load100kRssMb": "Olculen 22.4 MB (en kotu 30.6). Butce 90 MB = ~3x pay.",
+    "load5000DiskViewP95Ms": "Ilk olcum 49.55 ms (10 kosu p95), ikinci kosu 25.22 ms. Butce 150 ms = en kotu olcumun 3.0x payi; 5000 kumede JSON payload ~1.9 MB.",
+    "load5000PayloadMb": "Olculen payload 1.90 MB (5000 kume, iki kosuda ayni). Butce 6 MB = ~3.2x pay.",
+    "load1kReplayP95Ms": "Ilk olcum 159.55 ms (5 replay, p95), ikinci kosu 122.95 ms. Butce 500 ms = en kotu olcumun 3.1x payi; 2000 olay tamponu replay maliyeti."
   },
   "notes": [
     "npm run perf kalici bir butce kapisidir; npm test icindeki kaba kapi budgets.scan10kMs * 5 kullanir.",
-    "Eşikler 26.10.2026'da iki gercek kosunun taban + en kotu degerlerine gore kalibre edildi (2x kurali tek basina yetmedi: 100k taramada 2.3x sapma olctu)."
+    "Eşikler 26.10.2026'da iki gercek kosunun taban + en kotu degerlerine gore kalibre edildi (2x kurali tek basina yetmedi: 100k taramada 2.3x sapma olctu).",
+    "LOAD-02/LOAD-03 esikleri 28.10.2026'da iki kosuyla kalibre edildi: 5000 kume p95 49.55 / 25.22 ms, 1k replay p95 159.55 / 122.95 ms, payload 1.90 MB (sabit). worstObserved en kotu gozlemdir."
   ]
 }

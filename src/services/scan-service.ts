@@ -27,6 +27,8 @@ import type {
 } from '../core/contract.ts';
 import { scanStatusView } from '../core/scan-status-view.ts';
 
+export const SCAN_EVENT_BUFFER = 2000;
+
 /**
  * Disk tarama servisi.
  *
@@ -340,13 +342,14 @@ export class ScanService {
   }
 
   /**
-   * Olayi artan kimlikle yayinlar ve son 2000 olayi tutar. Yeniden
-   * baglanan istemci `Last-Event-ID` gonderirse buradan tekrar oynatilir.
+   * Olayi artan kimlikle yayinlar ve son SCAN_EVENT_BUFFER olayi tutar.
+   * Yeniden baglanan istemci `Last-Event-ID` gonderirse buradan tekrar
+   * oynatilir.
    */
   private pushEvent(job: ScanJob, event: ScanStreamEvent): void {
     const id = ++job.nextEventId;
     job.events.push({ id, event });
-    if (job.events.length > 2000) job.events.splice(0, job.events.length - 2000);
+    if (job.events.length > SCAN_EVENT_BUFFER) job.events.splice(0, job.events.length - SCAN_EVENT_BUFFER);
     this.emit(job.id, event, id);
   }
 

@@ -14,6 +14,9 @@ const BUDGET_KEYS = [
   'vaultFilesPerSecMin',
   'load100kMs',
   'load100kRssMb',
+  'load5000DiskViewP95Ms',
+  'load5000PayloadMb',
+  'load1kReplayP95Ms',
 ];
 
 const ENV_KEYS = ['LOCALAPPDATA', 'APPDATA', 'USERPROFILE', 'TEMP', 'TMP', 'HOME', 'npm_config_prefix'];

@@ -62,6 +62,7 @@ const { runScan } = await imp(join(projectRoot, 'src/commands/scan.ts'));
 const { DiskView } = await imp(join(projectRoot, 'src/core/disk-view.ts'));
 const { deleteTarget } = await imp(join(projectRoot, 'src/actions/delete.ts'));
 const { createApiServer } = await imp(join(projectRoot, 'src/web/server.ts'));
+const { SCAN_EVENT_BUFFER } = await imp(join(projectRoot, 'src/services/scan-service.ts'));
 const { Cluster } = {}; // type only, unused
 
 // ---------- budget read ----------
@@ -189,6 +190,32 @@ try {
   checkBudget('diskView100P95Ms', dvP95, 'max');
 
   // ============================================================
+  // LOAD-02 — disk gorunumu 5000 kume + JSON
+  // ============================================================
+  console.log('\n=== LOAD-02 disk gorunumu (5000 kume) ===');
+  const clusters5k = Array.from({ length: 5000 }, (_, i) => makeCluster(i));
+  const dv5Times = [];
+  let load5000PayloadBytes = 0;
+  for (let i = 0; i < 10; i++) {
+    const t0 = performance.now();
+    const v = new DiskView(clusters5k, []).view();
+    const payload = JSON.stringify(v);
+    dv5Times.push(performance.now() - t0);
+    if (i === 0) load5000PayloadBytes = Buffer.byteLength(payload, 'utf8');
+  }
+  const dv5Sorted = [...dv5Times].sort((a, b) => a - b);
+  const dv5P95b = percentile(dv5Sorted, 0.95);
+  results.load5000DiskViewP95Ms = dv5P95b;
+  const load5000PayloadMb = load5000PayloadBytes / (1024 * 1024);
+  results.load5000PayloadMb = load5000PayloadMb;
+  console.log(`kosular: ${dv5Times.map((t) => t.toFixed(2)).join(', ')} ms`);
+  console.log(`p95 (10 kosu, 10. deger): ${dv5P95b.toFixed(2)} ms`);
+  console.log(`payload: ${load5000PayloadMb.toFixed(2)} MB`);
+  checkBudget('load5000DiskViewP95Ms', dv5P95b, 'max');
+  checkBudget('load5000PayloadMb', load5000PayloadMb, 'max');
+
+
+  // ============================================================
   // PERF-03 — kasa tasima hizi
   // ============================================================
   console.log('\n=== PERF-03 kasa tasima (200 dosya) ===');
@@ -249,6 +276,122 @@ try {
   checkBudget('load100kRssMb', loadRssMb, 'max');
 
   await rm(loadRoot, { recursive: true, force: true });
+
+  // ============================================================
+  // LOAD-03 — SSE tamponu ve Last-Event-ID replay
+  // ============================================================
+  console.log('\n=== LOAD-03 SSE replay (400 kume) ===');
+  const sseRoot = await mkdtemp(join(tmpdir(), 'residue-perf-sse-'));
+  const SSE_FOLDERS = 400;
+  for (let i = 0; i < SSE_FOLDERS; i++) {
+    const dir = join(sseRoot, `c${i}`);
+    await mkdir(join(dir, 'Cache'), { recursive: true });
+    await writeFile(join(dir, 'CACHEDIR.TAG'), 'Signature: 8a477f597d28d172789f06886806bc55\n');
+    for (let j = 0; j < 3; j++) await writeFile(join(dir, 'Cache', `f${j}.bin`), 'x'.repeat(1024));
+  }
+
+  const { server: sseServer, token: sseToken } = createApiServer({ persistScan: false, envs: [] });
+  await new Promise((ok, fail) => { sseServer.once('error', fail); sseServer.listen(0, '127.0.0.1', () => ok()); });
+  const ssePort = sseServer.address().port;
+  const sseBase = `http://127.0.0.1:${ssePort}`;
+
+  async function readSSEEvents(url, lastId) {
+    const headers = { 'x-residue-token': sseToken };
+    if (lastId !== undefined && lastId !== null) headers['last-event-id'] = String(lastId);
+    const res = await fetch(url, { headers });
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    const out = [];
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) !== -1) {
+        const block = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        let id;
+        const dataLines = [];
+        for (const line of block.split('\n')) {
+          if (line.startsWith('id:')) id = Number(line.slice(3).trim());
+          else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim());
+        }
+        if (dataLines.length) {
+          try { out.push({ id, data: JSON.parse(dataLines.join('\n')) }); } catch {}
+        }
+      }
+    }
+    return out;
+  }
+
+  const startRes = await fetch(`${sseBase}/api/scan`, {
+    method: 'POST',
+    headers: { 'x-residue-token': sseToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ roots: [sseRoot] }),
+  });
+  const startJson = await startRes.json();
+  const scanId = startJson.scanId;
+
+  const eventsUrl = `${sseBase}/api/scan/${scanId}/events`;
+  const allEvents = await readSSEEvents(eventsUrl);
+  const ids = allEvents.map((e) => e.id);
+  const N = ids.length ? ids[ids.length - 1] : 0;
+  results.sseEventCount = allEvents.length;
+  console.log(`toplam olay: ${allEvents.length}, son id: ${N}`);
+
+  let monotonic = true;
+  for (let i = 1; i < ids.length; i++) if (ids[i] <= ids[i - 1]) monotonic = false;
+  if (allEvents.length < 2000) fail(`LOAD-03: toplam olay ${allEvents.length} < 2000`);
+  else ok('LOAD-03: toplam olay >= 2000');
+  if (!monotonic) fail('LOAD-03: kimlikler artan degil');
+  else ok('LOAD-03: kimlikler 1..N artan');
+
+  const replayTimes = [];
+  let replayBad = 0;
+  for (let r = 0; r < 5; r++) {
+    const t0 = performance.now();
+    const evs = await readSSEEvents(eventsUrl, N - 1000);
+    const dt = performance.now() - t0;
+    replayTimes.push(dt);
+    if (evs.length !== 1000) { replayBad++; fail(`LOAD-03 replay ${r}: ${evs.length} olay (1000 beklenen)`); continue; }
+    let okIds = true;
+    for (let i = 0; i < evs.length; i++) {
+      if (evs[i].id !== (N - 999 + i)) okIds = false;
+    }
+    if (!okIds) { replayBad++; fail(`LOAD-03 replay ${r}: kimlikler yanlis`); }
+  }
+  const replayP95 = p95Of(replayTimes);
+  results.load1kReplayP95Ms = replayP95;
+  console.log(`replay sureleri: ${replayTimes.map((t) => t.toFixed(1)).join(', ')} ms`);
+  console.log(`replay p95: ${replayP95.toFixed(1)} ms`);
+  if (replayBad === 0) ok('LOAD-03: replay 5/5 tam 1000 olay');
+  checkBudget('load1kReplayP95Ms', replayP95, 'max');
+
+  // Tampon tavani: replay edilebilen ilk kimlik N - (SCAN_EVENT_BUFFER - 1).
+  // Tam tampon kadar geri istenirse SCAN_EVENT_BUFFER olay donmeli.
+  const capEvents = await readSSEEvents(eventsUrl, N - SCAN_EVENT_BUFFER);
+  const capFirst = N - SCAN_EVENT_BUFFER + 1;
+  if (capEvents.length !== SCAN_EVENT_BUFFER) {
+    fail(`LOAD-03 tavan: ${capEvents.length} olay (${SCAN_EVENT_BUFFER} beklenen)`);
+  } else if (capEvents[0].id !== capFirst || capEvents[capEvents.length - 1].id !== N) {
+    fail(`LOAD-03 tavan: kimlik araligi ${capEvents[0].id}..${capEvents[capEvents.length - 1].id} (${capFirst}..${N} beklenen)`);
+  } else {
+    ok(`LOAD-03: tavan ${SCAN_EVENT_BUFFER} olay (${capFirst}..${N})`);
+  }
+
+  // Tamponun bir olay disina dusen istek replay etmez, anlik gorunum doner.
+  const staleEvents = await readSSEEvents(eventsUrl, N - SCAN_EVENT_BUFFER - 1);
+  if (staleEvents.length === 0) fail('LOAD-03 tampon disi: yanit bos');
+  else if (staleEvents[0].data?.type !== 'progress') {
+    fail(`LOAD-03 tampon disi: ilk olay ${staleEvents[0].data?.type} (progress beklenen)`);
+  } else {
+    ok('LOAD-03: tampon disi istek anlik gorunum aldi');
+  }
+
+  sseServer.closeAllConnections?.();
+  await new Promise((resolve) => sseServer.close(resolve));
+  await rm(sseRoot, { recursive: true, force: true });
 
   // ============================================================
   // LOAD-04 — 10 eszamanli istek
