@@ -193,6 +193,30 @@ export interface LatestResponse {
   at: number | null;
 }
 
+/** Tarama gecmisi OZETI (tam ScanResult degil; disk sismesin). */
+export interface ScanHistoryEntry {
+  /** Kimlik: `sc-<finishedAt>-<kisa rastgele>`. */
+  id: string;
+  /** Tarama bitis zamani (epoch ms). */
+  at: number;
+  /** Kume sayisi. */
+  clusters: number;
+  /** Gorulen dosya sayisi. */
+  files: number;
+  /** Gorulen toplam bayt. */
+  bytes: number;
+  /** Geri kazanilabilir bayt. */
+  deletableBytes: number;
+  /** Farkli hedef yolu sayisi (silme hedefi toplami). */
+  targets: number;
+}
+
+export interface ScanHistoryResponse {
+  entries: ScanHistoryEntry[];
+  /** En fazla kac kayit tutuldugu (arayuz "en yeni N" notu icin). */
+  limit: number;
+}
+
 export interface ScanVerifyResponse {
   scanAt: number | null;
   checkedAt: number;

@@ -33,6 +33,8 @@ import { currentVersion } from '../util/version.ts';
 import { primaryPath, scanItemId } from '../core/scan-items.ts';
 import { longPath } from '../util/longpath.ts';
 import { ScanService } from '../services/scan-service.ts';
+import { loadScanHistory } from '../store/scan-history.ts';
+import { ScanHistory, SCAN_HISTORY_LIMIT } from '../core/scan-history.ts';
 import { ActivityGate } from '../services/activity.ts';
 import { verifyScanTargets } from '../services/scan-verify-service.ts';
 import { DeleteService } from '../services/delete-service.ts';
@@ -78,6 +80,7 @@ import type {
   ScanRequest,
   ScanStartResponse,
   ScanStatusResponse,
+  ScanHistoryResponse,
   ScanStreamEvent,
   ScanVerifyResponse,
   SettingsResponse,
@@ -433,6 +436,7 @@ async function handleRequest(
           'GET  /api/schedules',
           'GET  /api/recover',
           'GET  /api/audit',
+          'GET  /api/scans',
         ],
       });
       return;
@@ -1198,6 +1202,13 @@ async function handleRequest(
     const limitRaw = url.searchParams.get('limit');
     const limit = limitRaw !== null ? Number(limitRaw) : undefined;
     const body: AuditResponse = await ctx.audit.list({ since, kind, limit });
+    sendJson(res, 200, body);
+    return;
+  }
+
+  if (route === 'GET /api/scans') {
+    const entries = ScanHistory.list(await loadScanHistory());
+    const body: ScanHistoryResponse = { entries, limit: SCAN_HISTORY_LIMIT };
     sendJson(res, 200, body);
     return;
   }

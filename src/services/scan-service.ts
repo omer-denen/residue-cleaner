@@ -6,6 +6,8 @@ import {
   saveScanCache,
   SCAN_CACHE_TTL_MS,
 } from '../store/scan-cache.ts';
+import { appendScanHistory } from '../store/scan-history.ts';
+import { ScanHistory } from '../core/scan-history.ts';
 import {
   MAX_CACHE_HOURS,
   MIN_CACHE_HOURS,
@@ -429,6 +431,38 @@ export class ScanService {
         // Sonraki sunucu baslangicinda / sayfa yenilemesinde kullanilir.
         // Testler kismi taramalari onbellege yazmasin (persistScan: false).
         if (this.persistScan) await saveScanCache(result);
+        if (this.persistScan) {
+          try {
+            const files = result.clusters.reduce(
+              (a, c) => a + c.parts.reduce((b, p) => b + (p.files ?? 0), 0),
+              0,
+            );
+            const bytes = result.clusters.reduce((a, c) => a + (c.totalBytes ?? 0), 0);
+            const deletableBytes = result.clusters.reduce(
+              (a, c) => a + (c.reclaimableBytes ?? 0),
+              0,
+            );
+            const targets = result.clusters.reduce(
+              (a, c) => a + (c.deleteTargets?.length ?? 0),
+              0,
+            );
+            const id = `sc-${result.finishedAt}-${Math.random().toString(36).slice(2, 8)}`;
+            const entry = ScanHistory.summarize(
+              {
+                finishedAt: result.finishedAt,
+                clusters: result.clusters.length,
+                files,
+                bytes,
+                deletableBytes,
+                targets,
+              },
+              id,
+            );
+            await appendScanHistory(entry);
+          } catch {
+            /* gecmis yazilamadi; tarama yine de gecerli */
+          }
+        }
       }
       this.pushEvent(job, { type: 'done', result });
     } catch (err) {
