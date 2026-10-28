@@ -1,12 +1,20 @@
 # READINESS MATRIX — 0.3.x (T74 / W0-a)
 
-> **Durum:** güncellendi · 28.10.2026 · `main` (533 test; kapsam satır **%83.3** / dal **%76.1** / fonksiyon **%74.4**)
+> **Durum:** güncellendi · 28.10.2026 · `main` (566 test; kapsam satır **%83.3** / dal **%76.1** / fonksiyon **%74.4**)
 > **Kapsam:** alpha/beta kapıları + E2E senaryo kataloğu (CLI, SAFE, ERR,
 > SEC, API, PARITY, SCHED, ENV, PERF, LOAD, WEB, PROFILE).
 > **Kaynak kararlar:** `docs/HANDOVER-2026-10-23c.md` §4, `AGENTS.md`,
 > `docs/PROFILE-MODEL.md`.
 > **Kural:** Bu belge bir *kanıt* belgesidir. Test edilmemiş davranış
 > "hazır" sayılmaz; seviye yükseltmek için kanıt satırı eklenir.
+
+---
+> **Not (28.10.2026, T64/P2-P3-P9):** Plan akışı artık **tarihli kayıt** bırakır
+> (`plans.json`, motor `src/core/plan-records.ts`) ve menüde **Planlar rozeti**
+> vardır (`src/core/plan-badge.ts`). Her sistem taraması `scans/index.json`'a
+> **özet** kayıt yazar ve Disk ekranında salt okunur **Tarama geçmişi** şeridi
+> gösterir (`GET /api/scans`). Test **566**. UX PLAN P2/P3/P9 ✅; P6/P1/P4 açık.
+> Bu not **puanı değiştirmedi** (78.50; alfa ✅, beta 85 ✗).
 
 ---
 
@@ -139,6 +147,7 @@ Kalan açıklar beta maddeleridir: web E2E, PROFIL.
 **Beta durumu:** ❌ — web E2E ve yük ölçümü yok.
 
 ---
+
 
 ## 5. E2E senaryo kataloğu
 

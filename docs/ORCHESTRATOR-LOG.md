@@ -1394,3 +1394,33 @@ satır **%83.31** / dal **%76.08** / fonksiyon **%74.40** (526 test).
 - **Ders:** şema genişlemesi (yeni `status` değeri) **tek kaynak** tipini
   güncellemezse sayaç sessizce yanlış cevap verir. "0 planli" ile "plan yok"
   aynı şey değildir; tanınmayan değer görünür olmalı.
+
+### T64/P2 + P3 + P9 — plan kaydı, menü rozeti, tarama geçmişi (28.10.2026)
+
+- `docs/UX-PLAN-2026-10-21.md` kapsam denetimi (alt ajan + kod kanıtı): P5/P7/P8
+  yapılmış; P1/P3/P4/P6 **kısmi**; P2/P9 **yok**. Sıra: P2 → P3 → P9 → P6 → P1 → P4.
+- **P2a** işçi turu (Beam Free) + orkestratör düzeltmeleri: `ensureCacheLoaded`
+  eksikliği (gerçek 400 hatası), `targetCount: 0` uydurma sabiti, ikinci sunucu
+  açan testin süreci asması. Commit `02d8ffc` (8 dosya, 535+), test 544.
+- **P2b** işçi turu: Dashboard **Planla**, Plan ekranında **Plan kayıtları**;
+  başlık/hücre uyumu ve `as unknown as any` tip kaçamağı düzeltildi.
+  Commit `674c4a7`, test 548, bundle `index-PyiYweXg.js`.
+- **P3** işçi turu: `PlanBadge` motoru + rail rozeti + `aria-label`; boundary
+  istisnası gerekçe yorumuyla eklendi. Commit `6a41dd6`, test 553.
+- **P9a** işçi turu: `ScanHistory` motoru, `scans/index.json` deposu,
+  `GET /api/scans`; kanca yalnız sistem taraması + `persistScan`. Commit
+  `ee97d6d`, test 565.
+- **P9b** işçi turu: Disk'te salt okunur geçmiş şeridi + `summary` alanı
+  (shell-boundary korunur: arayüz moturu import etmez). Orkestratör
+  `var(--font-mono)` → var olan `var(--mono)` düzeltmesi. Commit `6f1ac21`,
+  test 566, build yeşil.
+- Tarayıcı kanıtı (port 4427, izole env): Planla → kayıt satırı + `TASI` bloğu
+  durumu, rozet 1 / "Planlar: 1 kayıt, 1 bekleyen", yeniden başlatmada kayıt
+  kalıcı, geçmiş şeridi 3 satır TR/EN, JS hatası yok.
+- **Ders:** (1) Dashboard "Güvenli kazanımlar" yalnız `risk === 'safe'` kümeleri
+  listeler — orta riskli kümede `TASI` duvarı orada görünmez; testte bu yüzden
+  safe küme kullanılır. (2) İzole sandbox'ta `scanOnLaunch` varsayılanı
+  `always` olduğu için fixture taraması ezilir; fixture `settings.json`'a
+  `scanOnLaunch: 'manual'` yazılmalı (geçerli değerler `always|daily|manual`).
+  (3) `page.evaluate` içinde `localStorage` yalnız sayfa yüklendikten sonra
+  erişilebilir (about:blank'te `SecurityError`).
