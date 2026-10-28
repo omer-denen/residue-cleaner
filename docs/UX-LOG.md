@@ -369,6 +369,15 @@ yüksekliğinde, `scrollWidth = clientWidth = 148` (taşma/sarma yok).
 sayfa başı rozetleriydi; alt risk kartlarının tıklanabilirliği istenen şeydi
 (UX-034) ve uygulandı.
 
+**28.10.2026 — kullanıcı onayı:** kullanıcı, maddenin **önceki yeniden tasarım
+fazında başka bir yöntemle çözüldüğünü** bildirdi ve **açık işlerden
+çıkarılmasını onayladı**. Yöntem: defter kartları `<button aria-pressed>` +
+alt detay listesi (UX-034/UX-044; motor `src/core/dashboard-details.ts`,
+`web/src/screens/Dashboard.tsx:252-253`) ve detayın sağ panel **Kanıtlar**
+modülüne taşınması (UX-045; `web/src/panel-plan.ts:60` →
+`dashboard: { modules: ['evidence','planned','context'] }`). Risk kartları
+statik `<article>` kalır. Bu madde artık açık iş değildir.
+
 ### UX-043 · "Yaptım" denip yapılmayan iş — süreç düzeltmesi — `düzeltildi`
 > *"Ama bu değişiklikleri yaptıp deyipte yapmaman bu olmadı."*
 

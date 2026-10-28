@@ -1257,3 +1257,23 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
 - **Açık risk:** replay p95 makine yüküne duyarlı (159 ms; bütçe 500 ms);
   payload ölçümü sentetik kümede 1.90 MB, gerçek veride 3.5 MB (JSON alanları
   daha zengin) — bütçe sentetik ölçüye göre kalibre edildi.
+
+---
+
+### UX-042 — açık kalemden çıkarıldı (28.10.2026, kullanıcı onayı)
+
+- **Kullanıcı kararı:** UX-042 (alt kartların tıklanabilirliği) önceki yeniden
+  tasarım fazında **başka bir yöntemle** çözüldü; açık işlerden silinecek.
+- **Kodda doğrulama (tahmin değil, kanıt):**
+  `web/src/screens/Dashboard.tsx:252-253` → defter kartları
+  `className={`ledger ledger-${ledger.id}…`}` + `aria-pressed={selectedId === ledger.detailId}`;
+  detay motoru `src/core/dashboard-details.ts:60` (`class DashboardDetails`);
+  `web/src/panel-plan.ts:60` → `dashboard: { modules: ['evidence','planned','context'] }`
+  (detay sağ panel **Kanıtlar** modülünde). Risk kartları statik `<article>`.
+- **Kapatılan kayıtlar:** `docs/HANDOVER-2026-10-28.md` §4 tablosundan satır
+  kaldırıldı + kapanış notu; `docs/UX-LOG.md` UX-042 bölümüne tarihli onay
+  notu. Tarihsel oturum kayıtları (26.10/27.10) **değiştirilmedi** — onlar
+  o günkü durumu anlatır.
+- **Ek not (süreç):** bu tür "açık kaldı" ifadeleri artık UX-LOG durumu ile
+  çapraz kontrol edilecek; UX-LOG `düzeltildi` diyorsa yeni bir devir belgesine
+  "açık" olarak taşınmayacak.
