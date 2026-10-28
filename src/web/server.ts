@@ -36,6 +36,7 @@ import { ScanService } from '../services/scan-service.ts';
 import { loadScanHistory } from '../store/scan-history.ts';
 import { ScanHistory, SCAN_HISTORY_LIMIT } from '../core/scan-history.ts';
 import { ActivityGate } from '../services/activity.ts';
+import { BackgroundService } from '../services/background-service.ts';
 import { verifyScanTargets } from '../services/scan-verify-service.ts';
 import { DeleteService } from '../services/delete-service.ts';
 import { CliInventoryService } from '../services/cli-inventory-service.ts';
@@ -159,6 +160,8 @@ interface WebContext {
   dashboard: DashboardService;
   audit: AuditService;
   plans: PlanRecordService;
+  activity: ActivityGate;
+  background: BackgroundService;
   /** jobId -> SSE istemcileri (HTTP adaptorune ait gecici durum). */
   streams: Map<string, Set<ServerResponse>>;
 }
@@ -200,6 +203,7 @@ export function createApiServer(opts: WebOptions = {}): { server: Server; token:
   const dashboard = new DashboardService(scan, env, graph, schedules, inventory);
   const audit = new AuditService();
   const plans = new PlanRecordService(remove, scan);
+  const background = new BackgroundService(scan, schedules, plans, activity);
   remove.onJobDone = (s) => {
     // Kayit yazimi basarisiz olsa bile silme sonucu kullaniciya donmeli:
     // kancayi yutan bir yakalama, sunucuyu cokertmemek icin.
@@ -225,6 +229,8 @@ export function createApiServer(opts: WebOptions = {}): { server: Server; token:
     dashboard,
     audit,
     plans,
+    activity,
+    background,
     streams,
   };
 
@@ -437,6 +443,7 @@ async function handleRequest(
           'GET  /api/recover',
           'GET  /api/audit',
           'GET  /api/scans',
+          'GET  /api/activity',
         ],
       });
       return;
@@ -469,6 +476,11 @@ async function handleRequest(
 
   if (route === 'GET /api/dashboard') {
     sendJson(res, 200, await ctx.dashboard.view());
+    return;
+  }
+
+  if (route === 'GET /api/activity') {
+    sendJson(res, 200, await ctx.background.view());
     return;
   }
 

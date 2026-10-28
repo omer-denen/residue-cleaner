@@ -1,12 +1,14 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type {
   DashboardCardId,
   DashboardDetailId,
   DashboardDetailRow,
   DashboardLedgerId,
+  BackgroundViewResponse,
   DashboardResponse,
 } from '../../../src/core/contract.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
+import { api } from '../api.ts';
 import {
   formatAge,
   formatBytes,
@@ -121,6 +123,27 @@ export function Dashboard({
    * Risk kartlari artik tiklanmaz; icerikleri alt listede acilir.
    */
   const [selectedId, setSelectedId] = useState<DashboardDetailId | null>(null);
+  const [activity, setActivity] = useState<BackgroundViewResponse | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = (): void => {
+      api
+        .activity()
+        .then((next) => {
+          if (alive) setActivity(next);
+        })
+        .catch(() => {
+          // Arka plan satiri salt bilgi: okunamazsa gosterilmez.
+        });
+    };
+    load();
+    // Sahne disinda suren is de gorunsun diye hafif tazeleme (5 sn).
+    const id = setInterval(load, 5000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
   const panel = useRightPanel();
 
   const detail = selectedId
@@ -158,6 +181,13 @@ export function Dashboard({
               ? t('dash.lastVault', { when: formatTimestamp(data.lastVaultAt, lang) })
               : t('dash.lastVault.none')}
           </p>
+          {activity && (
+            <p className="dim">
+              {t('dash.background.line', {
+                busy: t(`background.busy.${activity.busy ?? 'none'}` as MessageKey),
+              })}
+            </p>
+          )}
         </div>
         <div className="page-actions">
           <ScanStamp at={data.scan.at} ageMs={data.scan.ageMs} lang={lang} />

@@ -45,6 +45,7 @@ import type {
   VaultPurgeResponse,
   VaultRestoreResponse,
   AuditResponse,
+  BackgroundViewResponse,
 } from '../../src/core/contract.ts';
 
 /**
@@ -312,6 +313,8 @@ export const api = {
     const q = qs.toString();
     return request<AuditResponse>(`/api/audit${q ? `?${q}` : ''}`);
   },
+
+  activity: (): Promise<BackgroundViewResponse> => request<BackgroundViewResponse>('/api/activity'),
 
   restore: (id: string): Promise<VaultRestoreResponse> =>
     post<VaultRestoreResponse>('/api/vault/restore', {

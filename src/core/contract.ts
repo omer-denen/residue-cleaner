@@ -1562,3 +1562,46 @@ export interface ClusterDetailView {
   plannable: boolean;
   defaultSelected: boolean;
 }
+
+
+// ---------------------------------------------------------------------------
+// Arka plan gorunurlugu (T64/P4) — salt okunur durum ozeti.
+// ---------------------------------------------------------------------------
+
+export type BackgroundActivity = 'scan' | 'inventory' | null;
+
+export interface BackgroundFacts {
+  busy: BackgroundActivity;
+  scheduleRules: number;
+  schedulesDueToday: number;
+  missedRuns: number;
+  updateCheck: 'off' | 'daily' | 'weekly';
+  scanOnLaunch: 'always' | 'daily' | 'manual';
+  vaultRetentionDays: number;
+  pendingPlans: number;
+}
+
+export type BackgroundRowId =
+  | 'busy'
+  | 'schedules'
+  | 'plans'
+  | 'update'
+  | 'launch'
+  | 'retention';
+
+export interface BackgroundRowView {
+  id: BackgroundRowId;
+  count: number | null;
+  tone: 'ok' | 'warn' | 'dim' | 'danger';
+  /**
+   * Sayi yerine metin gosterilen satirlarda secenek kimligi: arayuz
+   * `background.value.<id>` anahtarini basar, karar motorda kalir.
+   */
+  valueId?: string;
+}
+
+export interface BackgroundViewResponse {
+  busy: BackgroundActivity;
+  automatic: boolean;
+  rows: BackgroundRowView[];
+}

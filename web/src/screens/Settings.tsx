@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import type {
+  BackgroundViewResponse,
   SettingsResponse,
   UpdateCheckView,
   UserProfile,
 } from '../../../src/core/contract.ts';
 import { api, ApiError } from '../api.ts';
+import { backgroundRowText } from '../background-text.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { formatAge } from '../format.ts';
 
@@ -40,6 +42,7 @@ export function Settings({ lang, version, onProfileChange }: Props) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [background, setBackground] = useState<BackgroundViewResponse | null>(null);
 
   const [checking, setChecking] = useState(false);
   const [update, setUpdate] = useState<UpdateCheckView | null>(null);
@@ -72,6 +75,27 @@ export function Settings({ lang, version, onProfileChange }: Props) {
       alive = false;
     };
   }, [apply]);
+
+  useEffect(() => {
+    let alive = true;
+    const load = (): void => {
+      api
+        .activity()
+        .then((next) => {
+          if (alive) setBackground(next);
+        })
+        .catch(() => {
+          // Arka plan blogu salt bilgi: okunamazsa gosterilmez.
+        });
+    };
+    load();
+    // Tarama sahne disinda da surebilir: yoksa "Yok" yanlis okunur (4 sn).
+    const id = setInterval(load, 4000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
 
   const save = async (): Promise<void> => {
     setSaving(true);
@@ -325,6 +349,19 @@ export function Settings({ lang, version, onProfileChange }: Props) {
             )}
           </section>
         </>
+      )}
+
+      {background && (
+        <section className="panel" aria-labelledby="settings-background">
+          <h2 id="settings-background">{tu('settings.background.title')}</h2>
+          <p className="dim">{t('settings.background.note')}</p>
+          {background.rows.map((row) => (
+            <div key={row.id} className="settings-row">
+              <span>{t(`background.row.${row.id}` as MessageKey)}</span>
+              <span className="mono dim">{backgroundRowText(row, background, t)}</span>
+            </div>
+          ))}
+        </section>
       )}
     </div>
   );
