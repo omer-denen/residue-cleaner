@@ -217,12 +217,18 @@ export function RightPanel({
   active,
   onActivate,
   onCollapse,
+  hiddenModules,
+  catalog,
+  onToggleModule,
 }: {
   lang: Lang;
   modules: RightPanelModule[];
   active: RightPanelModuleId;
   onActivate: (id: RightPanelModuleId) => void;
   onCollapse: () => void;
+  hiddenModules?: string[];
+  catalog?: { id: string; label: MessageKey }[];
+  onToggleModule?: (id: string) => void;
 }) {
   const t = (key: MessageKey): string => translate(lang, key);
   const tu = (key: MessageKey): string => translateUpper(lang, key);
@@ -281,6 +287,29 @@ export function RightPanel({
             </button>
           ))}
         </div>
+        {catalog && onToggleModule && (
+          <details className="rp-modules">
+            <summary aria-label={t('rightPanel.modules')} title={t('rightPanel.modules')}>
+              <Icon name="settings" size={13} />
+            </summary>
+            <ul>
+              {catalog.map((item) => {
+                const hidden = hiddenModules?.includes(item.id) ?? false;
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      aria-pressed={!hidden}
+                      onClick={() => onToggleModule(item.id)}
+                    >
+                      {t(item.label)}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </details>
+        )}
         <button
           type="button"
           className="ghost rp-collapse"

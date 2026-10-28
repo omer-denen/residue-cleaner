@@ -14,6 +14,7 @@ import type {
   UserProfile,
 } from '../../src/core/contract.ts';
 import { PlanBadge } from '../../src/core/plan-badge.ts';
+import { PanelPrefs } from '../../src/core/panel-prefs.ts';
 import { api, ApiError } from './api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from './i18n.ts';
 import { formatBytes } from './format.ts';
@@ -79,6 +80,7 @@ const NAV_GROUPS: Array<{ id: string; label: MessageKey; items: Screen[] }> = [
 const PANEL_MIN = 300;
 const PANEL_MAX = 560;
 const PANEL_DEFAULT = 380;
+const PANEL_HIDDEN_KEY = 'residue.panel.hidden';
 
 /** Panel genisligini 300-560 araligina kirp. */
 function clampPanelWidth(w: number): number {
@@ -134,6 +136,7 @@ export function App() {
     return clampPanelWidth(raw);
   });
   const [rightTab, setRightTab] = useState<RightPanelModuleId>('evidence');
+  const [hiddenPanel, setHiddenPanel] = useState<string[]>(() => PanelPrefs.parse(localStorage.getItem(PANEL_HIDDEN_KEY)));
   /** Dar ekran mi? (820px alti) */
   const [isNarrow, setIsNarrow] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches,
@@ -636,8 +639,10 @@ export function App() {
   // Sag panel modulleri: sira ve varyant `panel-plan.ts` kararidir; burada
   // yalnizca modul tanimlari (etiket, slot, rozet) kurulur.
   const panelPlan = panelPlanFor(screen);
+  const panelVisibility = PanelPrefs.resolve(panelPlan.modules, hiddenPanel);
+  const panelActive = panelVisibility.visible.includes(rightTab) ? rightTab : panelVisibility.visible[0];
   const hasContextTab = panelPlan.modules.includes('context');
-  const panelModules: RightPanelModule[] = panelPlan.modules.map((id) => {
+  const panelModules: RightPanelModule[] = panelVisibility.visible.map((id) => {
     if (id === 'evidence') {
       return {
         id: 'evidence',
@@ -693,6 +698,19 @@ export function App() {
       content: <ContextBlock meta={meta} status={status} lang={lang} />,
     };
   });
+
+  const PANEL_MODULE_LABEL: Record<string, MessageKey> = {
+    evidence: 'rightPanel.evidence',
+    action: 'rightPanel.action',
+    planned: 'rightPanel.planned',
+    context: 'rightPanel.context',
+  };
+
+  const onToggleModule = (id: string): void => {
+    const next = PanelPrefs.toggle(hiddenPanel, id, panelPlan.modules);
+    setHiddenPanel(next);
+    try { localStorage.setItem(PANEL_HIDDEN_KEY, JSON.stringify(next)); } catch { /* yoksay */ }
+  };
 
   /** Persona yalniz sunum: rail grup ici sirasi (W2-2). */
   const navOrder = profileViewFor(profile).navOrder;
@@ -799,7 +817,7 @@ export function App() {
         </div>
       </header>
 
-      <RightPanelProvider active={rightTab} onActivate={setRightTab}>
+      <RightPanelProvider active={panelActive} onActivate={setRightTab}>
         <div
           className={`shell${rightCollapsed ? ' shell-wide' : ''}`}
           style={{ '--right-w': `${panelWidth}px` } as CSSProperties}
@@ -1006,9 +1024,12 @@ export function App() {
           <RightPanel
             lang={lang}
             modules={panelModules}
-            active={rightTab}
+            active={panelActive}
             onActivate={setRightTab}
             onCollapse={() => setRightCollapsed(true)}
+            hiddenModules={panelVisibility.hidden}
+            catalog={panelPlan.modules.map((id) => ({ id, label: PANEL_MODULE_LABEL[id] }))}
+            onToggleModule={onToggleModule}
           />
         )}
       </div>

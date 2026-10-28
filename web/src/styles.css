@@ -4639,3 +4639,41 @@ kbd {
   font-size: 0.8rem;
   color: var(--faint);
 }
+
+.rp-modules {
+  position: relative;
+  margin-left: auto;
+}
+.rp-modules summary {
+  list-style: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.rp-modules summary::-webkit-details-marker {
+  display: none;
+}
+.rp-modules ul {
+  position: absolute;
+  right: 0;
+  top: 28px;
+  z-index: 20;
+  min-width: 180px;
+  list-style: none;
+  padding: 6px;
+  margin: 0;
+  background: var(--panel-bg, #1e1e1e);
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+}
+.rp-modules button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.rp-modules button[aria-pressed="false"] {
+  opacity: .55;
+}

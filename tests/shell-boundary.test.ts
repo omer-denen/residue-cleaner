@@ -45,7 +45,10 @@ test('web kabugu node builtin ve servis/aksiyon import edemez', async () => {
           path.endsWith('scan-control.ts') ||
           // plan menusu rozeti (kayit sayimi + bekleyen sayisi); saf TS, yalniz
           // contract tipi import eder — sayim motorda kalir (AGENTS.md kural 18)
-          path.endsWith('plan-badge.ts'),
+          path.endsWith('plan-badge.ts') ||
+          // sag panel modul gorunurlugu (gizle/goster, bos panel korumasi); saf TS,
+          // modul kimliklerini tanimaz — sira/koruma kurali motorda kalir (AGENTS.md kural 18, T64/P1)
+          path.endsWith('panel-prefs.ts'),
         `${file}: izin verilmeyen cekirdek importu: ${path}`,
       );
     }
