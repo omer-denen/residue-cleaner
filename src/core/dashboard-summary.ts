@@ -1,11 +1,13 @@
 import { ScanSummary } from './scan-summary.ts';
 import { DefaultSelection } from './selection.ts';
 import { categoryOf } from './categories.ts';
+import { DashboardRatio } from './dashboard-ratio.ts';
 import type {
   DashboardCardView,
   DashboardDetailView,
   DashboardLedgerView,
   DashboardResponse,
+  DashboardRatioView,
   DashboardSafeWinView,
   DashboardScanView,
   DashboardTotalsView,
@@ -63,6 +65,8 @@ export interface DashboardFacts {
   schedules: { rules: number; due: number; missed: number };
   /** Kart detaylari (secilen kartin satirlari). */
   details: DashboardDetailView[];
+  /** Surucu kapasitesi; olculemediyse null — payda uydurulmaz. */
+  disk: { totalBytes: number; freeBytes: number } | null;
 }
 
 /** Ayni anda gosterilecek "guvenli kazanim" sayisi. */
@@ -333,15 +337,25 @@ export class DashboardSummary {
   }
 
   view(): DashboardResponse {
+    const totals = this.totals();
+    const ratio = this.facts.disk
+      ? DashboardRatio.view({
+          diskTotalBytes: this.facts.disk.totalBytes,
+          diskFreeBytes: this.facts.disk.freeBytes,
+          scannedBytes: totals.scannedBytes,
+          reclaimableBytes: totals.deletableBytes,
+        })
+      : null;
     return {
       generatedAt: this.facts.now,
       scan: this.scan(),
       ledgers: this.ledgers(),
       cards: this.cards(),
       safeWins: this.safeWins(),
-      totals: this.totals(),
+      totals,
       details: this.facts.details,
       lastVaultAt: this.facts.vault.lastAt,
+      ratio,
     };
   }
 }

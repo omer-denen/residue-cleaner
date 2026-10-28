@@ -1317,6 +1317,24 @@ export interface DashboardTotalsView {
   deletableBytes: number;
 }
 
+/** Bir sayinin paydasi: "26.8 GB / 172 GB kullanılan (%15,6)". */
+export interface RatioShare {
+  known: boolean;
+  numerator: number | null;
+  denominator: number | null;
+  /** 0..1; bilinmiyorsa null. Yüzde biçimi arayüzde. */
+  ratio: number | null;
+}
+
+export interface DashboardRatioView {
+  /** Disk dolulugu: kullanılan / toplam. */
+  used: RatioShare;
+  /** Geri kazanilabilir / kullanılan. */
+  reclaimable: RatioShare;
+  /** Taranan alan / kullanılan. */
+  scanned: RatioShare;
+}
+
 export interface DashboardResponse {
   generatedAt: number;
   scan: DashboardScanView;
@@ -1328,6 +1346,8 @@ export interface DashboardResponse {
   details: DashboardDetailView[];
   /** Kasa son islem zamani (motordan); yoksa null. */
   lastVaultAt: number | null;
+  /** Sayilarin paydasi; disk olculemediyse null (arayuz eski metni gosterir). */
+  ratio: DashboardRatioView | null;
 }
 
 // ---------------------------------------------------------------------------

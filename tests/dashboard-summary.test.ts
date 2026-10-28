@@ -55,6 +55,7 @@ function facts(over: Partial<DashboardFacts> = {}): DashboardFacts {
     vault: { entries: 0, bytes: 0, expired: 0, lastAt: null },
     schedules: { rules: 0, due: 0, missed: 0 },
     details: [],
+    disk: null,
     ...over,
   };
 }
@@ -197,4 +198,14 @@ test('gorunum yalniz kimlik + sayi tasir (metin yok)', () => {
   assert.equal(text.includes('Korunan'), false);
   assert.equal(text.includes('Geri kazan'), false);
   assert.equal(typeof view.generatedAt, 'number');
+});
+
+test('disk doluysa ratio.used bilinir, disk null ise ratio null', () => {
+  const withDisk = new DashboardSummary(
+    facts({ disk: { totalBytes: 1000, freeBytes: 600 } }),
+  ).view();
+  assert.equal(withDisk.ratio?.used.known, true);
+
+  const noDisk = new DashboardSummary(facts({ disk: null })).view();
+  assert.equal(noDisk.ratio, null);
 });

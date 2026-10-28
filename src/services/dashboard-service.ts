@@ -222,6 +222,9 @@ export class DashboardService {
         due: (schedules ?? []).filter((s) => s.due).length,
         missed: (schedules ?? []).reduce((sum, s) => sum + s.missed, 0),
       },
+      disk: status.disk
+        ? { totalBytes: status.disk.totalBytes, freeBytes: status.disk.freeBytes }
+        : null,
       details,
     };
 

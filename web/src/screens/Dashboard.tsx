@@ -11,6 +11,7 @@ import {
   formatAge,
   formatBytes,
   formatCount,
+  formatRatio,
   formatScanRow,
   formatTimestamp,
 } from '../format.ts';
@@ -190,11 +191,24 @@ export function Dashboard({
             <strong className="dash-hero-value mono">
               {formatBytes(data.totals.deletableBytes)}
             </strong>
+            {data.ratio?.used.known && data.ratio?.reclaimable.known && (
+              <span className="dash-hero-share dim">
+                {t('dash.hero.share', {
+                  used: formatBytes(data.ratio.used.numerator ?? 0),
+                  share: formatRatio(data.ratio.reclaimable.ratio ?? 0, lang),
+                })}
+              </span>
+            )}
             <div className="dash-hero-meta">
               <span className="dim">
-                {t('dash.measure.scanned', {
-                  bytes: formatBytes(data.totals.scannedBytes),
-                })}
+                {data.ratio?.scanned.known
+                  ? t('dash.measure.scannedRatio', {
+                      bytes: formatBytes(data.totals.scannedBytes),
+                      used: formatBytes(data.ratio.scanned.denominator ?? 0),
+                    })
+                  : t('dash.measure.scanned', {
+                      bytes: formatBytes(data.totals.scannedBytes),
+                    })}
               </span>
               <span className={`dash-hero-scan scan-${data.scan.view.kind}`}>
                 {t(SCAN_STATUS_LABEL[data.scan.view.kind])}

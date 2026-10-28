@@ -1590,6 +1590,11 @@ code,
   overflow-wrap: anywhere;
 }
 
+.dash-hero-share {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .dash-hero-meta {
   display: flex;
   align-items: center;
