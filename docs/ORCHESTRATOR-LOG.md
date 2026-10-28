@@ -1424,3 +1424,29 @@ satır **%83.31** / dal **%76.08** / fonksiyon **%74.40** (526 test).
   `scanOnLaunch: 'manual'` yazılmalı (geçerli değerler `always|daily|manual`).
   (3) `page.evaluate` içinde `localStorage` yalnız sayfa yüklendikten sonra
   erişilebilir (about:blank'te `SecurityError`).
+
+### T64/P6 + P1 + P4 — UX PLAN kapandı (28.10.2026)
+
+**Kapsam:** `docs/UX-PLAN-2026-10-21.md` P6 (sayı paydası), P1 (sağ panel modül
+seçimi), P4 (arka planda ne çalışıyor). Üçü de dosya bazlı beyaz listeyle işçiye
+verildi; kararlar ve düzeltmeler orkestratörde.
+
+- **P6 `d61cdad`:** `dashboard-ratio` motoru (üç oran, `known` kapısı, 0..1
+  kırpma). Orkestratör tarayıcıda **hero paydası hatasını** buldu
+  (`used.denominator` = toplam disk, "kullanılan" diye etiketliydi) →
+  `used.numerator`. Test 566 → 575.
+- **P1 `f51ab41`:** `panel-prefs` motoru + `.rp-modules` menüsü +
+  `localStorage`. **Tasarım hatası düzeltildi:** `sanitize` ekran listesine göre
+  süzünce başka ekranda gizlenen modül sessizce unutuluyordu; artık `MODULE_IDS`
+  sabit listesi var, eleme `resolve`'ta. Regresyon testi eklendi. 575 → 588.
+- **P4 `45234e1`:** `background-view` motoru (6 satır, `tone` kuralları,
+  `automatic:false` sabiti, `valueId`) + `BackgroundService` (salt okunur) +
+  `GET /api/activity` + Ayarlar bloğu + Dashboard satırı. İşçi metinleri sabit
+  Türkçe yazmıştı ve `as any` kullanmıştı → i18n anahtarlarına çevrildi,
+  `ScheduleView.due/.missed` alanlarıyla tiplendi, 4/5 sn tazeleme eklendi.
+  588 → 603.
+- **Tarayıcı kanıtı:** TR/EN 6 satır; canlı tarama sırasında satır kendiliğinden
+  "Disk taraması" oldu (host-taraflı poll), tarama bitince "Yok".
+- **Ders:** (a) canlı durum tek seferlik okunmaz; (b) global tercih + ekran bazlı
+  süzgeç = veri kaybı; (c) "busy görünmüyor" demeden önce iş yapan bir kök ver.
+

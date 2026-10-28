@@ -1,6 +1,6 @@
 # READINESS MATRIX — 0.3.x (T74 / W0-a)
 
-> **Durum:** güncellendi · 28.10.2026 · `main` (566 test; kapsam satır **%83.3** / dal **%76.1** / fonksiyon **%74.4**)
+> **Durum:** güncellendi · 28.10.2026 · `main` (603 test; kapsam satır **%83.3** / dal **%76.1** / fonksiyon **%74.4**)
 > **Kapsam:** alpha/beta kapıları + E2E senaryo kataloğu (CLI, SAFE, ERR,
 > SEC, API, PARITY, SCHED, ENV, PERF, LOAD, WEB, PROFILE).
 > **Kaynak kararlar:** `docs/HANDOVER-2026-10-23c.md` §4, `AGENTS.md`,
@@ -14,6 +14,14 @@
 > vardır (`src/core/plan-badge.ts`). Her sistem taraması `scans/index.json`'a
 > **özet** kayıt yazar ve Disk ekranında salt okunur **Tarama geçmişi** şeridi
 > gösterir (`GET /api/scans`). Test **566**. UX PLAN P2/P3/P9 ✅; P6/P1/P4 açık.
+> Bu not **puanı değiştirmedi** (78.50; alfa ✅, beta 85 ✗).
+>
+> **Not (28.10.2026, T64/P6 + P1 + P4 — T64 kapandı):** Dashboard sayıları payda
+> ve oran taşır (`src/core/dashboard-ratio.ts`; payda bilinmezse eski metin).
+> Sağ panelde kullanıcı modül seçimi vardır (`src/core/panel-prefs.ts`,
+> `residue.panel.hidden`; sıra ekran planından, son modül korunur). Arka plan
+> durumu salt okunur özetlenir (`src/core/background-view.ts`,
+> `GET /api/activity`; `automatic:false` sabiti). Test **603**. UX PLAN P1–P9 ✅.
 > Bu not **puanı değiştirmedi** (78.50; alfa ✅, beta 85 ✗).
 
 ---
@@ -288,7 +296,7 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 | WEB-06 | PATH & Ortam | `TEMIZLE` duvarı; yedek dosyası | 🟡 |
 | WEB-07 | Graf | What-if engeli gerekçeli | 🟡 |
 | WEB-08 | Planlar | `PLANLA`; önizleme; çalıştır/sil | 🟡 |
-| WEB-09 | Ayarlar | Kaydet; kapalı güncelleme ağ isteği yok | 🟡 |
+| WEB-09 | Ayarlar | Kaydet; kapalı güncelleme ağ isteği yok | ✅ (T64/P4: salt okunur "Arka planda" bloğu) |
 | WEB-10 | Klavye-only tur | Tüm akış; odak tuzağı; `Esc` | 🟡 |
 | WEB-11 | Ekran okuyucu | `aria-*`, canlı bölge, `role=alert` | 🟡 |
 | WEB-12 | `prefers-reduced-motion` | Animasyon kapanır | 🟡 |
@@ -297,7 +305,7 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 | WEB-15 | Hata durumları | 401/403/404/500 kullanıcıya görünür | ❌ |
 | WEB-16 | Yeniden bağlanma | SSE `Last-Event-ID`; sayaç | 🟡 |
 | WEB-17 | F5 kanıt rozetleri | state/history/atime/install ayrımı | ❌ |
-| WEB-18 | Sağ panel | Modül seçimi; planlananlar; TTL temizliği | 🟡 |
+| WEB-18 | Sağ panel | Modül seçimi; planlananlar; TTL temizliği | ✅ (T64/P1: gizle/göster menüsü, `localStorage`, son modül korunur) |
 
 ### 5.10 PROFILE (T74 — bağlayıcı)
 
