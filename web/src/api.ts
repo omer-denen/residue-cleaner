@@ -19,6 +19,9 @@ import type {
   GraphWhatIfResponse,
   MetaResponse,
   PlanPreview,
+  PlanRecordCreateResponse,
+  PlanRecordView,
+  PlanRecordsResponse,
   PlanResponse,
   ProjectAnalysisResponse,
   ProjectListResponse,
@@ -246,6 +249,13 @@ export const api = {
 
   /** Sag panel "Planlananlar": sunucudaki en son gecerli plan (yoksa null). */
   planned: (): Promise<PlanResponse | null> => request<PlanResponse | null>('/api/plan'),
+
+  /** Tarihli plan kayitlari (motor: GET /api/plans). */
+  plans: (): Promise<PlanRecordsResponse> => request<PlanRecordsResponse>('/api/plans'),
+  /** "Guvenli Kazanim" satirini plana cevirir: kayit acilir + onay plani uretilir. */
+  createPlanRecord: (clusterKeys: string[], source: 'dashboard' | 'disk' | 'api', name?: string):
+    Promise<PlanRecordCreateResponse> =>
+    post<PlanRecordCreateResponse>('/api/plans', { clusterKeys, source, ...(name ? { name } : {}) }),
 
   verifyScan: (): Promise<ScanVerifyResponse> => post<ScanVerifyResponse>('/api/scan/verify', {}),
 

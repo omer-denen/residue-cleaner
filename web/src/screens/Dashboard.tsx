@@ -101,10 +101,12 @@ export function Dashboard({
   data,
   lang,
   onOpenDisk,
+  onPlanWin,
 }: {
   data: DashboardResponse;
   lang: Lang;
   onOpenDisk: () => void;
+  onPlanWin?: (clusterKey: string) => void;
 }) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
@@ -433,6 +435,7 @@ export function Dashboard({
                 <th>{tu('table.category')}</th>
                 <th className="num">{t('table.size')}</th>
                 <th>{tu('table.why')}</th>
+                {onPlanWin && <th>{t('dashboard.plan.col')}</th>}
               </tr>
             </thead>
             <tbody>
@@ -456,6 +459,18 @@ export function Dashboard({
                       {t(CONFIDENCE_LABEL[win.confidence] ?? 'confidence.low')}
                     </span>
                   </td>
+                  {onPlanWin && (
+                    <td>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => onPlanWin(win.clusterKey)}
+                        aria-label={`${t('dashboard.plan.row')}: ${win.title}`}
+                      >
+                        {t('dashboard.plan.row')}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

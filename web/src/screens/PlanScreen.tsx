@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ExecuteEvent, PlanResponse } from '../../../src/core/contract.ts';
+import type { ExecuteEvent, PlanRecordView, PlanResponse } from '../../../src/core/contract.ts';
 import { ApprovalRules } from '../../../src/core/approval.ts';
 import { api, ApiError } from '../api.ts';
 import { openEvents } from '../sse.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
-import { formatBytes } from '../format.ts';
+import { formatBytes, formatTimestamp } from '../format.ts';
 import { RISK_LABEL } from '../labels.ts';
 import { PlanValidity } from '../components/PlannedModule.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 
 interface Props {
   plan: PlanResponse | null;
+  records: PlanRecordView[];
   lang: Lang;
   /** Plan suresi doldu: bos durumda kapatilabilir uyarida yumusak cikis. */
   expired?: boolean;
@@ -37,6 +38,7 @@ interface JobState {
  */
 export function PlanScreen({
   plan,
+  records,
   lang,
   expired,
   onDismissExpired,
@@ -62,6 +64,58 @@ export function PlanScreen({
   useEffect(() => {
     return () => closeStream.current?.();
   }, []);
+
+  function renderRecords() {
+    return (
+      <section className="plan-records">
+        <h2>{t('plan.records.title')}</h2>
+        {records.length === 0 ? (
+          <p className="dim">{t('plan.records.empty')}</p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>{t('plan.records.created')}</th>
+                <th>{t('plan.records.statusCol')}</th>
+                <th>{t('plan.records.scope')}</th>
+                <th className="num">{t('plan.records.size')}</th>
+                <th>{t('plan.records.result')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.map((r) => (
+                <tr key={r.id}>
+                  <td className="mono">{formatTimestamp(r.createdAt, lang)}</td>
+                  <td>
+                    <span
+                      className={`badge ${
+                        r.status === 'executed'
+                          ? 'badge-ok'
+                          : r.status === 'failed'
+                            ? 'badge-danger'
+                            : ''
+                      }`}
+                    >
+                      {t(`plan.records.state.${r.status}` as MessageKey)}
+                    </span>
+                  </td>
+                  <td>
+                    {r.clusterCount} × {r.targetCount}
+                  </td>
+                  <td className="num mono">{formatBytes(r.bytes)}</td>
+                  <td className="mono">
+                    {r.status === 'executed'
+                      ? `${formatBytes(r.freedBytes ?? 0)} · ${r.removed ?? 0}`
+                      : r.error ?? '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+    );
+  }
 
   if (!plan) {
     return (
@@ -98,6 +152,7 @@ export function PlanScreen({
             </button>
           }
         />
+        {renderRecords()}
       </div>
     );
   }
@@ -302,6 +357,8 @@ export function PlanScreen({
           )}
         </div>
       </section>
+
+      {renderRecords()}
     </div>
   );
 }

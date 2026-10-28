@@ -7,6 +7,7 @@ import type {
 import type {
   DashboardResponse,
   MetaResponse,
+  PlanRecordView,
   PlanResponse,
   ScanStatusResponse,
   ScanVerifyResponse,
@@ -99,6 +100,7 @@ export function App() {
   const [planned, setPlanned] = useState<PlanResponse | null>(null);
   const [planBusy, setPlanBusy] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
+  const [planRecords, setPlanRecords] = useState<PlanRecordView[]>([]);
   /**
    * Plan suresi doldu (ya da plan 410): sessiz kaybolma YOK; sag panel ve
    * Plan ekraninda uyarisi kapatilabilir olarak durur; yeni plan kurulunca
@@ -158,11 +160,41 @@ export function App() {
     setRightTab(primaryModuleFor(screen));
   }, [screen]);
 
+  useEffect(() => {
+    if (screen === 'plan') void refreshPlanRecords();
+  }, [screen]);
+
   /** Plan gecersiz oldugunda (404/410) ortak temizlik + uyarı bayragi. */
   const stalePlan = (): void => {
     setPlanned(null);
     setPlan(null);
     setPlanExpired(true);
+  };
+
+  const refreshPlanRecords = async (): Promise<void> => {
+    try {
+      const res = await api.plans();
+      setPlanRecords(res.records);
+    } catch {
+      /* yut */
+    }
+  };
+
+  const planWin = async (clusterKey: string): Promise<void> => {
+    if (planBusy) return;
+    setPlanBusy(true);
+    setPlanError(null);
+    try {
+      const out = await api.createPlanRecord([clusterKey], 'dashboard');
+      setPlan(out.plan);
+      setPlanned(out.plan);
+      setScreen('plan');
+      await refreshPlanRecords();
+    } catch (err) {
+      setPlanError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setPlanBusy(false);
+    }
   };
 
   /**
@@ -836,6 +868,7 @@ export function App() {
               data={dashboard}
               lang={lang}
               onOpenDisk={() => setScreen('disk')}
+              onPlanWin={planWin}
             />
           )}
 
@@ -872,6 +905,7 @@ export function App() {
             <PlanScreen
               plan={plan}
               lang={lang}
+              records={planRecords}
               expired={planExpired}
               onDismissExpired={() => setPlanExpired(false)}
               onBack={() => setScreen('disk')}
@@ -886,6 +920,7 @@ export function App() {
                 setPlanned(null);
                 setPlanExpired(false);
                 void load();
+                void refreshPlanRecords();
               }}
             />
           )}
