@@ -1352,3 +1352,26 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
 - **Açık:** PROFILE-06 (üç profilde gerçek `guard`/`report-only` koşusu) ve
   PROFILE-07 (ekran okuyucu + `prefers-reduced-motion` turu) elle/otomatik
   kanıt bekliyor; kapsam ölçümünün tazelenmesi sıradaki iş.
+
+### Kapsam ölçümü tazeleme (28.10.2026)
+
+`node --import tsx --test --experimental-test-coverage tests/*.test.ts` →
+satır **%83.31** / dal **%76.08** / fonksiyon **%74.40** (526 test).
+
+- Dosya kanıtı: `guard.ts` 100/87.5/100, `restore-target.ts` 100/100/100,
+  `audit-export.ts` 100/94.3/100, `vault.ts` 87.9/70.8/71.7,
+  `delete.ts` 61.2/68.5/34.4, `restore.ts` 32.9/100/25.
+- **Karar:** hata yönetimi 55 → 60, toplam **77.75 → 78.50**. Yükseltme
+  gerekçesi ölçülen dosyalardır (vault + restore-target + B23); 70'e
+  çıkarılmadı çünkü hata enjeksiyonu ve `delete` döngüleri yok.
+- **Bayat risk temizliği:** §7'deki "parity kısmi" (T79 ✅ 27.10),
+  "performans/yük ölçümü yok" (W0-b-3 + T83 ✅) ve "T37/F5 açık" (ikisi de
+  ✅ 23.10) maddeleri kaldırıldı; yerine `restore.ts` ölü yüzeyi ve backlog
+  hijyeni riski eklendi.
+- **Bulgu:** `state.json` backlog'unda B23 ve B24 `planned` kalmıştı, B22
+  `done` ama `doneAt`/`commit` yoktu → üçü `done` + commit (`b5eb5d9`,
+  `a8e7110`, `fd87707`) ile işaretlendi. (İlk turda B23'ün `bugs[]`
+  kaydı yanlışlıkla güncellendi; `status: fixed` geri kondu — backlog ile
+  aynı kimliği taşıyan iki kayıt var.)
+- **Ders:** "kapsam ölçümü" tek başına ölçüm değil, **belge hijyeni** turudur:
+  sayıyı yazarken gerekçe satırları ve risk listesi de kanıtla karşılaştırılır.

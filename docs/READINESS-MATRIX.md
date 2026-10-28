@@ -1,6 +1,6 @@
 # READINESS MATRIX — 0.3.x (T74 / W0-a)
 
-> **Durum:** güncellendi · 28.10.2026 · `main` (526 test)
+> **Durum:** güncellendi · 28.10.2026 · `main` (526 test; kapsam satır **%83.3** / dal **%76.1** / fonksiyon **%74.4**)
 > **Kapsam:** alpha/beta kapıları + E2E senaryo kataloğu (CLI, SAFE, ERR,
 > SEC, API, PARITY, SCHED, ENV, PERF, LOAD, WEB, PROFILE).
 > **Kaynak kararlar:** `docs/HANDOVER-2026-10-23c.md` §4, `AGENTS.md`,
@@ -31,12 +31,12 @@
 |---|---:|---:|---:|---|
 | İşlevsel doğruluk | 25 | 85 | 21.25 | Motor + API geniş; CLI E2E ve PARITY-01…05 tamam; web tarayıcı E2E hâlâ yok |
 | Güvenlik değişmezleri | 25 | 85 | 21.25 | guard/onay/vault güçlü; Git/junction E2E `npm test` dışında |
-| Hata yönetimi | 15 | 55 | 8.25 | `delete.ts` / `vault.ts` kapsamı düşük; hata enjeksiyonu yok (B23 yarış/ezme testleri eklendi) |
+| Hata yönetimi | 15 | 60 | 9.00 | Kapsam 28.10.2026'da ölçüldü: `vault.ts` %87.9 satır / %71.7 fonksiyon, `restore-target.ts` %100, `guard.ts` %100; `delete.ts` %61.2 / %34.4 (yürütme döngüleri test dışı). Hata enjeksiyonu yok |
 | Güvenlik (HTTP/kapılar) | 15 | 70 | 10.50 | 401/403/token test edildi; Origin ve gövde sınırı E2E değil |
 | Gözlemlenebilirlik | 10 | 80 | 8.00 | Günlük + journal + `log --summary`; metrik yok |
 | Performans | 5 | 85 | 4.25 | PERF-01…03 ölçüldü, `scripts/perf-budget.json` kapısı var (taban + en kötü gözlem) |
 | Yük | 5 | 85 | 4.25 | LOAD-01…04 ölçüldü, `scripts/perf-budget.json` eşikleri var (LOAD-02/03 28.10.2026) |
-| **Toplam** | **100** | | **77.75** | |
+| **Toplam** | **100** | | **78.50** | |
 
 **Kapılar:** alpha **≥ 70**, beta **≥ 85**.
 
@@ -70,6 +70,18 @@
 > WEB-10 (klavye-only tur) satırı **kısmen** ilerledi ama tüm akış + odak
 > tuzağı tamamlanmadığı için **puan değişmedi**.
 
+> **Not (28.10.2026, kapsam tazeleme):** `node --import tsx --test
+> --experimental-test-coverage tests/*.test.ts` (526 test) → **satır %83.31 /
+> dal %76.08 / fonksiyon %74.40**. Öne çıkanlar: `guard.ts` satır %100 /
+> fonksiyon %100 (dal %87.5), `restore-target.ts` %100, `vault.ts` %87.93 /
+> %71.74, `audit-export.ts` %100 / %100, `delete.ts` %61.16 / %34.38
+> (yürütme döngüleri 109-214 ve 220-304 test dışı), `restore.ts` %32.94
+> (yalnız `exists` kullanılıyor). Bu ölçüm hata yönetimi alt skorunu
+> **55 → 60** (katkı 8.25 → 9.00), toplamı **77.75 → 78.50** yaptı: eski
+> gerekçedeki "vault kapsamı düşük" ifadesi geçersiz, ama hata enjeksiyonu
+> (ERR-01…08) ve `delete` döngü kapsamı hâlâ yok → 70'e çıkarılmadı.
+> Beta (85) ✗, fark 6.5.
+
 ---
 
 ## 3. Sınıf × boyut
@@ -79,7 +91,7 @@
 | Karar motoru (`classifier`, `analyze`, `merge`, `selection`) | 3 | 4 | 2 | 3 | 0 | 0 | 3 | 40+ fixture testi; gerçek disk E2E otomatik değil |
 | `walker` / ölçüm | 4 | 4 | 3 | 3 | 2 | 0 | 2 | 139 ms / 7.6k dosya mikro ölçümü; tam tarama perf yok |
 | `guard` / `approval` | 4 | 5 | 2 | 4 | 0 | 0 | 3 | Düşmanca guard testleri; `--yes` bypass testi var |
-| `vault` / `delete` | 3 | 4 | 1 | 3 | 0 | 0 | 3 | Satır %57 / fonksiyon %32; hata enjeksiyonu yok |
+| `vault` / `delete` | 3 | 4 | 1 | 3 | 0 | 0 | 3 | 28.10.2026: `vault.ts` %87.9 satır / %71.7 fonksiyon, `delete.ts` %61.2 / %34.4 (döngüler test dışı), `restore-target.ts` %100; hata enjeksiyonu yok |
 | Servisler (`scan/delete/cli/env/project/graph/schedule`) | 3 | 4 | 2 | 3 | 0 | 0 | 2 | API testleri + motor testleri; yük yok |
 | `store` (cache/settings/schedules) | 3 | 3 | 2 | 3 | 0 | 0 | 2 | Atomik yazma; bozuk JSON testi var |
 | HTTP adaptörü (`server.ts` / `http.ts`) | 3 | 4 | 2 | 4 | 0 | 0 | 2 | 401/403 + 34 smoke; Origin/gövde sınırı E2E değil |
@@ -309,13 +321,17 @@ güncellenmez.
 
 ## 7. Açık riskler (öncelik sırası)
 
-1. **`delete.ts` / `vault.ts` düşük kapsam** — hata enjeksiyonu yok (beta kapısı).
+1. **`delete.ts` yürütme döngüleri test dışı** — satır %61.2 / fonksiyon
+   %34.4 (109-214 purge, 220-304 taşıma); hata enjeksiyonu (ERR-01…08) yok.
+   Beta kapısının ana maddesi.
 2. **Git tracked + junction silme koruması `npm test` dışında** — scratch
    kanıtı var; otomatik regresyon yok.
-3. **Parity kısmi** — PARITY-01…03 süreç düzeyinde test ediliyor (26.10.2026);
-   graph ve project adaptörleri (PARITY-04/05) hâlâ açık (T79).
-4. **Performans/yük ölçümü yok** — eşik tanımsız; alpha puanı 68.0'da kalıyor.
-5. **Web UI otomatik E2E yok** — M5 elle doğrulandı; T74 profilleri (W2)
-   elle doğrulandı ama PROFILE-06/07 otomatik değil.
-6. **T37 açık** — yarım güncelleme artıkları.
-7. **F5 açık** — kanıt türü rozetleri web değişikliği bekliyor.
+3. **Web UI otomatik E2E yok** — M5, B24, B19/B21 ve T74/W2 **elle**
+   doğrulandı (ego-browser); PROFILE-06/07 otomatik değil.
+4. **Eski geri dönüşüm kutusu yolu** — `src/actions/restore.ts` %32.94;
+   yalnız `exists` kullanılıyor (`src/web/server.ts:22`), kasa akışı bu
+   dosyayı kullanmıyor. Ölü yüzey; temizlik/T64 adayı.
+5. **Backlog hijyeni** — tamamlanan iş açık kalabiliyordu: B23 (27.10,
+   `a8e7110`) ve B24 (28.10, `fd87707`) backlog'da hâlâ `planned`, B22
+   `done` ama `doneAt`/`commit` yoktu. 28.10.2026'da üçü `done` + commit ile
+   işaretlendi; yeni paket kapanışında bu alan zorunlu.
