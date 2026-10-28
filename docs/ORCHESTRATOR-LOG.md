@@ -1450,3 +1450,22 @@ verildi; kararlar ve düzeltmeler orkestratörde.
 - **Ders:** (a) canlı durum tek seferlik okunmaz; (b) global tercih + ekran bazlı
   süzgeç = veri kaybı; (c) "busy görünmüyor" demeden önce iş yapan bir kök ver.
 
+### Oturum kapanışı — 28.10.2026 → 29.10.2026 (devir yazıldı)
+
+- **Oturum toplamı:** 27 commit (7ddb989..bce1793), test **469 → 603**
+  (+134), 9 paket: B24 · T83 · B19/B21 · T74/W2 · kapsam tazeleme · B25 ·
+  T64/P2 · T64/P3+P9 · T64/P6+P1+P4. Görev tablosu **83/83 done**
+  (0 todo, 0 planned); okunurluk **78.50 / 70** (alpha ✅).
+- **Devir belgesi:** docs/HANDOVER-2026-10-29.md (kapanış/devir); ayrıntılı
+  kanıt kaydı docs/HANDOVER-2026-10-28.md (§1–§5). İki belge bilerek ayrı:
+  biri kanıt, diğeri sıradaki oturumun yönlendirmesi.
+- **Açık bırakılanlar (kayıtlı):** PROFILE-06/07 (guard koşusu + ekran
+  okuyucu), kasada Local\uv + Local\rattler kullanıcı kararı,
+  clean --purge 3.0 sorusu, scan-verify teardown flakei (ENOTEMPTY),
+  src/actions/restore.ts ölü yüzeyi, beta farkı 6.5 puan.
+- **Süreç notu:** bu oturumda her paket için (a) beyaz listeli görev dosyası,
+  (b) görünür pencerede işçi turu, (c) git status --short ile beyaz liste
+  doğrulaması, (d) orkestratörün kendi kapı koşusu, (e) tek commit,
+  (f) main ff-merge, (g) ana repoda kapılar, (h) gitignore senkronu + sha256
+  eşitliği, (i) push uygulandı. İşçi raporu hiçbir turda tek başına kanıt
+  sayılmadı; 9 ürün hatası bu sayede yakalandı.
