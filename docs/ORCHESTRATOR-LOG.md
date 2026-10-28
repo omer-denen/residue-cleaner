@@ -1307,3 +1307,48 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
   rozetine de uyuyor — birincil düğmeyi `main button.primary` ile seçmek
   gerekir. Tarama sahnesi `Disk` açılışında otomatik başlayabilir; sahneyi
   bulduktan **hemen** `P` ile duraklatmak yarışı önler.
+
+### T74/W2 — persona (28.10.2026)
+
+- **Kapsam:** `docs/PROFILE-MODEL.md` üç ekseni ayrı tutar; bu turda yalnız
+  **persona** uygulandı (developer / vibe coder / melez). Persona sunum
+  seçer: açılış ekranı, rail sırası, yoğunluk, ilk açılış sorusu. Tarama
+  kapsamı (`--profile`), risk, hedef, seçim, onay ifadesi ve `guard`
+  değişmez.
+- **Dört alt paket + bir temizlik:** W2-1 motor/sözleşme (`72e1218`),
+  W2-2 sunum haritası + Ayarlar seçici (`9eb8b8b`), W2-3 onboarding
+  (`052198c`), W2-4 adlandırma + yoğunluk (`10ac059`), kullanılmayan
+  `ProfileView.panelModule` alanının kaldırılması (`c0a899d`).
+- **Motor:** `src/core/profile.ts` — `USER_PROFILES`,
+  `DEFAULT_USER_PROFILE='hybrid'`, `isUserProfile`, `normalizeUserProfile`;
+  `contract.ts` `UserProfile` + `uiProfile`; `store/settings.ts` kalıcılık;
+  `scan-service`/`server.ts` geçişi (geçersiz değer melez'e düşer).
+- **Arayüz:** `web/src/profiles.ts` (`ProfileDensity`, `PROFILE_VIEWS`,
+  `profileViewFor`), `App.tsx` `.app[data-density]` + rail grup içi sıra,
+  `Settings.tsx` radio grubu + `onProfileChange`, `Onboarding.tsx` +
+  `onboarding.ts` (`residue.onboarded`).
+- **Kapılar:** src/web typecheck temiz, **500 → 526 test**, build yeşil
+  (`index-BT4CEaS4.js`).
+- **Tarayıcı (ego-browser, port 4426, izole `LOCALAPPDATA`/`TEMP`):**
+  onboarding TR (üç kart, varsayılan melez, `Esc` → melez, odak `#main`),
+  "Developer" → açılış Projeler + rail `Projeler, Graf, PATH & Ortam,
+  Araçlar`; Ayarlar'dan "Vibe coder" + Kaydet → rail anında değişti, reload
+  sonrası Genel Bakış ve onboarding tekrar **görünmedi**; EN metinleri
+  ("What are you doing?", "Continue with this profile") doğrulandı; JS hatası
+  yok. Yoğunluk: `compact` 36 px / `normal` 44 px satır, başlık dolgusu
+  4 px / 6 px.
+- **Kararlar:** (a) yoğunluk **`.app`** üzerinde — `documentElement`'te
+  değil; (b) persona sağ panel modülü **seçmez**, karar ekran başına
+  `panel-plan.ts`'te (dashboard'da `action` modülü yok) → boş alan silindi;
+  (c) diyalogda `role="group"` + `aria-pressed` (kod tabanı deseni);
+  (d) onboarding tetiklemesi `api.settings()` `try` bloğunun dışında.
+- **Dersler:** (1) İşçi `tests/profile-naming.test.ts` dosyasını
+  `Set-Content -Encoding UTF8` ile yazdı → **BOM + CRLF** (K13 tekrarı);
+  orkestratör LF'e çevirdi, `\uXXXX` kaçışlarını gerçek karakterlere
+  döndürdü. (2) Deterministik yoğunluk kanıtı için 5k fixture gerekmez:
+  `.app` içine geçici `.cluster-row` enjekte edip `getComputedStyle`
+  okumak aynı CSS kaskadını kanıtlar — izole sandbox taraması 0 küme üretti
+  ve turu boşa çıkardı. (3) `page.screenshot` **mutlak** yol ister.
+- **Açık:** PROFILE-06 (üç profilde gerçek `guard`/`report-only` koşusu) ve
+  PROFILE-07 (ekran okuyucu + `prefers-reduced-motion` turu) elle/otomatik
+  kanıt bekliyor; kapsam ölçümünün tazelenmesi sıradaki iş.

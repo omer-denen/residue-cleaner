@@ -1,6 +1,6 @@
 # READINESS MATRIX — 0.3.x (T74 / W0-a)
 
-> **Durum:** güncellendi · 28.10.2026 · `main` (500 test)
+> **Durum:** güncellendi · 28.10.2026 · `main` (526 test)
 > **Kapsam:** alpha/beta kapıları + E2E senaryo kataloğu (CLI, SAFE, ERR,
 > SEC, API, PARITY, SCHED, ENV, PERF, LOAD, WEB, PROFILE).
 > **Kaynak kararlar:** `docs/HANDOVER-2026-10-23c.md` §4, `AGENTS.md`,
@@ -55,6 +55,15 @@
 > (ego-browser: filtre + indirilen dosya içeriği TR/EN); otomatik web E2E
 > olmadığı için **puan değişmedi** — bu satır kanıt kaydıdır, seviye yükseltmez.
 
+> **Not (28.10.2026, T74/W2):** Üç persona (developer / vibe coder / melez)
+> uygulandı: kalıcılık + API sözleşmesi (`src/core/profile.ts`), sunum haritası
+> (`web/src/profiles.ts`), ilk açılış onboarding (`web/src/onboarding.ts`) ve
+> `data-density` yoğunluk kuralları. Persona **yalnız sunum**; tarama kapsamı,
+> risk, hedef, seçim ve onay ifadesi değişmez (PROFILE-03/04/05 testleri).
+> Tarayıcı kanıtı **elle** alındı (ego-browser: onboarding TR/EN + `Esc`,
+> rail sırası, yoğunluk 36 px / 44 px). Otomatik web E2E olmadığı için
+> **puan değişmedi** (77.75).
+>
 > **Not (28.10.2026, B19/B21):** Tarama iptali artık sessiz dönmüyor
 > (`role="status"` bilgi satırı, hata bandından ayrı), `P` ile duraklat/devam
 > ve iptal iki adımlı (B19/B21, motor `src/core/scan-control.ts`, 10 test).
@@ -76,7 +85,7 @@
 | HTTP adaptörü (`server.ts` / `http.ts`) | 3 | 4 | 2 | 4 | 0 | 0 | 2 | 401/403 + 34 smoke; Origin/gövde sınırı E2E değil |
 | CLI komutları | 2 | 4 | 2 | — | 0 | 0 | 2 | `npm test` içinde gerçek CLI E2E yok |
 | Web UI (React) | 2 | — | 1 | — | 0 | 0 | 1 | M5 elle doğrulandı; otomatik tarayıcı E2E yok |
-| Kullanıcı profilleri (T74) | 0 | 0 | 0 | — | 0 | 0 | 0 | Henüz uygulanmadı; `docs/PROFILE-MODEL.md` |
+| Kullanıcı profilleri (T74) | 3 | 3 | 1 | 3 | 0 | 0 | 3 | Persona yalnız sunum: kalıcılık + API sözleşmesi + `/api/disk`/plan değişmezliği test edildi (26 test); ekran okuyucu turu yok |
 
 ---
 
@@ -250,7 +259,7 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 
 | ID | Senaryo | Kabul | Durum |
 |---|---|---|---|
-| WEB-01 | İlk açılış / onboarding | 3 persona; varsayılan melez; atlanabilir | ❌ (T74) |
+| WEB-01 | İlk açılış / onboarding | 3 persona; varsayılan melez; atlanabilir | ✅ (T74/W2; elle, ego-browser) |
 | WEB-02 | Disk tarama SSE | Canlı liste; iptal/duraklat/devam | 🟡 |
 | WEB-03 | Plan + `TASI` | Özet; yüksek risk işareti; yazılı onay | 🟡 |
 | WEB-04 | Kasa | Geri yükleme; çakışma; seçili boşaltma · denetim filtresi + CSV/JSON dışa aktarma (B24, elle doğrulandı) | 🟡 |
@@ -273,13 +282,13 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 
 | ID | Senaryo | Kabul | Durum |
 |---|---|---|---|
-| PROFILE-01 | Varsayılan | `hybrid`; ilk açılış | ❌ |
-| PROFILE-02 | Geçersiz değer | `hybrid`'e düşer; restart korur | ❌ |
-| PROFILE-03 | Disk değişmezliği | `/api/disk` sayı/karar/hedef/seçim aynı | ❌ |
-| PROFILE-04 | Plan değişmezliği | Plan + onay ifadesi aynı | ❌ |
-| PROFILE-05 | Tarama yok | Profil değişimi `/api/scan` çağırmaz | ❌ |
-| PROFILE-06 | Güvenlik | `report-only` + `guard` üç profilde geçer | ❌ |
-| PROFILE-07 | A11y | Klavye + ekran okuyucu + reduced motion | ❌ |
+| PROFILE-01 | Varsayılan | `hybrid`; ilk açılış | ✅ `tests/profile.test.ts` + onboarding (elle) |
+| PROFILE-02 | Geçersiz değer | `hybrid`'e düşer; restart korur | ✅ `normalizeUserProfile` + `PROFILE API-01/02`; restart elle doğrulandı |
+| PROFILE-03 | Disk değişmezliği | `/api/disk` sayı/karar/hedef/seçim aynı | ✅ `PROFILE API-03` |
+| PROFILE-04 | Plan değişmezliği | Plan + onay ifadesi aynı | ✅ `PROFILE API-04` (hedef + bayt kilidi) |
+| PROFILE-05 | Tarama yok | Profil değişimi `/api/scan` çağırmaz | ✅ `PROFILE API-05` |
+| PROFILE-06 | Güvenlik | `report-only` + `guard` üç profilde geçer | 🟡 onay ifadesi sabit testi var; üç profilde gerçek guard koşusu yok |
+| PROFILE-07 | A11y | Klavye + ekran okuyucu + reduced motion | 🟡 klavye/odak onboarding'de elle; ekran okuyucu + reduced motion turu yok |
 
 ---
 
@@ -306,7 +315,7 @@ güncellenmez.
 3. **Parity kısmi** — PARITY-01…03 süreç düzeyinde test ediliyor (26.10.2026);
    graph ve project adaptörleri (PARITY-04/05) hâlâ açık (T79).
 4. **Performans/yük ölçümü yok** — eşik tanımsız; alpha puanı 68.0'da kalıyor.
-5. **Web UI otomatik E2E yok** — M5 elle doğrulandı; T74 profilleri eklenince
-   matris genişleyecek.
+5. **Web UI otomatik E2E yok** — M5 elle doğrulandı; T74 profilleri (W2)
+   elle doğrulandı ama PROFILE-06/07 otomatik değil.
 6. **T37 açık** — yarım güncelleme artıkları.
 7. **F5 açık** — kanıt türü rozetleri web değişikliği bekliyor.
