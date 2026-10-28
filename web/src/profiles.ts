@@ -1,5 +1,5 @@
 import type { UserProfile } from '../../src/core/contract.ts';
-import type { PanelModuleId, PanelScreen } from './panel-plan.ts';
+import type { PanelScreen } from './panel-plan.ts';
 
 export type ProfileDensity = 'compact' | 'normal' | 'detailed';
 
@@ -7,7 +7,7 @@ export interface ProfileView {
   id: UserProfile;
   initialScreen: PanelScreen;
   navOrder: PanelScreen[];
-  panelModule: PanelModuleId;
+  // Sag panel modulu persona ile SECILMEZ: ekran basina karar panel-plan.ts.
   density: ProfileDensity;
   copyKey: 'profile.copy.developer' | 'profile.copy.vibe' | 'profile.copy.hybrid';
 }
@@ -58,7 +58,6 @@ export const PROFILE_VIEWS: Record<UserProfile, ProfileView> = {
     id: 'developer',
     initialScreen: 'projects',
     navOrder: NAV_ORDER_DEVELOPER,
-    panelModule: 'evidence',
     density: 'compact',
     copyKey: 'profile.copy.developer',
   },
@@ -66,7 +65,6 @@ export const PROFILE_VIEWS: Record<UserProfile, ProfileView> = {
     id: 'vibe',
     initialScreen: 'dashboard',
     navOrder: NAV_ORDER_VIBE,
-    panelModule: 'action',
     density: 'normal',
     copyKey: 'profile.copy.vibe',
   },
@@ -74,7 +72,6 @@ export const PROFILE_VIEWS: Record<UserProfile, ProfileView> = {
     id: 'hybrid',
     initialScreen: 'dashboard',
     navOrder: NAV_ORDER_HYBRID,
-    panelModule: 'evidence',
     density: 'detailed',
     copyKey: 'profile.copy.hybrid',
   },
