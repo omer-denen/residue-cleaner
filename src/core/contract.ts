@@ -26,6 +26,7 @@ import type {
   ScheduleSelector,
 } from './plan-engine.ts';
 import type { Ecosystem, ProjectCleanupMode } from './project-deps.ts';
+import type { PlanRecord, PlanRecordStatus, PlanRecordSource } from './plan-records.ts';
 
 export type { CategoryKey, CategoryStat } from './categories.ts';
 
@@ -594,6 +595,30 @@ export interface PlanResponse {
   advanced?: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Plan kayitlari (T64/P2a) — tarihli, kalici
+// ---------------------------------------------------------------------------
+
+export interface PlanRecordView extends PlanRecord {
+  clusterCount: number;
+}
+
+export interface PlanRecordsResponse {
+  records: PlanRecordView[];
+  counts: Record<PlanRecordStatus, number>;
+}
+
+export interface PlanRecordCreateRequest {
+  clusterKeys: string[];
+  source?: PlanRecordSource;
+  name?: string;
+}
+
+export interface PlanRecordCreateResponse {
+  record: PlanRecordView;
+  plan: PlanResponse;
+}
+
 export interface ExecuteRequest {
   planId: string;
   phrase?: string;
@@ -715,6 +740,7 @@ export type {
   ScheduleRun,
   ScheduleSelector,
 } from './plan-engine.ts';
+export type { PlanRecord, PlanRecordStatus, PlanRecordSource } from './plan-records.ts';
 
 // ---------------------------------------------------------------------------
 // Planlar / zamanlama (M4) — yalniz KASAYA tasir

@@ -44,6 +44,7 @@ import { EnvService } from '../services/env-service.ts';
 import { ProjectService } from '../services/project-service.ts';
 import { GraphService } from '../services/graph-service.ts';
 import { ScheduleService } from '../services/schedule-service.ts';
+import { PlanRecordService } from '../services/plan-record-service.ts';
 import { DashboardService } from '../services/dashboard-service.ts';
 import { AuditService } from '../services/audit-service.ts';
 import { interruptedOperations } from '../core/operation-journal.ts';
@@ -90,6 +91,8 @@ import type {
   VaultRestoreRequest,
   VaultRestoreResponse,
   AuditResponse,
+  PlanRecordCreateResponse,
+  PlanRecordSource,
 } from '../core/contract.ts';
 
 /**
@@ -152,6 +155,7 @@ interface WebContext {
   schedules: ScheduleService;
   dashboard: DashboardService;
   audit: AuditService;
+  plans: PlanRecordService;
   /** jobId -> SSE istemcileri (HTTP adaptorune ait gecici durum). */
   streams: Map<string, Set<ServerResponse>>;
 }
@@ -192,6 +196,15 @@ export function createApiServer(opts: WebOptions = {}): { server: Server; token:
   const schedules = new ScheduleService(scan, remove);
   const dashboard = new DashboardService(scan, env, graph, schedules, inventory);
   const audit = new AuditService();
+  const plans = new PlanRecordService(remove, scan);
+  remove.onJobDone = (s) => {
+    // Kayit yazimi basarisiz olsa bile silme sonucu kullaniciya donmeli:
+    // kancayi yutan bir yakalama, sunucuyu cokertmemek icin.
+    const write = s.ok
+      ? plans.markExecuted(s.planId, { freedBytes: s.freedBytes, removed: s.removed })
+      : plans.mark(s.planId, 'failed', { error: s.error });
+    void write.catch(() => undefined);
+  };
 
   const ctx: WebContext = {
     token,
@@ -208,6 +221,7 @@ export function createApiServer(opts: WebOptions = {}): { server: Server; token:
     schedules,
     dashboard,
     audit,
+    plans,
     streams,
   };
 
@@ -1125,6 +1139,56 @@ async function handleRequest(
       failed: r.failed,
     };
     sendJson(res, 200, out);
+    return;
+  }
+
+  if (route === 'GET /api/plans') {
+    const { records, counts } = await ctx.plans.list();
+    const views = records.map((r) => ({
+      ...r,
+      clusterCount: r.clusterKeys.length,
+    }));
+    sendJson(res, 200, { records: views, counts });
+    return;
+  }
+
+  if (route === 'POST /api/plans') {
+    const body = await readJson<Record<string, unknown>>(req);
+    const clusterKeys = Array.isArray(body.clusterKeys)
+      ? body.clusterKeys.filter((k): k is string => typeof k === 'string')
+      : [];
+    if (clusterKeys.length === 0) {
+      sendJson(res, 400, { error: 'clusterKeys gerekli' });
+      return;
+    }
+    const sourceRaw = body.source;
+    let source: PlanRecordSource | undefined;
+    if (sourceRaw !== undefined) {
+      if (sourceRaw !== 'dashboard' && sourceRaw !== 'disk' && sourceRaw !== 'api') {
+        sendJson(res, 400, { error: 'gecersiz source' });
+        return;
+      }
+      source = sourceRaw;
+    }
+    const name = typeof body.name === 'string' ? body.name : undefined;
+    try {
+      // Sunucu yeni acildiysa tarama BELLEKTE yok; onbellekten yukle.
+      // (diger plan uclari da ayni kapiyi kullanir)
+      await ctx.scan.ensureCacheLoaded();
+      const out = await ctx.plans.create({ clusterKeys, source, name });
+      const recordView = {
+        ...out.record,
+        clusterCount: out.record.clusterKeys.length,
+        targetCount: out.plan.plan.targets.length,
+      };
+      sendJson(res, 201, { record: recordView, plan: out.plan });
+    } catch (err) {
+      if (err instanceof ServiceError) {
+        sendJson(res, err.status, { error: describeError(err) });
+        return;
+      }
+      throw err;
+    }
     return;
   }
 

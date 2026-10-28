@@ -77,6 +77,9 @@ export class DeleteService {
   private readonly jobs = new Map<string, ExecuteJob>();
   private readonly emit: DeleteEmit;
 
+  /** Silme isi bittiginde cagrilan kanca (null ise hicbir sey olmaz). */
+  onJobDone: ((summary: { planId: string; ok: boolean; freedBytes: number; removed: number; error?: string }) => void) | null = null;
+
   constructor(emit: DeleteEmit) {
     this.emit = emit;
   }
@@ -653,6 +656,7 @@ export class DeleteService {
         journalPath: journal.file,
         mode: plan.mode,
       });
+      this.onJobDone?.({ planId: stored.planId, ok: true, freedBytes: freed, removed });
     } catch (err) {
       // Journal yazimi veya beklenmeyen hata: islem "crashed" isaretlenir.
       try {
@@ -675,6 +679,7 @@ export class DeleteService {
         retryable: ae.retryable,
         dataSafe: ae.dataSafe,
       });
+      this.onJobDone?.({ planId: stored.planId, ok: false, freedBytes: 0, removed: 0, error: ae.message });
     } finally {
       closeRecycle();
     }
