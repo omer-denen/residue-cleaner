@@ -805,6 +805,10 @@ const tr = {
   'profile.copy.developer': 'Projelerim ve kanıt; gürültüsüz liste, Git farkındalığı.',
   'profile.copy.vibe': 'Ne var, ne silinebilir; sade özet ve adım adım akış.',
   'profile.copy.hybrid': 'Filtre, kanıt ağacı ve deney alanı bir arada.',
+  'onboarding.title': 'Ne yapıyorsun?',
+  'onboarding.hint': 'Profil yalnız görünümü seçer; tarama kapsamı, risk ve onay kuralları aynı kalır.',
+  'onboarding.continue': 'Bu profille devam',
+  'onboarding.later': 'Şimdilik melez',
   'settings.advanced': 'Gelişmiş mod',
   'settings.advancedHint':
     'Bu mod, normalde silinmeyen öğeleri (rapor/keep) de plana alır. Korunan alanlar (sistem yolları, kendi veri dizini, sanal diskler, ajan/proje alanları) yine silinemez.',
@@ -1759,6 +1763,10 @@ const en: Record<keyof typeof tr, string> = {
   'profile.copy.developer': 'Projects and evidence; quiet list, Git awareness.',
   'profile.copy.vibe': 'What exists, what can be removed; simple summary and step-by-step flow.',
   'profile.copy.hybrid': 'Filters, evidence tree and playground together.',
+  'onboarding.title': 'What are you doing?',
+  'onboarding.hint': 'Profile only selects the view; scan scope, risk and approval rules stay the same.',
+  'onboarding.continue': 'Continue with this profile',
+  'onboarding.later': 'Hybrid for now',
   'settings.advanced': 'Advanced mode',
   'settings.advancedHint':
     'This mode also puts normally non-deletable items (report/keep) on the plan. Protected areas (system paths, own data directory, virtual disks, agent/project areas) remain undeletable.',

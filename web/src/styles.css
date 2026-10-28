@@ -4505,3 +4505,95 @@ kbd {
   background: color-mix(in srgb, var(--danger) 8%, var(--panel-2));
 }
 
+/* ------------------------------------------------- onboarding diyalogu */
+
+.onboarding-backdrop {
+  z-index: 60;
+}
+
+.onboarding-dialog {
+  width: min(520px, 100%);
+  padding: 22px 22px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6);
+}
+
+.onboarding-head h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.onboarding-hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--dim);
+  line-height: 1.5;
+}
+
+.onboarding-cards {
+  display: grid;
+  gap: 10px;
+}
+
+.onboarding-card {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.onboarding-card:hover {
+  border-color: var(--accent-dim);
+}
+
+.onboarding-card.is-checked {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel-2));
+}
+
+.onboarding-card-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.onboarding-card-copy {
+  font-size: 12px;
+  color: var(--dim);
+  line-height: 1.45;
+}
+
+.onboarding-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  justify-content: flex-end;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .onboarding-backdrop {
+    animation: onboarding-fade 0.16s ease-out;
+  }
+  .onboarding-dialog {
+    animation: onboarding-pop 0.18s ease-out;
+  }
+}
+
+@keyframes onboarding-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes onboarding-pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+

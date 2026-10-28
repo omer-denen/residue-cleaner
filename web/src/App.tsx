@@ -16,6 +16,8 @@ import { api, ApiError } from './api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from './i18n.ts';
 import { formatBytes } from './format.ts';
 import { profileViewFor } from './profiles.ts';
+import { Onboarding } from './screens/Onboarding.tsx';
+import { shouldOnboard, ONBOARDING_KEY, ONBOARDING_DONE } from './onboarding.ts';
 import { isTypingTarget } from './keyboard.ts';
 import { ScanStatusChip, ScanStatusDialog } from './components/ScanStatus.tsx';
 import { Icon, type IconName } from './components/icons.tsx';
@@ -87,6 +89,7 @@ export function App() {
   );
   const [screen, setScreen] = useState<Screen>('dashboard');
   const [profile, setProfile] = useState<UserProfile>('hybrid');
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
   const navigatedRef = useRef(false);
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [meta, setMeta] = useState<MetaResponse | null>(null);
@@ -259,6 +262,11 @@ export function App() {
         }
       } catch {
         /* varsayilan always */
+      }
+      // Onboarding ayar okumasindan BAGIMSIZ: ayarlar okunamasa da ilk
+      // acilis sorusu gosterilir (varsayilan hybrid isaretli).
+      if (shouldOnboard(localStorage.getItem(ONBOARDING_KEY))) {
+        setOnboardingOpen(true);
       }
       // 2. Plan atma: armed === false -> at; armed === true -> dokunma.
       let currentPlanned: PlanResponse | null = null;
@@ -1000,6 +1008,27 @@ export function App() {
           }}
         />
       )}
+
+      <Onboarding
+        lang={lang}
+        open={onboardingOpen}
+        onChoose={async (id) => {
+          try {
+            const next = await api.saveSettings({ uiProfile: id });
+            setProfile(next.uiProfile);
+            if (!navigatedRef.current) {
+              setScreen(profileViewFor(next.uiProfile).initialScreen);
+            }
+          } catch {
+            setProfile(id);
+            if (!navigatedRef.current) {
+              setScreen(profileViewFor(id).initialScreen);
+            }
+          }
+          localStorage.setItem(ONBOARDING_KEY, ONBOARDING_DONE);
+          setOnboardingOpen(false);
+        }}
+      />
 
       {help && (
         <div className="shortcuts-backdrop" onClick={() => setHelp(false)}>
