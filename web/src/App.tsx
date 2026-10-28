@@ -14,6 +14,7 @@ import type {
 import { api, ApiError } from './api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from './i18n.ts';
 import { formatBytes } from './format.ts';
+import { isTypingTarget } from './keyboard.ts';
 import { ScanStatusChip, ScanStatusDialog } from './components/ScanStatus.tsx';
 import { Icon, type IconName } from './components/icons.tsx';
 import {
@@ -68,14 +69,6 @@ const NAV_GROUPS: Array<{ id: string; label: MessageKey; items: Screen[] }> = [
 ];
 
 /** Yazı alanında mı? Kısayollar orada devre dışı kalır. */
-function isTypingTarget(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  if (!el) return false;
-  const tag = el.tagName;
-  return (
-    tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable === true
-  );
-}
 
 const PANEL_MIN = 300;
 const PANEL_MAX = 560;
@@ -1039,6 +1032,12 @@ export function App() {
                   <kbd>{t('a11y.shortcut.select.keys')}</kbd>
                 </dt>
                 <dd>{t('a11y.shortcut.select')}</dd>
+              </div>
+              <div>
+                <dt>
+                  <kbd>{t('a11y.shortcut.pause.keys')}</kbd>
+                </dt>
+                <dd>{t('a11y.shortcut.pause')}</dd>
               </div>
               <div>
                 <dt>

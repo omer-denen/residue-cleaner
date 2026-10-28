@@ -15,6 +15,8 @@ import { openEvents } from '../sse.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { formatBytes, formatCount } from '../format.ts';
 import { ScanStatusChip } from '../components/ScanStatus.tsx';
+import { isTypingTarget } from '../keyboard.ts';
+import { ScanControl } from '../../../src/core/scan-control.ts';
 import { DependenciesSection } from '../components/DependenciesSection.tsx';
 import { Icon } from '../components/icons.tsx';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
@@ -138,6 +140,8 @@ export function Disk({
     current: string | null;
   } | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [scanNotice, setScanNotice] = useState<'cancelled' | 'paused' | null>(null);
+  const [cancelConfirm, setCancelConfirm] = useState(false);
   const closeStream = useRef<(() => void) | null>(null);
   const foundIds = useRef<Set<string>>(new Set());
 
@@ -222,6 +226,8 @@ export function Disk({
 
   const startScan = async (): Promise<void> => {
     setScanError(null);
+    setScanNotice(null);
+    setCancelConfirm(false);
     try {
       const { scanId } = await api.startScan({
         envs,
@@ -261,22 +267,30 @@ export function Disk({
             break;
           case 'paused':
             setScan((s) => (s ? { ...s, paused: true } : s));
+            setScanNotice('paused');
             break;
           case 'resumed':
             setScan((s) => (s ? { ...s, paused: false } : s));
+            setScanNotice(null);
             break;
           case 'done':
             setScan(null);
+            setScanNotice(null);
+            setCancelConfirm(false);
             onStatus();
             void load();
             break;
           case 'cancelled':
             setScan(null);
+            setScanNotice('cancelled');
+            setCancelConfirm(false);
             onStatus();
             break;
           case 'error':
             setScanError(event.message);
             setScan(null);
+            setScanNotice(null);
+            setCancelConfirm(false);
             break;
         }
       });
@@ -428,6 +442,28 @@ export function Disk({
   const scanning = scan !== null || status?.scanning === true;
   const live = scan ?? engineProgress;
   const scanId = scan?.id ?? engineProgress?.scanId ?? null;
+
+  // B21: P tusu ile duraklat/devam (tarama sürerken, Disk ekranında).
+  useEffect(() => {
+    if (!scanning) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
+      const phase = ScanControl.phase(scanning, scan?.paused ?? false);
+      const intent = ScanControl.keyIntent(e.key, phase);
+      if (intent === 'pause') {
+        e.preventDefault();
+        void scanAction('pause');
+      } else if (intent === 'resume') {
+        e.preventDefault();
+        void scanAction('resume');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // `scanId` deps'te: yeni tarama baslarsa dinleyici taze `scanAction`
+    // kapanisini almali (aksi halde `P` eski taramaya gonderilirdi).
+  }, [scanning, scan?.paused, scanId]);
   const percent = scan
     ? scan.total > 0
       ? Math.min(100, Math.round((scan.done / scan.total) * 100))
@@ -657,22 +693,53 @@ export function Disk({
                 type="button"
                 className="ghost"
                 disabled={!scanId}
+                aria-keyshortcuts="P"
                 onClick={() => void scanAction(live?.paused ? 'resume' : 'pause')}
               >
                 {live?.paused ? t('disk.resume') : t('disk.pause')}
               </button>
-              <button
-                type="button"
-                className="ghost"
-                disabled={!scanId}
-                onClick={() => void scanAction('cancel')}
-              >
-                {t('disk.cancel')}
-              </button>
+              {cancelConfirm ? (
+                <>
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => setCancelConfirm(false)}
+                  >
+                    {t('disk.cancel.keep')}
+                  </button>
+                  <button
+                    type="button"
+                    className="danger-button"
+                    disabled={!scanId}
+                    onClick={() => {
+                      setCancelConfirm(false);
+                      void scanAction('cancel');
+                    }}
+                  >
+                    {t('disk.cancel.confirm')}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={!scanId}
+                  onClick={() => setCancelConfirm(true)}
+                >
+                  {t('disk.cancel')}
+                </button>
+              )}
             </div>
           </section>
         )}
 
+        {scanNotice && (
+          <div className="banner" role="status">
+            {scanNotice === 'cancelled'
+              ? t('disk.scan.cancelledNotice')
+              : t('disk.scan.pausedNotice')}
+          </div>
+        )}
         {scanError && <div className="banner danger" role="alert">{t('disk.scanFailed')}: {scanError}</div>}
         {error && <div className="banner danger" role="alert">{error}</div>}
         {planError && (
