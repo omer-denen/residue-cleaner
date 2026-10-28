@@ -1208,7 +1208,11 @@ async function handleRequest(
 
   if (route === 'GET /api/scans') {
     const entries = ScanHistory.list(await loadScanHistory());
-    const body: ScanHistoryResponse = { entries, limit: SCAN_HISTORY_LIMIT };
+    const body: ScanHistoryResponse = {
+      entries,
+      limit: SCAN_HISTORY_LIMIT,
+      summary: ScanHistory.summary(entries),
+    };
     sendJson(res, 200, body);
     return;
   }

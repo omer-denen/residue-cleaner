@@ -28,6 +28,7 @@ import type {
   ProjectRootsResponse,
   ProjectSort,
   ProjectTab,
+  ScanHistoryResponse,
   ScanStartResponse,
   ScanStatusResponse,
   ScanVerifyResponse,
@@ -252,6 +253,8 @@ export const api = {
 
   /** Tarihli plan kayitlari (motor: GET /api/plans). */
   plans: (): Promise<PlanRecordsResponse> => request<PlanRecordsResponse>('/api/plans'),
+  /** Tarama gecmisi (salt okunur). */
+  scans: (): Promise<ScanHistoryResponse> => request<ScanHistoryResponse>('/api/scans'),
   /** "Guvenli Kazanim" satirini plana cevirir: kayit acilir + onay plani uretilir. */
   createPlanRecord: (clusterKeys: string[], source: 'dashboard' | 'disk' | 'api', name?: string):
     Promise<PlanRecordCreateResponse> =>

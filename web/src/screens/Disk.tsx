@@ -6,6 +6,7 @@ import type {
   DiskViewResponse,
   MetaResponse,
   PlanResponse,
+  ScanHistoryResponse,
   ScanStatusResponse,
   ScanStreamEvent,
   ScanVerifyResponse,
@@ -13,7 +14,7 @@ import type {
 import { api, ApiError } from '../api.ts';
 import { openEvents } from '../sse.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
-import { formatBytes, formatCount } from '../format.ts';
+import { formatBytes, formatCount, formatTimestamp } from '../format.ts';
 import { ScanStatusChip } from '../components/ScanStatus.tsx';
 import { isTypingTarget } from '../keyboard.ts';
 import { ScanControl } from '../../../src/core/scan-control.ts';
@@ -114,6 +115,7 @@ export function Disk({
   const [zombie, setZombie] = useState(false);
 
   const [view, setView] = useState<DiskViewResponse | null>(null);
+  const [history, setHistory] = useState<ScanHistoryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [detailKey, setDetailKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<ClusterDetailView | null>(null);
@@ -181,9 +183,21 @@ export function Disk({
     }
   }, [debouncedText, kind, category, sort, big, risky, zombie, plannedList]);
 
+  const refreshHistory = useCallback(async () => {
+    try {
+      setHistory(await api.scans());
+    } catch {
+      /* gecmis okunamadi */
+    }
+  }, []);
+
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void refreshHistory();
+  }, [refreshHistory]);
 
   useEffect(() => {
     return () => closeStream.current?.();
@@ -279,6 +293,7 @@ export function Disk({
             setCancelConfirm(false);
             onStatus();
             void load();
+            void refreshHistory();
             break;
           case 'cancelled':
             setScan(null);
@@ -510,6 +525,25 @@ export function Disk({
             </button>
           </div>
         </header>
+
+        {history && history.entries.length > 0 && (
+          <section className="scan-history" aria-label={t('disk.history.title')}>
+            <h2>{t('disk.history.title')}</h2>
+            <ul>
+              {history.entries.slice(0, 5).map((e) => (
+                <li key={e.id}>
+                  <span className="mono">{formatTimestamp(e.at, lang)}</span>
+                  <span className="dim mono">
+                    {t('disk.history.row', { clusters: e.clusters, size: formatBytes(e.bytes) })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {history.entries.length >= history.limit && (
+              <p className="dim">{t('disk.history.truncated', { limit: history.limit })}</p>
+            )}
+          </section>
+        )}
 
         <a className="skip-inline" href="#cluster-list">
           {t('a11y.skipList')}

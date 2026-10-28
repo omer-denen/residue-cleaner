@@ -215,6 +215,8 @@ export interface ScanHistoryResponse {
   entries: ScanHistoryEntry[];
   /** En fazla kac kayit tutuldugu (arayuz "en yeni N" notu icin). */
   limit: number;
+  /** Motor ozeti: kayit sayisi + en yeni/en eski zaman. */
+  summary: { count: number; lastAt: number; firstAt: number };
 }
 
 export interface ScanVerifyResponse {
