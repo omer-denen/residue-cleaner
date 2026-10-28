@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type {
   SettingsResponse,
   UpdateCheckView,
+  UserProfile,
 } from '../../../src/core/contract.ts';
 import { api, ApiError } from '../api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
@@ -10,6 +11,8 @@ import { formatAge } from '../format.ts';
 interface Props {
   lang: Lang;
   version?: string;
+  /** Profil kaydedildi: ust kabuk rail sirasi/yogunlugu hemen gunceller. */
+  onProfileChange?: (profile: UserProfile) => void;
 }
 
 /**
@@ -18,7 +21,7 @@ interface Props {
  * Guncelleme kontrolu KAPALIYKEN hicbir ag istegi yapilmaz. Arayuz
  * yalnizca sunucunun ayar/sonuc gorunumunu gosterir.
  */
-export function Settings({ lang, version }: Props) {
+export function Settings({ lang, version, onProfileChange }: Props) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
 
@@ -32,6 +35,7 @@ export function Settings({ lang, version }: Props) {
   const [updateCheck, setUpdateCheck] = useState<'off' | 'daily' | 'weekly'>('off');
   const [scanOnLaunch, setScanOnLaunch] = useState<'always' | 'daily' | 'manual'>('always');
   const [advancedDelete, setAdvancedDelete] = useState<boolean>(false);
+  const [uiProfile, setUiProfile] = useState<UserProfile>('hybrid');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -48,6 +52,7 @@ export function Settings({ lang, version }: Props) {
     setUpdateCheck(next.updateCheck);
     setScanOnLaunch(next.scanOnLaunch);
     setAdvancedDelete(next.advancedDelete);
+    setUiProfile(next.uiProfile);
   }, []);
 
   useEffect(() => {
@@ -73,7 +78,9 @@ export function Settings({ lang, version }: Props) {
     setSaved(false);
     setError(null);
     try {
-      apply(await api.saveSettings({ scanCacheHours, vaultRetentionDays, updateCheck, scanOnLaunch, advancedDelete }));
+      const next = await api.saveSettings({ scanCacheHours, vaultRetentionDays, updateCheck, scanOnLaunch, advancedDelete, uiProfile });
+      apply(next);
+      onProfileChange?.(next.uiProfile);
       setSaved(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
@@ -220,6 +227,40 @@ export function Settings({ lang, version }: Props) {
             <p className="banner danger" role="alert">
               {t('settings.advancedHint')}
             </p>
+          </section>
+
+          <section className="panel">
+            <h2>{tu('settings.profile.title')}</h2>
+            <div
+              role="radiogroup"
+              aria-label={t('settings.profile.title')}
+              className="settings-row"
+              style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}
+            >
+              {(['developer', 'vibe', 'hybrid'] as const).map((id) => (
+                <label key={id} className="approval-row checkbox">
+                  <input
+                    type="radio"
+                    name="uiProfile"
+                    value={id}
+                    checked={uiProfile === id}
+                    onChange={() => setUiProfile(id)}
+                  />
+                  <span>
+                    {t(`settings.profile.${id}` as MessageKey)}
+                    {id === 'hybrid' && (
+                      <span className="badge git" style={{ marginLeft: 8 }}>
+                        {t('settings.profile.default')}
+                      </span>
+                    )}
+                    <span className="dim" style={{ display: 'block' }}>
+                      {t(`profile.copy.${id}` as MessageKey)}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="dim">{t('settings.profile.hint')}</p>
           </section>
 
           <div className="settings-actions">

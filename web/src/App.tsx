@@ -10,10 +10,12 @@ import type {
   PlanResponse,
   ScanStatusResponse,
   ScanVerifyResponse,
+  UserProfile,
 } from '../../src/core/contract.ts';
 import { api, ApiError } from './api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from './i18n.ts';
 import { formatBytes } from './format.ts';
+import { profileViewFor } from './profiles.ts';
 import { isTypingTarget } from './keyboard.ts';
 import { ScanStatusChip, ScanStatusDialog } from './components/ScanStatus.tsx';
 import { Icon, type IconName } from './components/icons.tsx';
@@ -84,6 +86,8 @@ export function App() {
     localStorage.getItem('residue.lang') === 'en' ? 'en' : 'tr',
   );
   const [screen, setScreen] = useState<Screen>('dashboard');
+  const [profile, setProfile] = useState<UserProfile>('hybrid');
+  const navigatedRef = useRef(false);
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [status, setStatus] = useState<ScanStatusResponse | null>(null);
@@ -249,6 +253,10 @@ export function App() {
       try {
         const s = await api.settings();
         mode = s.scanOnLaunch;
+        setProfile(s.uiProfile);
+        if (!navigatedRef.current) {
+          setScreen(profileViewFor(s.uiProfile).initialScreen);
+        }
       } catch {
         /* varsayilan always */
       }
@@ -556,6 +564,7 @@ export function App() {
         title={label}
         aria-label={label}
         onClick={() => {
+          navigatedRef.current = true;
           setScreen(id);
           if (isNarrow) setRailOpen(false);
         }}
@@ -632,6 +641,9 @@ export function App() {
     };
   });
 
+  /** Persona yalniz sunum: rail grup ici sirasi (W2-2). */
+  const navOrder = profileViewFor(profile).navOrder;
+
   return (
     <div
       className={[
@@ -642,6 +654,7 @@ export function App() {
       ]
         .filter(Boolean)
         .join(' ')}
+      data-density={profileViewFor(profile).density}
     >
       <a className="skip-link" href="#main">
         {t('a11y.skip')}
@@ -755,7 +768,9 @@ export function App() {
               <div className="rail-group-label" aria-hidden="true">
                 {tu(group.label)}
               </div>
-              {group.items.map((id) => railItem(id))}
+              {[...group.items]
+                .sort((x, y) => navOrder.indexOf(x) - navOrder.indexOf(y))
+                .map((id) => railItem(id))}
             </div>
           ))}
 
@@ -890,7 +905,7 @@ export function App() {
           )}
 
           {!loading && !error && screen === 'settings' && (
-            <Settings lang={lang} version={meta?.version} />
+            <Settings lang={lang} version={meta?.version} onProfileChange={setProfile} />
           )}
 
           {!loading && !error && screen === 'vault' && (
