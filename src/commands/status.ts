@@ -1,6 +1,7 @@
 import { readState, writeState, renderHandoff, type ProjectState } from '../util/state.ts';
 import { info } from '../util/log.ts';
 import { BugViewList } from '../core/bug-view.ts';
+import { TaskViewList } from '../core/task-view.ts';
 
 const C = {
   reset: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m',
@@ -35,10 +36,13 @@ export async function runStatus(args: string[]): Promise<void> {
     return;
   }
 
-  const wip = s.tasks.filter((t) => t.status === 'wip');
-  const done = s.tasks.filter((t) => t.status === 'done');
-  const todo = s.tasks.filter((t) => t.status === 'todo');
-  const open = BugViewList.open(s.bugs);
+  // Sayac karari motorda: 'planned'/'blocked' de acik sayilir, taninmayan
+  // durum sessizce kaybolmaz (T64 'planned' idi, ekranda "0 planli" cikiyordu).
+  const taskCounts = TaskViewList.counts(s.tasks);
+  const wip = TaskViewList.wip(s.tasks);
+  const openTasks = TaskViewList.open(s.tasks);
+  const unclassified = TaskViewList.unclassified(s.tasks);
+  const openBugs = BugViewList.open(s.bugs);
   const counts = BugViewList.counts(s.bugs);
 
   console.log(`\n${C.bold}${s.project.name}${C.reset} ${C.gray}— ${s.project.purpose}${C.reset}`);
@@ -51,9 +55,10 @@ export async function runStatus(args: string[]): Promise<void> {
   }
   console.log('');
 
-  console.log(`  ${C.green}${done.length} tamamlandi${C.reset} · ${C.yellow}${wip.length} yarida${C.reset} · ${C.gray}${todo.length} planli${C.reset}`);
-  if (open.length > 0) {
-    console.log(`  ${C.red}${open.length} acik hata${C.reset}${counts.critical ? ` (${counts.critical} kritik)` : ''}${counts.high ? ` (${counts.high} yuksek)` : ''}`);
+  const unknownPart = unclassified.length ? ` · ${C.red}${unclassified.length} bilinmeyen durum${C.reset}` : '';
+  console.log(`  ${C.green}${taskCounts.done} tamamlandi${C.reset} · ${C.yellow}${taskCounts.wip} yarida${C.reset} · ${C.gray}${taskCounts.open} planli${C.reset}${unknownPart}`);
+  if (openBugs.length > 0) {
+    console.log(`  ${C.red}${openBugs.length} acik hata${C.reset}${counts.critical ? ` (${counts.critical} kritik)` : ''}${counts.high ? ` (${counts.high} yuksek)` : ''}`);
   }
   console.log('');
 
@@ -66,21 +71,31 @@ export async function runStatus(args: string[]): Promise<void> {
     console.log('');
   }
 
-  if (open.length) {
+  if (openBugs.length) {
     console.log(`${C.bold}ACIK HATALAR${C.reset}`);
-    for (const b of open.slice(0, 6)) {
+    for (const b of openBugs.slice(0, 6)) {
       const col = b.severity === 'critical' ? C.red : b.severity === 'high' ? C.yellow : C.gray;
       const idPart = b.id ? `[${b.id}] ` : '';
       console.log(`  ${col}!${C.reset} [${b.severity}] ${idPart}${b.label}`);
     }
-    if (open.length > 6) console.log(`  ${C.dim}... +${open.length - 6}${C.reset}`);
+    if (openBugs.length > 6) console.log(`  ${C.dim}... +${openBugs.length - 6}${C.reset}`);
     console.log('');
   }
 
-  if (todo.length) {
+  if (openTasks.length) {
     console.log(`${C.bold}PLANLANAN${C.reset}`);
-    for (const t of todo.slice(0, 8)) {
-      console.log(`  ${C.gray}[${t.id}] ${t.title}${C.reset}`);
+    for (const t of openTasks.slice(0, 8)) {
+      const durum = t.status === 'blocked' ? ' (bekliyor)' : '';
+      console.log(`  ${C.gray}[${t.id}] ${t.title}${durum}${C.reset}`);
+    }
+    if (openTasks.length > 8) console.log(`  ${C.dim}... +${openTasks.length - 8}${C.reset}`);
+    console.log('');
+  }
+
+  if (unclassified.length) {
+    console.log(`${C.bold}TANINMAYAN DURUM${C.reset}`);
+    for (const t of unclassified.slice(0, 8)) {
+      console.log(`  ${C.red}?${C.reset} [${t.id}] ${t.title} ${C.dim}(status: ${String(t.status)})${C.reset}`);
     }
     console.log('');
   }
@@ -88,7 +103,13 @@ export async function runStatus(args: string[]): Promise<void> {
   console.log(`${C.dim}Detay: residue status --export${C.reset}`);
   console.log(`${C.dim}Gunluk: residue log --summary${C.reset}\n`);
 
-  info('status goruntulendi', { done: done.length, wip: wip.length, todo: todo.length, acikHata: open.length });
+  info('status goruntulendi', {
+    done: taskCounts.done,
+    wip: taskCounts.wip,
+    planli: taskCounts.open,
+    bilinmeyen: taskCounts.unknown,
+    acikHata: openBugs.length,
+  });
 }
 
 function initialState(cwd: string): ProjectState {

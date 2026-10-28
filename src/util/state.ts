@@ -9,11 +9,12 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { longPath } from './longpath.ts';
 import { BugViewList } from '../core/bug-view.ts';
+import { TaskViewList, type TaskStatus } from '../core/task-view.ts';
 
 export interface TaskState {
   id: string;
   title: string;
-  status: 'done' | 'wip' | 'todo' | 'blocked';
+  status: TaskStatus;
   /** Son bilinen durum */
   note?: string;
   /** Nerede kaldik / ne eksik */
@@ -97,8 +98,8 @@ export async function writeState(s: ProjectState, cwd = process.cwd()): Promise<
 /** Yeni bir oturum icin ozet uretir. */
 export function renderHandoff(s: ProjectState): string {
   const L: string[] = [];
-  const wip = s.tasks.filter((t) => t.status === 'wip');
-  const todo = s.tasks.filter((t) => t.status === 'todo');
+  const wip = TaskViewList.wip(s.tasks);
+  const todo = TaskViewList.open(s.tasks);
   const bugs = s.bugs ?? [];
   const views = BugViewList.normalize(bugs);
   const openViews = BugViewList.open(bugs);
