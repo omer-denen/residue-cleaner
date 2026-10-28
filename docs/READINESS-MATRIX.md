@@ -35,8 +35,8 @@
 | Güvenlik (HTTP/kapılar) | 15 | 70 | 10.50 | 401/403/token test edildi; Origin ve gövde sınırı E2E değil |
 | Gözlemlenebilirlik | 10 | 80 | 8.00 | Günlük + journal + `log --summary`; metrik yok |
 | Performans | 5 | 85 | 4.25 | PERF-01…03 ölçüldü, `scripts/perf-budget.json` kapısı var (taban + en kötü gözlem) |
-| Yük | 5 | 60 | 3.00 | LOAD-01/04 ölçüldü; LOAD-02/03 (5k küme, 1k SSE) açık |
-| **Toplam** | **100** | | **76.50** | |
+| Yük | 5 | 85 | 4.25 | LOAD-01…04 ölçüldü, `scripts/perf-budget.json` eşikleri var (LOAD-02/03 28.10.2026) |
+| **Toplam** | **100** | | **77.75** | |
 
 **Kapılar:** alpha **≥ 70**, beta **≥ 85**.
 
@@ -44,6 +44,11 @@
 > (W0-b-3) ve skor **68.00 → 76.50** oldu; alpha kapısı (70) **açık**. Fark
 > performans/yük ölçümüyle kapandı, güvenlik puanı düşürülmedi. Kalan beta
 > maddeleri: LOAD-02/03 ve web E2E.
+>
+> **Not (28.10.2026, T83):** LOAD-02/03 ölçüldü → yük alt skoru **60 → 85**,
+> toplam **76.50 → 77.75**. Bütçeler `scripts/perf-budget.json` içinde
+> (`load5000DiskViewP95Ms` 150, `load5000PayloadMb` 6, `load1kReplayP95Ms` 500)
+> ve `npm run perf` kapısına bağlı. Kalan beta maddeleri: **web E2E**, PROFIL.
 
 > **Not (28.10.2026, B24):** Denetim filtresi + CSV/JSON dışa aktarma eklendi
 > (motor `src/core/audit-export.ts`, 16 test). Tarayıcı kanıtı **elle** alındı
@@ -90,7 +95,7 @@
 **Alpha durumu:** ✅ — 27.10.2026. Tüm alpha maddeleri kapandı (CLI E2E, PARITY-01…05,
 PERF-01…03, SEC-01…08, skor 76.50 ≥ 70). Kapsam eşikleri en son 23.10.2026 ölçümüne
 dayaniyor (79.93 / 74.87 / 67.27); yeni testlerden sonra **tazelenmeli**.
-Kalan açıklar beta maddeleridir: LOAD-02/03, web E2E, PROFIL.
+Kalan açıklar beta maddeleridir: web E2E, PROFIL.
 
 ### Beta (yayın öncesi)
 
@@ -98,7 +103,8 @@ Kalan açıklar beta maddeleridir: LOAD-02/03, web E2E, PROFIL.
 2. Kapsam: satır **≥ 85**, dal **≥ 80**, fonksiyon **≥ 75**.
 3. **WEB-01…18** + **PROFILE-01…07** gerçek tarayıcıda (ego-browser) ✅.
 4. **ERR-01…08** + `delete`/`vault` hata enjeksiyonu.
-5. **LOAD-01…04** ölçüldü; p95/RSS/eşzamanlılık eşikleri yazılı.
+5. **LOAD-01…04** ölçüldü; p95/RSS/eşzamanlılık eşikleri yazılı. ✅ 28.10.2026
+   (`scripts/perf.mjs` LOAD-02/03 + `scripts/perf-budget.json`)
 6. Üç profilde aynı veri/sayı/hedef/onay ifadesi; profil değişimi tarama
    tetiklemiyor.
 7. Klavye-only tur + ekran okuyucu + `prefers-reduced-motion` üç profilde.
@@ -230,8 +236,8 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 | PERF-02 | 100 küme disk görünümü | API p95 < eşik | ✅ p95 1.82 ms |
 | PERF-03 | Kasa taşıma | dosya/sn + hata oranı | ✅ 4304 dosya/sn |
 | LOAD-01 | 100k dosya | Çökme yok; RSS sınırı | ✅ 8.7 sn / 22.4 MB |
-| LOAD-02 | 5k küme | API + sanal liste dayanır | ❌ |
-| LOAD-03 | 1k SSE olayı | Tampon taşmaz; sıra korunur | ❌ |
+| LOAD-02 | 5k küme | API + sanal liste dayanır | ✅ p95 49.6 ms, payload 1.90 MB; gerçek tarayıcı: 5.000 küme, DOM **15 satır**, `/api/disk` 3.5 MB / 135 ms |
+| LOAD-03 | 1k SSE olayı | Tampon taşmaz; sıra korunur | ✅ 2403 olay, tampon **2000** (403..2402), replay 5/5 tam 1000 olay p95 159.6 ms |
 | LOAD-04 | 10 eşzamanlı istek | 5xx yok; kuyruk davranışı yazılı | ✅ p95 146 ms, 0 5xx |
 
 ### 5.9 WEB (gerçek tarayıcı)

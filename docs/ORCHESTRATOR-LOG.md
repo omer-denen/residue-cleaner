@@ -1218,3 +1218,42 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
   doğrulandı; EN etiketleri doğru; JS hatası yok. Ekran görüntüsü CDP zaman aşımı
   (bilinen sorun).
 - **Commit:** `fd87707`. Devir: `docs/HANDOVER-2026-10-28.md`.
+
+---
+
+### T83 — LOAD-02/03 yük ölçümü + bütçe (28.10.2026)
+
+- **Başlangıç:** `e17fdde` üzerinde typecheck temiz, **484/484**.
+- **Paket:** `scratch/gorev-t83-load.md`; doğrulanmış çapalar
+  `src/services/scan-service.ts:342-351` (2000 olay tavanı),
+  `src/web/server.ts:1235-1257`
+  (`canReplay = lastId > 0 && (job.events.length === 0 || lastId >= firstId - 1)`),
+  `scripts/perf.mjs`, `scripts/perf-budget.json`, `tests/perf-budget.test.ts`.
+- **Orkestratör probu (paket için ölçüm):** 30 önbellek klasörü → **181** olay
+  (1 `targets` + 30 `target-start` + 30 `target-done` + 30 `item` + 90 `progress`),
+  yani küme başına ~6 olay; 350 küme ≈ 2100 > 2000 tavan.
+- **İşçi turu (Beam Free):** `SCAN_EVENT_BUFFER` sabiti, LOAD-02/03 blokları,
+  3 bütçe, `tests/sse-resume.test.ts` (5 test). İddia: 489/489 + perf temiz.
+- **Orkestratör düzeltmeleri:** beyaz liste dışı üretilen
+  `docs/T83-LOAD-REPORT.md` silindi (içerik bu bölüme + devire taşındı);
+  tavan kanıtı zayıftı → perf'e "tam tampon = 2000 olay (403..2402)" ve
+  "tampon dışı istek = anlık görünüm" kontrolleri, teste **F** (tam BUFFER
+  olay) eklendi → **490/490**.
+- **Kapılar (orkestratör kendi koştu):** typecheck temiz · **490/490** ·
+  `npm run perf` **iki kez** `PERF TEMİZ`.
+  1. koşu (measured): 5000 küme p95 **49.55 ms**, payload **1.90 MB**,
+    replay p95 **159.55 ms**, toplam olay **2403**.
+  2. koşu: 25.22 ms / 1.90 MB / 122.95 ms. `worstObserved` = 1. koşu.
+  Bütçeler: `load5000DiskViewP95Ms` 150 · `load5000PayloadMb` 6 ·
+  `load1kReplayP95Ms` 500 (en kötü gözlemin ~3×'ü).
+- **Gerçek tarayıcı (ego-browser, port 4424, izole `LOCALAPPDATA`, 5000 klasör
+  fixture):** tarama 32.2 s → **5.000 küme**; `/api/disk` **3507 kB / 135 ms**;
+  DOM satırı **15** (üst) → **23** (orta) → **15** (alt);
+  `scrollHeight` 220000 px; son satır `app-4999`; JS hatası yok.
+- **Ders (tarayıcı ölçümü):** uzun beklemeyi `page.evaluate` içine koyma
+  (15 s sınırı); evaluate zaman aşımına uğrayınca sayfa SSE `done` olayını
+  kaçırdı ve liste boş kaldı (rozet "Tarama güncel"), reload sonrası geldi.
+- **Commit:** `188af10` (kod + test). Belge commit'i aşağıda.
+- **Açık risk:** replay p95 makine yüküne duyarlı (159 ms; bütçe 500 ms);
+  payload ölçümü sentetik kümede 1.90 MB, gerçek veride 3.5 MB (JSON alanları
+  daha zengin) — bütçe sentetik ölçüye göre kalibre edildi.
