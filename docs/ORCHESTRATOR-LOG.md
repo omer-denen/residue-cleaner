@@ -1380,3 +1380,17 @@ satır **%83.31** / dal **%76.08** / fonksiyon **%74.40** (526 test).
   residue-api-verify2-*\residue` ile düştü; ikinci koşu **526/526**. Aynı
   commit worktree'de de 526/526 geçmişti → ortam/yarış kaynaklı; risk
   listesine yazıldı, test zayıflatılmadı.
+
+### B25 — status sayaç hatası (28.10.2026)
+
+- **Belirti:** `residue status` "0 planli" diyordu; T64 `planned` idi.
+- **Kök neden:** sayaç `status === 'todo'` arıyordu, `TaskState` tipi
+  `planned` bilmiyordu; `renderHandoff` da aynı hatayı taşıyordu.
+- **Düzeltme:** saf motor `src/core/task-view.ts` (`TaskViewList`) +
+  `TaskStatus` genişletmesi; `status.ts` ve `state.ts` yalnız gösterir.
+  Tanınmayan durum `counts.unknown` ile raporlanır (sessiz düşme yok).
+- **Kanıt:** CLI çıktısı 1 planli + T64 satırı; `--export` T64'ü listeliyor;
+  `tests/task-view.test.ts` 7 test; **533/533**; commit `f6a710b`.
+- **Ders:** şema genişlemesi (yeni `status` değeri) **tek kaynak** tipini
+  güncellemezse sayaç sessizce yanlış cevap verir. "0 planli" ile "plan yok"
+  aynı şey değildir; tanınmayan değer görünür olmalı.

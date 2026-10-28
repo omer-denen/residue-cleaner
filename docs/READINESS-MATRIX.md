@@ -1,6 +1,6 @@
 # READINESS MATRIX — 0.3.x (T74 / W0-a)
 
-> **Durum:** güncellendi · 28.10.2026 · `main` (526 test; kapsam satır **%83.3** / dal **%76.1** / fonksiyon **%74.4**)
+> **Durum:** güncellendi · 28.10.2026 · `main` (533 test; kapsam satır **%83.3** / dal **%76.1** / fonksiyon **%74.4**)
 > **Kapsam:** alpha/beta kapıları + E2E senaryo kataloğu (CLI, SAFE, ERR,
 > SEC, API, PARITY, SCHED, ENV, PERF, LOAD, WEB, PROFILE).
 > **Kaynak kararlar:** `docs/HANDOVER-2026-10-23c.md` §4, `AGENTS.md`,
@@ -334,7 +334,9 @@ güncellenmez.
 5. **Backlog hijyeni** — tamamlanan iş açık kalabiliyordu: B23 (27.10,
    `a8e7110`) ve B24 (28.10, `fd87707`) backlog'da hâlâ `planned`, B22
    `done` ama `doneAt`/`commit` yoktu. 28.10.2026'da üçü `done` + commit ile
-   işaretlendi; yeni paket kapanışında bu alan zorunlu.
+   işaretlendi. 28.10.2026 akşamı kök neden bulundu: `residue status`
+   sayacı yalnız `status === 'todo'` arıyordu, `state.json` ise `planned`
+   yazıyordu → düzeltildi (motor `src/core/task-view.ts`, 7 test).
 6. **Test teardown flake'i** — `tests/scan-verify.test.ts` (uca: cache varken
    `POST /api/scan/verify`) ana repoda bir kez `ENOTEMPTY: rmdir
    ...\residue-api-verify2-*\residue` ile düştü; aynı turda tekrar koşuda
