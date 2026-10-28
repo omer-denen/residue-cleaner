@@ -1,6 +1,6 @@
 # READINESS MATRIX — 0.3.x (T74 / W0-a)
 
-> **Durum:** güncellendi · 27.10.2026 · `orkestrator` dalı (469 test)
+> **Durum:** güncellendi · 28.10.2026 · `main` (484 test)
 > **Kapsam:** alpha/beta kapıları + E2E senaryo kataloğu (CLI, SAFE, ERR,
 > SEC, API, PARITY, SCHED, ENV, PERF, LOAD, WEB, PROFILE).
 > **Kaynak kararlar:** `docs/HANDOVER-2026-10-23c.md` §4, `AGENTS.md`,
@@ -44,6 +44,11 @@
 > (W0-b-3) ve skor **68.00 → 76.50** oldu; alpha kapısı (70) **açık**. Fark
 > performans/yük ölçümüyle kapandı, güvenlik puanı düşürülmedi. Kalan beta
 > maddeleri: LOAD-02/03 ve web E2E.
+
+> **Not (28.10.2026, B24):** Denetim filtresi + CSV/JSON dışa aktarma eklendi
+> (motor `src/core/audit-export.ts`, 16 test). Tarayıcı kanıtı **elle** alındı
+> (ego-browser: filtre + indirilen dosya içeriği TR/EN); otomatik web E2E
+> olmadığı için **puan değişmedi** — bu satır kanıt kaydıdır, seviye yükseltmez.
 
 ---
 
@@ -236,7 +241,7 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 | WEB-01 | İlk açılış / onboarding | 3 persona; varsayılan melez; atlanabilir | ❌ (T74) |
 | WEB-02 | Disk tarama SSE | Canlı liste; iptal/duraklat/devam | 🟡 |
 | WEB-03 | Plan + `TASI` | Özet; yüksek risk işareti; yazılı onay | 🟡 |
-| WEB-04 | Kasa | Geri yükleme; çakışma; seçili boşaltma | 🟡 |
+| WEB-04 | Kasa | Geri yükleme; çakışma; seçili boşaltma · denetim filtresi + CSV/JSON dışa aktarma (B24, elle doğrulandı) | 🟡 |
 | WEB-05 | Araçlar | `SIL` planı; bağımlılık engeli | 🟡 |
 | WEB-06 | PATH & Ortam | `TEMIZLE` duvarı; yedek dosyası | 🟡 |
 | WEB-07 | Graf | What-if engeli gerekçeli | 🟡 |

@@ -1188,3 +1188,33 @@ klasör, biri **kasıtlı olarak diskte olmayan** hedef.
   **469/469** doğrulandı (main, 5 sn). Sonraki iki commit **yalnız belge**.
 - **Kalan:** B24 (görev paketi hazır), LOAD-02/03 (T83), T74/W2 personası,
   UX-042/B19/B21 · kullanıcı kararı: `Local\uv` + `Local\rattler` (kasada).
+
+---
+
+### B24 — denetim geçmişi filtresi + dışa aktarma (28.10.2026)
+
+- **Başlangıç kapısı:** iki ağaç da `7ddb989` üzerinde temiz; typecheck temiz,
+  **469/469**. Paket (`scratch/gorev-b24-denetim-filtre.md`) kod doğrulanarak
+  yeniden yazıldı: gerçek çapalar `src/web/server.ts:1130` (`GET /api/audit`),
+  `web/src/api.ts:294`, `web/src/screens/Vault.tsx:39-58` + tablo `:283-331`,
+  `src/core/audit-view.ts:33`, `src/core/contract.ts:469-489`.
+- **Paket hatası (tasarım):** arayüzün `src/core/audit-view.ts`'i import etmesi
+  isteniyordu; `tests/shell-boundary.test.ts:33-45` web'e yalnız `contract.ts` +
+  `approval.ts` izni veriyor. **Karar:** saf motor `src/core/audit-export.ts` +
+  boundary'ye tek dosya istisnası (kural 18 gereği biçim kuralı motorda kalır).
+- **Paket hatası (veri):** "limit 5000 ile tümü" yanlış;
+  `src/services/audit-service.ts` `if (limit > 500) limit = 500;` +
+  `lines = allLines.slice(-5000)`. Dışa aktarma `AUDIT_EXPORT_LIMIT = 500`;
+  tavana ulaşınca dürüst "en yeni N kayıt" notu (`audit.export.truncated`).
+- **İşçi turu (Beam Free)** sonrası orkestratör mekanik düzeltmeleri:
+  `setExportTruncated(false)` `loadAudit` başında; uydurma `chip-row` sınıfı →
+  var olan `kind-tabs` (`web/src/styles.css:2460`); tautolojik assert
+  (`… || false`) gerçek kaçış kontrolüne çevrildi + satır sonu testi eklendi.
+- **Kapı:** typecheck temiz · **484/484** · `build:web` yeşil
+  (JS 494.03 kB / gzip 139.80 kB, CSS 56.67 kB / 10.32 kB, `index-DaUSZ7Re.js`).
+- **Tarayıcı (ego-browser, port 4423, yeni bundle):** TR çipler + `aria-pressed`
+  doğru; `silme` filtresi 5 → 1 satır; CSV içeriği (BOM, ISO tarih, `; ` birleşik
+  6 hedef, `ok=true`) ve JSON (`version/count/records`) indirilen dosyadan
+  doğrulandı; EN etiketleri doğru; JS hatası yok. Ekran görüntüsü CDP zaman aşımı
+  (bilinen sorun).
+- **Commit:** `fd87707`. Devir: `docs/HANDOVER-2026-10-28.md`.
