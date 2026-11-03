@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   CliExecuteResultView,
   CliInventoryStreamEvent,
+  CliQuarantineExecuteResponse,
+  CliQuarantinePlanResponse,
   CliRepairExecuteResponse,
   CliRepairPlanResponse,
   CliSort,
@@ -11,6 +13,7 @@ import type {
   CliViewResponse,
 } from '../../../src/core/contract.ts';
 import { ApprovalRules } from '../../../src/core/approval.ts';
+import { CliAction, type CliRemovalKind } from '../../../src/core/cli-action.ts';
 import { api, ApiError } from '../api.ts';
 import { openEvents } from '../sse.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
@@ -66,7 +69,13 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [mode, setMode] = useState<'remove' | 'repair' | null>(null);
+  const [mode, setMode] = useState<'remove' | 'quarantine' | 'repair' | null>(null);
+  const [quarantinePlan, setQuarantinePlan] = useState<CliQuarantinePlanResponse | null>(null);
+  const [quarantinePhrase, setQuarantinePhrase] = useState('');
+  const [quarantineBusy, setQuarantineBusy] = useState(false);
+  const [quarantineError, setQuarantineError] = useState<string | null>(null);
+  const [quarantineResult, setQuarantineResult] =
+    useState<CliQuarantineExecuteResponse | null>(null);
   const [repairPlan, setRepairPlan] = useState<CliRepairPlanResponse | null>(null);
   const [repairPhrase, setRepairPhrase] = useState('');
   const [repairBusy, setRepairBusy] = useState(false);
@@ -118,6 +127,10 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
     setRemoveError(null);
     setPhrase('');
     setMode(null);
+    setQuarantinePlan(null);
+    setQuarantineResult(null);
+    setQuarantinePhrase('');
+    setQuarantineError(null);
     setRepairPlan(null);
     setRepairResult(null);
     setRepairPhrase('');
@@ -181,6 +194,10 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
 
   const resetAction = (): void => {
     setMode(null);
+    setQuarantinePlan(null);
+    setQuarantineResult(null);
+    setQuarantinePhrase('');
+    setQuarantineError(null);
     setRepairPlan(null);
     setRepairResult(null);
     setRepairPhrase('');
@@ -196,10 +213,27 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
     panel?.activate('evidence');
   };
 
-  const startRemove = (): void => {
-    if (!detail?.uninstall) return;
+  const startRemove = async (id?: string): Promise<void> => {
+    const tool = id ? (view?.tools.find((item) => item.id === id) ?? null) : detail;
+    if (!tool) return;
+    const kind: CliRemovalKind | null = CliAction.removal(tool);
+    if (!kind) return;
+
     resetAction();
     setResult(null);
+    setDetailId(tool.id);
+
+    if (kind === 'quarantine') {
+      setMode('quarantine');
+      panel?.activate('action');
+      try {
+        setQuarantinePlan(await api.cliQuarantinePlan({ ids: [tool.id] }));
+      } catch (err) {
+        setQuarantineError(err instanceof ApiError ? err.message : String(err));
+      }
+      return;
+    }
+
     setMode('remove');
     panel?.activate('action');
   };
@@ -266,12 +300,43 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
     }
   };
 
+  const executeQuarantine = async (): Promise<void> => {
+    if (!quarantinePlan) return;
+    setQuarantineError(null);
+    setQuarantineBusy(true);
+    try {
+      const out = await api.cliQuarantineExecute({
+        planId: quarantinePlan.planId,
+        phrase: quarantinePhrase,
+      });
+      setQuarantineResult(out);
+      setQuarantinePlan(null);
+      setMode(null);
+      setQuarantinePhrase('');
+      setDetailId(null);
+      setView(null);
+      setLoaded(false);
+      await loadView();
+      onChanged?.();
+    } catch (err) {
+      setQuarantineError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setQuarantineBusy(false);
+    }
+  };
+
   const canExecute =
     mode === 'remove' &&
     detail !== null &&
-    detail.uninstall !== null &&
+    CliAction.removal(detail) === 'package' &&
     !executing &&
     ApprovalRules.matches('delete', phrase);
+
+  const canQuarantine =
+    mode === 'quarantine' &&
+    quarantinePlan !== null &&
+    !quarantineBusy &&
+    ApprovalRules.matches('quarantine', quarantinePhrase);
 
 
   const duplicateOf = (id: string) =>
@@ -475,6 +540,7 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                 <span>{tu('tools.status')}</span>
                 <span className="num">{tu('tools.idle')}</span>
                 <span className="num">{tu('tools.size')}</span>
+                <span aria-hidden="true" />
               </div>
             )}
 
@@ -522,6 +588,24 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                         : '—'}
                     </span>
                     <span className="num mono">{formatBytes(tool.totalBytes)}</span>
+                    <span className="cli-row-action">
+                      {CliAction.removal(tool) ? (
+                        <button
+                          type="button"
+                          className="ghost row-remove"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void startRemove(tool.id);
+                          }}
+                        >
+                          {t('tools.action.remove')}
+                        </button>
+                      ) : (
+                        <span className="dim" title={t('tools.action.locked')}>
+                          —
+                        </span>
+                      )}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -569,6 +653,42 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
           </section>
         )}
 
+        {quarantineResult && (
+          <section className="plan-panel">
+            <h2>{tu('tools.action.quarantineDone')}</h2>
+            <ul className="detail-list">
+              {quarantineResult.results.map((row) => (
+                <li key={row.command}>
+                  <span className="mono">
+                    {row.ok ? '✓' : '✗'} {row.command}
+                  </span>
+                  <span className="dim">
+                    {row.verified ? t('plan.done') : t('tools.plan.failed')}
+                    {row.error ? ` · ${row.error}` : ''}
+                  </span>
+                  <span className="dim mono">
+                    {t('tools.shims')}: {row.movedShims} · {t('tools.stateDirList')}:{' '}
+                    {row.copiedState}
+                  </span>
+                  <span className="dim mono">{row.vaultDir}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="approval-actions">
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setQuarantineResult(null);
+                  resetAction();
+                }}
+              >
+                {t('common.back')}
+              </button>
+            </div>
+          </section>
+        )}
+
         {repairError && !mode && (
           <div className="banner danger" role="alert">
             {repairError}
@@ -606,7 +726,73 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
           </section>
         )}
 
-        {!result && !repairResult && mode === 'remove' && detail && (
+        {!result && !repairResult && !quarantineResult && mode === 'quarantine' && detail && (
+          <section className="plan-panel">
+            <h2>{tu('tools.action.removeTitle')}</h2>
+            <p className="dim">
+              {t('tools.action.quarantineHint', {
+                phrase: ApprovalRules.phrase('quarantine'),
+              })}
+            </p>
+
+            {quarantineError && (
+              <div className="banner danger" role="alert">
+                {quarantineError}
+              </div>
+            )}
+
+            <dl className="meta-list">
+              <dt>{t('tools.command')}</dt>
+              <dd className="mono">{detail.command}</dd>
+              <dt>{t('tools.source')}</dt>
+              <dd>{t(CLI_SOURCE_LABEL[detail.source] ?? 'cli.source.standalone')}</dd>
+              {quarantinePlan?.items[0] && (
+                <>
+                  <dt>{t('tools.shims')}</dt>
+                  <dd className="mono">{quarantinePlan.items[0].shims.length}</dd>
+                  <dt>{t('tools.stateDirList')}</dt>
+                  <dd className="mono">{quarantinePlan.items[0].stateDirs.length}</dd>
+                </>
+              )}
+            </dl>
+
+            <label className="approval-row">
+              <span>{t('tools.action.repairPhrase')}</span>
+              <input
+                className="control mono"
+                value={quarantinePhrase}
+                onChange={(e) => setQuarantinePhrase(e.target.value)}
+                placeholder={ApprovalRules.phrase('quarantine')}
+                aria-label={t('tools.action.repairPhrase')}
+                autoComplete="off"
+                disabled={quarantineBusy || quarantinePlan === null}
+              />
+            </label>
+
+            <div className="approval-actions">
+              <button
+                type="button"
+                className="ghost"
+                disabled={quarantineBusy}
+                onClick={resetAction}
+              >
+                {t('common.back')}
+              </button>
+              <button
+                type="button"
+                className="danger-button"
+                disabled={!canQuarantine}
+                onClick={() => void executeQuarantine()}
+              >
+                {quarantineBusy
+                  ? t('tools.action.quarantining')
+                  : t('tools.action.moveToVault')}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {!result && !repairResult && !quarantineResult && mode === 'remove' && detail && (
           <section className="plan-panel">
             <h2>{tu('tools.action.removeTitle')}</h2>
             <p className="dim">{t('tools.plan.phraseHint', { phrase: ApprovalRules.phrase('delete') })}</p>
@@ -665,13 +851,10 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
               </button>
             </div>
 
-            {detail.uninstall === null && (
-              <p className="dim">{t('cli.status.protected')}</p>
-            )}
           </section>
         )}
 
-        {!result && !repairResult && mode === 'repair' && repairPlan && detail && (
+        {!result && !repairResult && !quarantineResult && mode === 'repair' && repairPlan && detail && (
           <section className="plan-panel">
             <h2>{tu('tools.action.repairTitle')}</h2>
             <p className="dim">
@@ -721,13 +904,13 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
           </section>
         )}
 
-        {!result && !repairResult && !mode && detail && (
+        {!result && !repairResult && !quarantineResult && !mode && detail && (
           <section className="plan-panel">
             <p className="dim">{t('tools.action.hint')}</p>
           </section>
         )}
 
-        {!result && !repairResult && !mode && !detail && (
+        {!result && !repairResult && !quarantineResult && !mode && !detail && (
           <EmptyState
             icon="tools"
             tone="warn"
@@ -861,7 +1044,7 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                   </div>
                 )}
 
-                {(detail.repair || detail.uninstall) && (
+                {(detail.repair || CliAction.removal(detail)) && (
                   <div className="tool-actions">
                     {detail.repair && (
                       <button
@@ -872,19 +1055,19 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                         {t('tools.action.repair')}
                       </button>
                     )}
-                    {detail.uninstall && (
+                    {CliAction.removal(detail) && (
                       <button
                         type="button"
                         className="danger-button"
-                        onClick={startRemove}
+                        onClick={() => void startRemove()}
                       >
                         {t('tools.action.remove')}
                       </button>
                     )}
                   </div>
                 )}
-                {!detail.repair && !detail.uninstall && (
-                  <p className="dim">{t('cli.status.protected')}</p>
+                {!detail.repair && !CliAction.removal(detail) && (
+                  <p className="dim">{t('tools.action.locked')}</p>
                 )}
 
                 {detail.shims.length > 0 && (

@@ -3555,7 +3555,7 @@ body.resizing {
 .cli-head,
 .cli-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 92px 104px 64px 80px;
+  grid-template-columns: minmax(0, 1fr) 92px 104px 64px 80px 82px;
   align-items: center;
   gap: 7px;
 }
@@ -3595,6 +3595,22 @@ body.resizing {
 
 .cli-row.active {
   background: color-mix(in srgb, var(--info) 10%, var(--panel));
+}
+
+.cli-row-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.row-remove {
+  padding: 3px 9px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.row-remove:hover {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  color: var(--danger);
 }
 
 .cli-name-wrap {
@@ -4254,7 +4270,7 @@ body.resizing {
   }
 
   .cli-row {
-    grid-template-columns: minmax(0, 1fr) 88px 72px;
+    grid-template-columns: minmax(0, 1fr) 88px 72px 76px;
   }
 
   .cli-row > :nth-child(2),

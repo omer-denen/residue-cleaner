@@ -1,6 +1,10 @@
 import type {
   CliExecuteResultView,
   CliInventoryStartResponse,
+  CliQuarantineExecuteRequest,
+  CliQuarantineExecuteResponse,
+  CliQuarantinePlanRequest,
+  CliQuarantinePlanResponse,
   CliRemoveRequest,
   CliRepairExecuteRequest,
   CliRepairExecuteResponse,
@@ -188,6 +192,15 @@ export const api = {
   /** Bozuk araci paket yoneticisinin kendi komutuyla onarir (yazili ONAR ister). */
   cliRepairExecute: (body: CliRepairExecuteRequest): Promise<CliRepairExecuteResponse> =>
     post<CliRepairExecuteResponse>('/api/cli/repair/execute', body),
+
+  /** Bagimsiz aracin shim'lerini kasaya tasima plani (yazili KARANTINA ister). */
+  cliQuarantinePlan: (body: CliQuarantinePlanRequest): Promise<CliQuarantinePlanResponse> =>
+    post<CliQuarantinePlanResponse>('/api/cli/quarantine/plan', body),
+
+  cliQuarantineExecute: (
+    body: CliQuarantineExecuteRequest,
+  ): Promise<CliQuarantineExecuteResponse> =>
+    post<CliQuarantineExecuteResponse>('/api/cli/quarantine/execute', body),
 
   envAnalyze: (): Promise<EnvAnalysis> => request<EnvAnalysis>('/api/env'),
 
