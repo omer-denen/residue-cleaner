@@ -54,8 +54,13 @@ function tokenRe(command: string): RegExp {
 /** Bir aracin adi/kurulum yolu metinde geciyor mu? */
 function textMentions(tool: CliTool, text: string): boolean {
   if (tokenRe(tool.command).test(text)) return true;
+  const lower = text.toLowerCase();
   const install = norm(tool.installPath);
-  return install.length > 3 && text.toLowerCase().includes(install);
+  if (install.length > 3 && lower.includes(install)) return true;
+  return tool.shims.some((s) => {
+    const shim = norm(s);
+    return shim.length > 3 && lower.includes(shim);
+  });
 }
 
 /**

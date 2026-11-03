@@ -182,6 +182,22 @@ export interface DeleteResult {
   failed: Array<{ path: string; reason: string }>;
 }
 
+/**
+ * Test/hata enjeksiyonu kancalari.
+ *
+ * Uretimde bos gecer; varsayilanlar gercek kasa ve `fs.rm` cagrilaridir.
+ * Yalnizca testlerden verilir, boylece kasa/rm hata yollari gercek disk
+ * bozulmadan dogrulanabilir.
+ */
+export interface DeleteHooks {
+  newBatch?: () => ReturnType<typeof newVaultBatch>;
+  move?: typeof moveIntoVault;
+  remove?: (
+    path: string,
+    options: { recursive?: boolean; force?: boolean; maxRetries?: number },
+  ) => Promise<void>;
+}
+
 export interface JournalEntry {
   at: number;
   mode: DeleteMode;
@@ -264,9 +280,16 @@ export async function deleteTarget(
   target: DeleteTarget,
   mode: DeleteMode,
   now = Date.now(),
+  hooks: DeleteHooks = {},
 ): Promise<DeleteResult> {
   // Savunma katmani: buildPlan'i atlayan dogrudan cagrilar da korunur.
   assertSafeTarget(target);
+  const newBatch = hooks.newBatch ?? newVaultBatch;
+  const move = hooks.move ?? moveIntoVault;
+  const remove =
+    hooks.remove ??
+    ((path: string, options: { recursive?: boolean; force?: boolean; maxRetries?: number }) =>
+      rm(longPath(path), options));
 
   try {
     await lstat(longPath(target.path));
@@ -328,7 +351,7 @@ export async function deleteTarget(
 
     if (mode === 'purge') {
       try {
-        await rm(longPath(target.path), { recursive: true, force: true, maxRetries: 3 });
+        await remove(target.path, { recursive: true, force: true, maxRetries: 3 });
         // Sayaclar YALNIZCA basarili rm'den sonra guncellenir. Aksi
         // halde basarisiz bir silme "yer kazanildi" gibi raporlanirdi.
         res.bytesFreed = w;
@@ -343,8 +366,8 @@ export async function deleteTarget(
 
     // Kasa modu: sayaclar tasima basarili olduktan sonra artar.
     try {
-      const batch = await newVaultBatch();
-      await moveIntoVault(batch, target.path, w, measured.files || 1);
+      const batch = await newBatch();
+      await move(batch, target.path, w, measured.files || 1);
       res.bytesFreed = w;
       res.removed = 1;
       info('kasaya tasindi', { path: target.path, bytes: w, batch: batch.id });
@@ -403,7 +426,7 @@ export async function deleteTarget(
       await Promise.all(
         eligible.slice(i, i + CONC).map(async (e) => {
           try {
-            await rm(longPath(e.path), { force: true, maxRetries: 1 });
+            await remove(e.path, { force: true, maxRetries: 1 });
             res.bytesFreed += e.size;
             res.removed++;
           } catch (err) {
@@ -423,14 +446,14 @@ export async function deleteTarget(
   // Kendi kasamiz: her dosya tek tek tasinir (yas filtresi zaten uygulandi).
   let batch: Awaited<ReturnType<typeof newVaultBatch>> | null = null;
   try {
-    batch = await newVaultBatch();
+    batch = await newBatch();
   } catch (err) {
     res.failed.push({ path: target.path, reason: `kasa olusturulamadi: ${describe(err)}` });
     return res;
   }
   for (const e of eligible) {
     try {
-      await moveIntoVault(batch, e.path, e.size, 1);
+      await move(batch, e.path, e.size, 1);
       res.bytesFreed += e.size;
       res.removed++;
     } catch (err) {

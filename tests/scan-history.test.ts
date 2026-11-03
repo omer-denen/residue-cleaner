@@ -73,3 +73,39 @@ test('scan-history: summarize clamps negatives and maps fields', () => {
 test('scan-history: SCAN_HISTORY_LIMIT default 50', () => {
   assert.equal(SCAN_HISTORY_LIMIT, 50);
 });
+
+test('scan-history: add limit 0 bos liste, negatif limit sinirsiz', () => {
+  assert.deepEqual(ScanHistory.add([e('a', 1)], e('b', 2), 0), []);
+  assert.deepEqual(ScanHistory.add([e('a', 1)], e('b', 2), -1).map((x: any) => x.id), ['b', 'a']);
+});
+
+test('scan-history: list iki gecersiz tarihte giris sirasini korur', () => {
+  const out = ScanHistory.list([e('a', 'x' as any), e('b', 'y' as any)]);
+  assert.deepEqual(out.map((x: any) => x.id), ['a', 'b']);
+});
+
+test('scan-history: summary tum tarihler gecersizse sifir doner', () => {
+  assert.deepEqual(ScanHistory.summary([e('a', 'x' as any), e('b', NaN as any)]), {
+    count: 2,
+    lastAt: 0,
+    firstAt: 0,
+  });
+});
+
+test('scan-history: summarize NaN ve Infinity degerleri sifira indirir', () => {
+  const out = ScanHistory.summarize(
+    {
+      finishedAt: 1,
+      clusters: Number.NaN,
+      files: Number.POSITIVE_INFINITY,
+      bytes: Number.NEGATIVE_INFINITY,
+      deletableBytes: -3,
+      targets: Number.NaN,
+    },
+    'id',
+  );
+  assert.deepEqual(
+    [out.clusters, out.files, out.bytes, out.deletableBytes, out.targets],
+    [0, 0, 0, 0, 0],
+  );
+});

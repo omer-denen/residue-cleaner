@@ -365,3 +365,82 @@ test('graf what-if bos istek 400 (satir eylemi kimlik ister)', async () => {
   });
   assert.equal(empty.status, 400);
 });
+
+test('API-02: bilinmeyen uc, kume ve plan 404; okuma uclari 200', async () => {
+  const unknown = await fetch(`${base}/api/boyle-bir-uc-yok`, {
+    headers: { 'x-residue-token': token },
+  });
+  assert.equal(unknown.status, 404);
+
+  const cluster = await fetch(`${base}/api/cluster?key=yok`, {
+    headers: { 'x-residue-token': token },
+  });
+  assert.equal(cluster.status, 404);
+
+  const execute = await fetch(`${base}/api/execute`, {
+    method: 'POST',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ planId: 'yok' }),
+  });
+  assert.equal(execute.status, 404);
+
+  const cancel = await fetch(`${base}/api/plans/yok/cancel`, {
+    method: 'POST',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: '{}',
+  });
+  assert.equal(cancel.status, 404);
+
+  for (const path of [
+    '/api/activity',
+    '/api/latest',
+    '/api/scans',
+    '/api/audit',
+    '/api/recover',
+    '/api/findings',
+    '/api/update',
+  ]) {
+    const r = await fetch(`${base}${path}`, { headers: { 'x-residue-token': token } });
+    assert.equal(r.status, 200, `${path} -> ${r.status}`);
+  }
+});
+
+test('SEC-02/SEC-03: yabanci Origin 403, sunucu yalniz 127.0.0.1 dinler', async () => {
+  const addr = server.address();
+  assert.ok(addr && typeof addr === 'object');
+  assert.equal(addr.address, '127.0.0.1');
+
+  const foreign = await fetch(`${base}/api/meta`, {
+    headers: { 'x-residue-token': token, origin: 'http://evil.test' },
+  });
+  assert.equal(foreign.status, 403);
+
+  const local = await fetch(`${base}/api/meta`, {
+    headers: { 'x-residue-token': token, origin: base },
+  });
+  assert.equal(local.status, 200);
+});
+
+test('ERR-06: gecersiz JSON 400, surec ayakta kalir', async () => {
+  const bad = await fetch(`${base}/api/env/plan`, {
+    method: 'POST',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: '{bozuk',
+  });
+  assert.equal(bad.status, 400);
+  const body = (await bad.json()) as { type?: string };
+  assert.equal(body.type, 'fatal');
+
+  const health = await fetch(`${base}/api/health`);
+  assert.equal(health.status, 200);
+});
+
+test('ERR-07/SEC-07: 1 MB ustu govde 413 ile reddedilir', async () => {
+  const big = 'x'.repeat(1024 * 1024 + 64);
+  const r = await fetch(`${base}/api/env/plan`, {
+    method: 'POST',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ scope: 'user', pad: big }),
+  });
+  assert.equal(r.status, 413);
+});

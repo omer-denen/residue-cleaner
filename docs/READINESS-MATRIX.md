@@ -1,6 +1,6 @@
 # READINESS MATRIX — 0.3.x (T74 / W0-a)
 
-> **Durum:** güncellendi · 28.10.2026 · `main` (603 test; kapsam satır **%83.3** / dal **%76.1** / fonksiyon **%74.4**)
+> **Durum:** guncellendi 03.11.2026; 729 test; kapsam satir **%86.29** / dal **%80.15** / fonksiyon **%80.32**; agirlikli skor **85.00**.
 > **Kapsam:** alpha/beta kapıları + E2E senaryo kataloğu (CLI, SAFE, ERR,
 > SEC, API, PARITY, SCHED, ENV, PERF, LOAD, WEB, PROFILE).
 > **Kaynak kararlar:** `docs/HANDOVER-2026-10-23c.md` §4, `AGENTS.md`,
@@ -41,62 +41,26 @@
 
 ---
 
-## 2. Ağırlıklar ve mevcut skor
+## 2. Agirliklar ve mevcut skor
 
-| Boyut | Ağırlık | Alt skor | Katkı | Gerekçe |
+| Boyut | Agirlik | Alt skor | Katki | Gerekce |
 |---|---:|---:|---:|---|
-| İşlevsel doğruluk | 25 | 85 | 21.25 | Motor + API geniş; CLI E2E ve PARITY-01…05 tamam; web tarayıcı E2E hâlâ yok |
-| Güvenlik değişmezleri | 25 | 85 | 21.25 | guard/onay/vault güçlü; Git/junction E2E `npm test` dışında |
-| Hata yönetimi | 15 | 60 | 9.00 | Kapsam 28.10.2026'da ölçüldü: `vault.ts` %87.9 satır / %71.7 fonksiyon, `restore-target.ts` %100, `guard.ts` %100; `delete.ts` %61.2 / %34.4 (yürütme döngüleri test dışı). Hata enjeksiyonu yok |
-| Güvenlik (HTTP/kapılar) | 15 | 70 | 10.50 | 401/403/token test edildi; Origin ve gövde sınırı E2E değil |
-| Gözlemlenebilirlik | 10 | 80 | 8.00 | Günlük + journal + `log --summary`; metrik yok |
-| Performans | 5 | 85 | 4.25 | PERF-01…03 ölçüldü, `scripts/perf-budget.json` kapısı var (taban + en kötü gözlem) |
-| Yük | 5 | 85 | 4.25 | LOAD-01…04 ölçüldü, `scripts/perf-budget.json` eşikleri var (LOAD-02/03 28.10.2026) |
-| **Toplam** | **100** | | **78.50** | |
+| Islevsel dogruluk | 25 | 85 | 21.25 | Motor + API genis; CLI E2E ve PARITY-01..05 tamam; web E2E manuel (ego) |
+| Guvenlik degismezleri | 25 | 90 | 22.50 | guard/onay/vault guclu; Git tracked + junction silme korumasi artik otomatik (`tests/safety-fs.test.ts`) |
+| Hata yonetimi | 15 | 80 | 12.00 | `delete.ts` hata enjeksiyonu (10 test), plan TTL (2), bozuk JSON + 1 MB govde + 404 (API) otomatik |
+| Guvenlik (HTTP/kapilar) | 15 | 85 | 12.75 | Origin, loopback adresi, govde siniri ve token testleri otomatik; smoke 34 kontrol |
+| Gozlemlenebilirlik | 10 | 80 | 8.00 | Gunluk + journal + `log --summary`; metrik yok |
+| Performans | 5 | 85 | 4.25 | PERF-01..03 olculdu, `scripts/perf-budget.json` kapisi var |
+| Yuk | 5 | 85 | 4.25 | LOAD-01..04 olculdu, butce esikleri tanimli |
+| **Toplam** | **100** | | **85.00** | |
 
-**Kapılar:** alpha **≥ 70**, beta **≥ 85**.
+**Kapilar:** alpha **>= 70**, beta **>= 85**. Agirlikli puan kapisi **03.11.2026 itibariyla 85.00**.
 
-> **Not (27.10.2026):** Performans ve yük ölçümü 26.10.2026'da tamamlandı
-> (W0-b-3) ve skor **68.00 → 76.50** oldu; alpha kapısı (70) **açık**. Fark
-> performans/yük ölçümüyle kapandı, güvenlik puanı düşürülmedi. Kalan beta
-> maddeleri: LOAD-02/03 ve web E2E.
->
-> **Not (28.10.2026, T83):** LOAD-02/03 ölçüldü → yük alt skoru **60 → 85**,
-> toplam **76.50 → 77.75**. Bütçeler `scripts/perf-budget.json` içinde
-> (`load5000DiskViewP95Ms` 150, `load5000PayloadMb` 6, `load1kReplayP95Ms` 500)
-> ve `npm run perf` kapısına bağlı. Kalan beta maddeleri: **web E2E**, PROFIL.
+Kapsam (729 test): satir **%86.29**, dal **%80.15**, fonksiyon **%80.32**; beta kapsam kosulu (satir >= 85, dal >= 80, fonksiyon >= 75) saglandi.
 
-> **Not (28.10.2026, B24):** Denetim filtresi + CSV/JSON dışa aktarma eklendi
-> (motor `src/core/audit-export.ts`, 16 test). Tarayıcı kanıtı **elle** alındı
-> (ego-browser: filtre + indirilen dosya içeriği TR/EN); otomatik web E2E
-> olmadığı için **puan değişmedi** — bu satır kanıt kaydıdır, seviye yükseltmez.
-
-> **Not (28.10.2026, T74/W2):** Üç persona (developer / vibe coder / melez)
-> uygulandı: kalıcılık + API sözleşmesi (`src/core/profile.ts`), sunum haritası
-> (`web/src/profiles.ts`), ilk açılış onboarding (`web/src/onboarding.ts`) ve
-> `data-density` yoğunluk kuralları. Persona **yalnız sunum**; tarama kapsamı,
-> risk, hedef, seçim ve onay ifadesi değişmez (PROFILE-03/04/05 testleri).
-> Tarayıcı kanıtı **elle** alındı (ego-browser: onboarding TR/EN + `Esc`,
-> rail sırası, yoğunluk 36 px / 44 px). Otomatik web E2E olmadığı için
-> **puan değişmedi** (77.75).
->
-> **Not (28.10.2026, B19/B21):** Tarama iptali artık sessiz dönmüyor
-> (`role="status"` bilgi satırı, hata bandından ayrı), `P` ile duraklat/devam
-> ve iptal iki adımlı (B19/B21, motor `src/core/scan-control.ts`, 10 test).
-> WEB-10 (klavye-only tur) satırı **kısmen** ilerledi ama tüm akış + odak
-> tuzağı tamamlanmadığı için **puan değişmedi**.
-
-> **Not (28.10.2026, kapsam tazeleme):** `node --import tsx --test
-> --experimental-test-coverage tests/*.test.ts` (526 test) → **satır %83.31 /
-> dal %76.08 / fonksiyon %74.40**. Öne çıkanlar: `guard.ts` satır %100 /
-> fonksiyon %100 (dal %87.5), `restore-target.ts` %100, `vault.ts` %87.93 /
-> %71.74, `audit-export.ts` %100 / %100, `delete.ts` %61.16 / %34.38
-> (yürütme döngüleri 109-214 ve 220-304 test dışı), `restore.ts` %32.94
-> (yalnız `exists` kullanılıyor). Bu ölçüm hata yönetimi alt skorunu
-> **55 → 60** (katkı 8.25 → 9.00), toplamı **77.75 → 78.50** yaptı: eski
-> gerekçedeki "vault kapsamı düşük" ifadesi geçersiz, ama hata enjeksiyonu
-> (ERR-01…08) ve `delete` döngü kapsamı hâlâ yok → 70'e çıkarılmadı.
-> Beta (85) ✗, fark 6.5.
+> **Not (03.11.2026):** Asagidaki eski notlar tarihsel kayittir. Guncel kanit
+> icin bolum 8'e bakin. WEB-15/WEB-17 ve PROFILE-06/07 hala tam otomatik
+> degildir; agirlikli puan kapisi acilmis olsa da bu maddeler acik kalir.
 
 ---
 
@@ -359,3 +323,26 @@ güncellenmez.
    ...\residue-api-verify2-*\residue` ile düştü; aynı turda tekrar koşuda
    **526/526** geçti. Windows'ta sandbox silme yarışı; testi zayıflatmadan
    (retry eklemeden) teardown'un nedeni bulunmalı.
+
+
+---
+
+## 8. Beta kaniti (03.11.2026)
+
+| Madde | Kanit |
+|---|---|
+| ERR-01/02 ENOENT + EACCES/EPERM | `tests/delete-errors.test.ts` (10 test, enjekte edilmis batch/move/remove hatalari) |
+| ERR-06 bozuk JSON | `tests/api.test.ts`: 400, sunucu ayakta |
+| ERR-07 govde siniri | `tests/api.test.ts`: 1 MB uzeri 413 |
+| ERR-08 plan TTL | `tests/plan-ttl.test.ts`: 410 + kayit silinir, sonraki 404 |
+| SAFE-02 Git tracked | `tests/safety-fs.test.ts`: gercek `git init` + tracked klasor korunur |
+| SAFE-08 junction | `tests/safety-fs.test.ts`: junction hedefi ve ustasi korunur |
+| SEC-02 Origin | `tests/api.test.ts`: yabanci Origin 403, ayni origin 200 |
+| SEC-03 loopback | `tests/api.test.ts`: `127.0.0.1` adresi test edilir |
+| SEC-07 govde | `tests/api.test.ts`: 1 MB uzeri 413 |
+| Kapsam | 729 test; satir 86.29 / dal 80.15 / fonksiyon 80.32 |
+
+**Acik kalan:** PROFILE-06 (guard'in tum profillerde gercek kosusu) ve
+PROFILE-07 (ekran okuyucu + reduced-motion turu) otomatik degil; WEB-15/WEB-17
+de manuel dogrulama ile sinirli. Bunlar beta puanini degistirmez ama
+"tam otomatik beta" iddiasini sinirlar.

@@ -118,3 +118,57 @@ test('trim 205 kayitta 200 birakir ve en yeni 200u tutar', () => {
   assert.equal(ids.has('r5'), true);
   assert.equal(ids.has('r204'), true);
 });
+test('list esit createdAt icin id ile deterministik siralar', () => {
+  const out = PlanRecords.list([rec('a', 1), rec('c', 1), rec('b', 1)]);
+  assert.deepEqual(out.map((r) => r.id), ['c', 'b', 'a']);
+});
+
+test('canTransition bekleyen disindan gecisi ve ayni durumu reddeder', () => {
+  assert.equal(PlanRecords.canTransition('pending', 'pending'), false);
+  assert.equal(PlanRecords.canTransition('cancelled', 'executed'), false);
+  assert.equal(PlanRecords.canTransition('failed', 'cancelled'), false);
+});
+
+test('apply bilinmeyen kayitta ayni referansi dondurur', () => {
+  const records = [rec('a', 1)];
+  assert.equal(PlanRecords.apply(records, 'missing', 'executed', 2), records);
+});
+
+test('apply yalniz hata sonucunu ve iptal zamanini yazar', () => {
+  const out = PlanRecords.apply([rec('a', 1)], 'a', 'failed', 9, { error: 'boom' });
+  assert.equal(out[0]!.status, 'failed');
+  assert.equal(out[0]!.error, 'boom');
+  assert.equal(out[0]!.executedAt, 9);
+  assert.equal(out[0]!.freedBytes, undefined);
+});
+
+test('trim sinirin altinda listeyi sirali dondurur', () => {
+  const out = PlanRecords.trim([rec('a', 1), rec('b', 3), rec('c', 2)]);
+  assert.deepEqual(out.map((r) => r.id), ['b', 'c', 'a']);
+});
+
+test('counts dort durumu da sayar', () => {
+  const c = PlanRecords.counts([
+    rec('a', 1, 'pending'),
+    rec('b', 2, 'pending'),
+    rec('c', 3, 'cancelled'),
+    rec('d', 4, 'failed'),
+  ]);
+  assert.deepEqual(c, { pending: 2, executed: 0, cancelled: 1, failed: 1 });
+});
+
+test('sync ad degisikligini ve birden fazla bekleyen kaydi tazeler', () => {
+  const records = [rec('a', 1), { ...rec('b', 2), planId: 'other' }];
+  const out = PlanRecords.sync(records, {
+    planId: 'pid',
+    name: 'yeni',
+    clusterKeys: ['x', 'y'],
+    clusterTitles: ['X', 'Y'],
+    bytes: 99,
+    targetCount: 2,
+  });
+  assert.equal(out[0]!.name, 'yeni');
+  assert.deepEqual(out[0]!.clusterKeys, ['x', 'y']);
+  assert.equal(out[0]!.targetCount, 2);
+  assert.equal(out[1]!.name, 'n');
+});
