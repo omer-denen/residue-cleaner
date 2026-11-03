@@ -5,6 +5,7 @@ import type {
   EnvPlanResponse,
 } from '../../../src/core/contract.ts';
 import { ApprovalRules } from '../../../src/core/approval.ts';
+import { EnvSelection } from '../../../src/core/env-view.ts';
 import { api, ApiError } from '../api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { ENV_FINDING_LABEL, ENV_REASON_LABEL, ENV_SCOPE_LABEL } from '../labels.ts';
@@ -38,8 +39,7 @@ export function Env({ lang }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const [scope, setScope] = useState<'user' | 'machine' | 'both'>('user');
-  const [removeMissing, setRemoveMissing] = useState(true);
-  const [removeDuplicates, setRemoveDuplicates] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const [plan, setPlan] = useState<EnvPlanResponse | null>(null);
   const [planning, setPlanning] = useState(false);
@@ -64,12 +64,29 @@ export function Env({ lang }: Props) {
     void loadAnalysis();
   }, [loadAnalysis]);
 
+  const entries = analysis ? EnvSelection.entries(analysis) : [];
+  const candidateIds = analysis ? EnvSelection.candidateIds(analysis, scope) : [];
+
+  // Kapsam veya analiz degisince secim, kaldirilabilir girdilerden yeniden kurulur.
+  useEffect(() => {
+    setSelected(new Set(analysis ? EnvSelection.candidateIds(analysis, scope) : []));
+  }, [analysis, scope]);
+
+  const toggleEntry = (id: string): void => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const createPlan = async (): Promise<void> => {
     setPlanning(true);
     setActionError(null);
     setResult(null);
     try {
-      const next = await api.envPlan({ scope, removeMissing, removeDuplicates });
+      const next = await api.envPlan({ scope, removeEntries: [...selected] });
       setPlan(next);
       setPhrase('');
       panel?.activate('action');
@@ -148,31 +165,35 @@ export function Env({ lang }: Props) {
                   <option value="both">{t('env.scope.both')}</option>
                 </select>
               </label>
-              <label className="control-label">
-                <input
-                  type="checkbox"
-                  checked={removeMissing}
-                  onChange={(e) => setRemoveMissing(e.target.checked)}
-                />
-                {t('env.removeMissing')}
-              </label>
-              <label className="control-label">
-                <input
-                  type="checkbox"
-                  checked={removeDuplicates}
-                  onChange={(e) => setRemoveDuplicates(e.target.checked)}
-                />
-                {t('env.removeDuplicates')}
-              </label>
+              <span className="dim env-selection-count">
+                {t('env.selection.count', { n: selected.size })}
+              </span>
+              <button
+                type="button"
+                className="ghost"
+                disabled={candidateIds.length === 0}
+                onClick={() => setSelected(new Set(candidateIds))}
+              >
+                {t('env.selection.all')}
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                disabled={selected.size === 0}
+                onClick={() => setSelected(new Set())}
+              >
+                {t('env.selection.none')}
+              </button>
               <button
                 type="button"
                 className="primary"
-                disabled={planning}
+                disabled={planning || selected.size === 0}
                 onClick={() => void createPlan()}
               >
                 {planning ? t('common.loading') : t('env.planNew')}
               </button>
             </div>
+            <p className="dim env-selection-hint">{t('env.selection.hint')}</p>
 
             <section className="panel">
               <h2>{tu('env.findings')}</h2>
@@ -208,33 +229,32 @@ export function Env({ lang }: Props) {
             <section className="panel">
               <h2>{tu('env.pathEntries')}</h2>
               <div className="path-scroll">
-                {analysis.pathEntries.map((entry) => {
-                  const state = !entry.exists
-                    ? 'missing'
-                    : entry.duplicateOf !== undefined
-                      ? 'duplicate'
-                      : entry.shadowedBy !== undefined
-                        ? 'shadowed'
-                        : 'ok';
-                  return (
-                    <div className="path-row" key={`${entry.scope}:${entry.index}`}>
-                      <span className="badge">
-                        {t(ENV_SCOPE_LABEL[entry.scope] ?? 'env.scope.user')}
-                      </span>
-                      <span className="num dim mono">{entry.index}</span>
-                      <span className="mono path-value" title={entry.expanded}>
-                        {entry.expanded}
-                      </span>
-                      <span
-                        className={`badge ${
-                          state === 'missing' || state === 'duplicate' ? 'warn' : ''
-                        }`}
-                      >
-                        {t(`env.entry.${state}` as MessageKey)}
-                      </span>
-                    </div>
-                  );
-                })}
+                {entries.map((entry) => (
+                  <div className="path-row" key={entry.id}>
+                    <input
+                      type="checkbox"
+                      className="path-check"
+                      checked={selected.has(entry.id)}
+                      disabled={!entry.removable}
+                      onChange={() => toggleEntry(entry.id)}
+                      aria-label={t('env.selection.row', { path: entry.expanded })}
+                    />
+                    <span className="badge">
+                      {t(ENV_SCOPE_LABEL[entry.scope] ?? 'env.scope.user')}
+                    </span>
+                    <span className="num dim mono">{entry.index}</span>
+                    <span className="mono path-value" title={entry.expanded}>
+                      {entry.expanded}
+                    </span>
+                    <span
+                      className={`badge ${
+                        entry.state === 'missing' || entry.state === 'duplicate' ? 'warn' : ''
+                      }`}
+                    >
+                      {t(`env.entry.${entry.state}` as MessageKey)}
+                    </span>
+                  </div>
+                ))}
               </div>
             </section>
 

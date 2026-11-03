@@ -105,4 +105,14 @@ test('PATH analizi ve temizlik plani', () => {
   assert.equal(plan.changes.length, 1);
   assert.equal(plan.changes[0]!.after, existing);
   assert.equal(plan.requiresAdmin, false);
+
+  // Acik secim: yalnizca isaretlenen girdi cikar; tekrar korunur.
+  const selected = planPathCleanup(analysis, { scope: 'user', removeEntries: ['user:1'] });
+  assert.equal(selected.changes.length, 1);
+  assert.equal(selected.changes[0]!.after, `${existing};${existing}`);
+  assert.equal(selected.changes[0]!.reason, 'secilen PATH girdileri');
+
+  // Bos secim degisiklik uretmez.
+  const none = planPathCleanup(analysis, { scope: 'user', removeEntries: [] });
+  assert.equal(none.empty, true);
 });

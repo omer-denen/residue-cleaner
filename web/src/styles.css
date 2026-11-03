@@ -3737,11 +3737,25 @@ body.resizing {
 
 .path-row {
   display: grid;
-  grid-template-columns: 76px 34px minmax(0, 1fr) 96px;
+  grid-template-columns: 20px 76px 34px minmax(0, 1fr) 96px;
   align-items: center;
   gap: 7px;
   padding: 5px 8px;
   border-bottom: 1px solid var(--line-soft);
+  font-size: 12px;
+}
+
+.path-check {
+  margin: 0;
+}
+
+.env-selection-count {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.env-selection-hint {
+  margin: -4px 0 12px;
   font-size: 12px;
 }
 

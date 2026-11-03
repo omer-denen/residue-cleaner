@@ -56,7 +56,10 @@ test('web kabugu node builtin ve servis/aksiyon import edemez', async () => {
           path.endsWith('vault-view.ts') ||
           // arac kaldirma yolu (paket yoneticisi / karantina); saf TS, yalniz
           // envanter tipi import eder — arayuz karar vermez (kural 18)
-          path.endsWith('cli-action.ts'),
+          path.endsWith('cli-action.ts') ||
+          // PATH girdisi secimi (durum + kaldirilabilirlik + kimlik); saf TS,
+          // yalniz env motoru tipini import eder — siniflandirma motorda kalir
+          path.endsWith('env-view.ts'),
         `${file}: izin verilmeyen cekirdek importu: ${path}`,
       );
     }

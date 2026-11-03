@@ -652,6 +652,9 @@ async function handleRequest(
         scope,
         removeMissing: body.removeMissing !== false,
         removeDuplicates: body.removeDuplicates !== false,
+        removeEntries: Array.isArray(body.removeEntries)
+          ? body.removeEntries.filter((id): id is string => typeof id === 'string').slice(0, 2000)
+          : undefined,
       }),
     );
     return;

@@ -452,6 +452,11 @@ export interface PathCleanupOptions {
   scope?: EnvScope | 'both';
   removeMissing?: boolean;
   removeDuplicates?: boolean;
+  /**
+   * Acik secim: yalnizca bu PATH girdileri kaldirilir (kimlik bicimi
+   * `<scope>:<index>`). Verildiginde removeMissing/removeDuplicates yok sayilir.
+   */
+  removeEntries?: string[];
 }
 
 /** PATH temizligi icin DIFF uretir; hicbir sey yazmaz. */
@@ -461,6 +466,9 @@ export function planPathCleanup(analysis: EnvAnalysis, opts: PathCleanupOptions 
   const changes: EnvChange[] = [];
   const warnings: string[] = [];
 
+  const explicit = opts.removeEntries !== undefined;
+  const removeSet = new Set(opts.removeEntries ?? []);
+
   for (const s of scopes) {
     const v = (s === 'user' ? analysis.snapshot.user : analysis.snapshot.machine).find(
       (x) => x.name.toLowerCase() === 'path',
@@ -468,6 +476,7 @@ export function planPathCleanup(analysis: EnvAnalysis, opts: PathCleanupOptions 
     if (!v) continue;
     const entries = analysis.pathEntries.filter((e) => e.scope === s);
     const keep = entries.filter((e) => {
+      if (explicit) return !removeSet.has(`${e.scope}:${e.index}`);
       if (opts.removeMissing !== false && !e.exists) return false;
       if (opts.removeDuplicates !== false && e.duplicateOf !== undefined) return false;
       return true;
@@ -480,12 +489,14 @@ export function planPathCleanup(analysis: EnvAnalysis, opts: PathCleanupOptions 
       type: v.type === 'REG_EXPAND_SZ' ? 'REG_EXPAND_SZ' : 'REG_SZ',
       before: v.raw,
       after,
-      reason: [
-        opts.removeMissing !== false ? 'olmayan dizinler' : '',
-        opts.removeDuplicates !== false ? 'tekrarlar' : '',
-      ]
-        .filter(Boolean)
-        .join(' + '),
+      reason: explicit
+        ? 'secilen PATH girdileri'
+        : [
+            opts.removeMissing !== false ? 'olmayan dizinler' : '',
+            opts.removeDuplicates !== false ? 'tekrarlar' : '',
+          ]
+            .filter(Boolean)
+            .join(' + '),
     });
   }
 

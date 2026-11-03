@@ -219,8 +219,9 @@ export const api = {
 
   envPlan: (body: {
     scope: 'user' | 'machine' | 'both';
-    removeMissing: boolean;
-    removeDuplicates: boolean;
+    removeMissing?: boolean;
+    removeDuplicates?: boolean;
+    removeEntries?: string[];
   }): Promise<EnvPlanResponse> => post<EnvPlanResponse>('/api/env/plan', body),
 
   envApply: (planId: string, phrase: string): Promise<EnvApplyResult> =>
