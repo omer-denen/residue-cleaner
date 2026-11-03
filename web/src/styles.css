@@ -253,6 +253,28 @@ code,
   background: var(--panel);
 }
 
+/* Yenile: islem surerken donen ikon + kilitli dugme (sessiz yenileme yok). */
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.refresh-btn:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .scan-chip {
   position: relative;
   display: inline-flex;
@@ -1965,6 +1987,30 @@ code,
   background: var(--faint);
 }
 
+/* Tiklanabilir dikkat karti: hedef ekrana goturur (UX: olu kart yok). */
+.card-link {
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.card-link:hover {
+  border-color: var(--line-strong, #33475c);
+  background: var(--panel-2);
+  transform: translateY(-1px);
+}
+
+.card-link:active {
+  transform: none;
+}
+
+.card-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .card-warn::before {
   background: var(--warn);
 }
@@ -2145,17 +2191,13 @@ code,
 /* ---------------------------------------------------------------- responsive */
 
 @media (max-width: 1180px) {
+  /* Panel bu genislikte SUTUN degil cekmecedir (asagi bakin): detay/kanit
+     portalleri gorunur kalir, satir tiklamalari olu hedef olmaz. */
   .shell {
     grid-template-columns: 190px minmax(0, 1fr);
   }
 
   .context {
-    display: none;
-  }
-
-  .right-panel,
-  .rp-toggle,
-  .panel-resizer {
     display: none;
   }
 }
@@ -3020,12 +3062,146 @@ body.resizing {
   margin-top: 4px;
 }
 
+.record-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.record-actions .ghost,
+.record-actions .danger-button {
+  padding: 3px 9px;
+  font-size: 11.5px;
+}
+
 .vault-totals {
   display: flex;
   flex-direction: column;
   gap: 2px;
   align-items: flex-end;
   font-size: 12.5px;
+}
+
+.vault-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 0 12px;
+}
+
+.vault-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 240px;
+  max-width: 420px;
+  color: var(--dim);
+}
+
+.vault-search > .icon {
+  position: absolute;
+  left: 10px;
+  pointer-events: none;
+}
+
+.vault-search .control {
+  width: 100%;
+  height: 34px;
+  padding-left: 32px;
+  padding-right: 32px;
+}
+
+.vault-search .control::-webkit-search-cancel-button {
+  display: none;
+}
+
+.vault-search-clear {
+  position: absolute;
+  right: 4px;
+  padding: 5px;
+  line-height: 0;
+  border-radius: 6px;
+}
+
+.vault-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.vault-field .control {
+  height: 34px;
+  padding: 0 8px;
+}
+
+.vault-toolbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.vault-nomatch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--dim);
+}
+
+.vault-nomatch p {
+  margin: 0;
+}
+
+.vault-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+}
+
+.vault-pager-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vault-page-btn {
+  padding: 5px 7px;
+  line-height: 0;
+}
+
+.vault-page-no {
+  min-width: 52px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+@media (max-width: 820px) {
+  .vault-search {
+    max-width: none;
+  }
+
+  .vault-toolbar-meta {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .vault-pager {
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 1240px) {
@@ -3045,11 +3221,71 @@ body.resizing {
   .shell-wide {
     grid-template-columns: 190px minmax(0, 1fr);
   }
+
+  .app.rail-collapsed .shell,
+  .app.rail-collapsed .shell-wide {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  /* Sag panel: sutun yerine sagdan acilan cekmece. Genis ekrandaki
+     yerlesim (sutun + ayirici) degismez; dar ekranda detay kaybolmaz. */
+  .right-panel {
+    position: fixed;
+    top: 56px;
+    right: 0;
+    bottom: 30px;
+    width: min(420px, 94vw);
+    z-index: 32;
+    border-left: 1px solid var(--line);
+    box-shadow: -18px 0 48px rgba(0, 0, 0, 0.5);
+    transform: translateX(102%);
+    transition: transform 180ms ease;
+  }
+
+  .app.panel-drawer-open .right-panel {
+    transform: translateX(0);
+  }
+
+  .panel-resizer {
+    display: none;
+  }
+
+  .panel-backdrop {
+    position: fixed;
+    inset: 56px 0 30px 0;
+    z-index: 31;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: rgba(3, 6, 10, 0.5);
+    cursor: default;
+    animation: panel-fade 160ms ease;
+  }
+}
+
+@keyframes panel-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .right-panel {
+    transition: none;
+  }
 }
 
 @media (max-width: 820px) {
   .shell-wide {
     grid-template-columns: 1fr;
+  }
+
+  .app.rail-collapsed .shell,
+  .app.rail-collapsed .shell-wide {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .cluster-head {
@@ -3311,7 +3547,7 @@ body.resizing {
 .cli-head,
 .cli-row {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 92px 104px 64px 80px 80px;
+  grid-template-columns: minmax(0, 1fr) 92px 104px 64px 80px 96px;
   align-items: center;
   gap: 7px;
 }
@@ -4010,12 +4246,12 @@ body.resizing {
   }
 
   .cli-row {
-    grid-template-columns: 24px minmax(0, 1fr) 86px 78px;
+    grid-template-columns: minmax(0, 1fr) 88px 72px;
   }
 
-  .cli-row > :nth-child(3),
-  .cli-row > :nth-child(5),
-  .cli-row > :nth-child(7) {
+  .cli-row > :nth-child(2),
+  .cli-row > :nth-child(4),
+  .cli-row > :nth-child(6) {
     display: none;
   }
 
@@ -4049,13 +4285,6 @@ body.resizing {
 
   .graph-legend {
     grid-template-columns: 1fr;
-  }
-
-  .graph-node-row > :nth-child(2),
-  .graph-node-row > :nth-child(3),
-  .graph-node-row > :nth-child(5),
-  .graph-node-row > :nth-child(6) {
-    display: none;
   }
 
   .graph-edge-row {
@@ -4676,4 +4905,183 @@ kbd {
 }
 .rp-modules button[aria-pressed="false"] {
   opacity: .55;
+}
+
+/* ---- Sayfa iskeleti (ilk yukleme, UI-013) -------------------------------- */
+.page-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 6px;
+}
+.sk-kicker {
+  width: 84px;
+  height: 10px;
+}
+.sk-heading {
+  width: min(320px, 46%);
+  height: 30px;
+  border-radius: 8px;
+}
+.sk-sub {
+  width: min(460px, 70%);
+  height: 12px;
+}
+.sk-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 6px;
+}
+.sk-card {
+  height: 104px;
+  border-radius: var(--r-md);
+}
+.sk-meta {
+  flex: 0 0 72px;
+  height: 10px;
+  margin-left: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-skeleton .sk {
+    animation: none;
+  }
+}
+/* ---- Komut paleti (Ctrl/Cmd+K) ------------------------------------------ */
+.palette-trigger {
+  gap: 7px;
+}
+.palette-trigger kbd {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: var(--dim);
+  background: color-mix(in srgb, var(--panel) 60%, transparent);
+}
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 24px;
+  background: rgba(3, 6, 9, 0.72);
+  animation: panel-fade 120ms ease-out;
+}
+.palette {
+  display: flex;
+  flex-direction: column;
+  width: min(620px, 100%);
+  max-height: 70vh;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 2px 0 rgba(255, 255, 255, 0.03) inset;
+}
+.palette-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--dim);
+}
+.palette-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+.palette-search input::placeholder {
+  color: var(--dim);
+}
+.palette-search kbd {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+  font-size: 10px;
+  padding: 3px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--dim);
+}
+.palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.palette-item.active {
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+}
+.palette-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.palette-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette-hint {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.palette-empty {
+  margin: 0;
+  padding: 26px 16px;
+  text-align: center;
+  color: var(--dim);
+}
+.palette-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 9px 14px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--dim);
+}
+@media (max-width: 900px) {
+  .palette-trigger-label,
+  .palette-trigger kbd {
+    display: none;
+  }
+  .palette-backdrop {
+    padding-top: 8vh;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .palette-backdrop {
+    animation: none;
+  }
 }

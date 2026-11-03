@@ -395,7 +395,6 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
 
             {view.tools.length > 0 && (
               <div className="cli-head">
-                <span />
                 <span>{tu('tools.command')}</span>
                 <span>{tu('tools.source')}</span>
                 <span>{tu('tools.status')}</span>
@@ -447,23 +446,6 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                     >
                       {t(CLI_STATUS_LABEL[tool.status] ?? 'cli.status.unknown')}
                     </span>
-                    {(tool.usageSignals ?? []).map((sig) => (
-                      <span
-                        key={sig}
-                        className="badge signal-badge"
-                        aria-label={t(`tools.signal.${sig}` as MessageKey)}
-                      >
-                        {t(`tools.signal.${sig}` as MessageKey)}
-                      </span>
-                    ))}
-                    {tool.atimeSuspect && (
-                      <span
-                        className="badge warn signal-badge"
-                        aria-label={t('tools.signal.atimeSuspect')}
-                      >
-                        {t('tools.signal.atimeSuspect')}
-                      </span>
-                    )}
                     <span className="num dim">
                       {tool.idleDays >= 0
                         ? `${Math.floor(tool.idleDays)} ${t('vault.days')}`
@@ -471,6 +453,23 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                     </span>
                     <span className="num mono">{formatBytes(tool.totalBytes)}</span>
                     <span className="badges-right">
+                      {(tool.usageSignals ?? []).map((sig) => (
+                        <span
+                          key={sig}
+                          className="badge signal-badge"
+                          aria-label={t(`tools.signal.${sig}` as MessageKey)}
+                        >
+                          {t(`tools.signal.${sig}` as MessageKey)}
+                        </span>
+                      ))}
+                      {tool.atimeSuspect && (
+                        <span
+                          className="badge warn signal-badge"
+                          aria-label={t('tools.signal.atimeSuspect')}
+                        >
+                          {t('tools.signal.atimeSuspect')}
+                        </span>
+                      )}
                       {tool.health === 'broken' && (
                         <span className="badge warn">{t('tools.brokenBadge')}</span>
                       )}

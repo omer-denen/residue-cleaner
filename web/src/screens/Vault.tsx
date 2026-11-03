@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { VaultListResponse, AuditResponse } from '../../../src/core/contract.ts';
 import { ApprovalRules } from '../../../src/core/approval.ts';
 import {
@@ -7,10 +7,17 @@ import {
   AUDIT_KIND_IDS,
   AUDIT_EXPORT_LIMIT,
 } from '../../../src/core/audit-export.ts';
+import {
+  VaultView,
+  VAULT_PAGE_SIZES,
+  VAULT_SORT_IDS,
+  type VaultSort,
+} from '../../../src/core/vault-view.ts';
 import { api, ApiError } from '../api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { formatAge, formatBytes, formatTimestamp } from '../format.ts';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { Icon } from '../components/icons.tsx';
 
 interface Props {
   lang: Lang;
@@ -41,6 +48,13 @@ export function Vault({ lang, onChanged }: Props) {
   const [purgeBusy, setPurgeBusy] = useState(false);
   const busy = purgeBusy || busyId !== null;
   const [rowError, setRowError] = useState<Record<string, string>>({});
+
+  // Gorunum durumu (AGENTS.md kural 18): karar motoru `VaultView`'de.
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<VaultSort>('newest');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(VAULT_PAGE_SIZES[0]);
+  const pageCheck = useRef<HTMLInputElement>(null);
 
   const [tab, setTab] = useState<'vault' | 'audit'>('vault');
   const [auditData, setAuditData] = useState<AuditResponse | null>(null);
@@ -123,7 +137,14 @@ export function Vault({ lang, onChanged }: Props) {
   const load = useCallback(async (): Promise<void> => {
     try {
       setError(null);
-      setData(await api.vault());
+      const next = await api.vault();
+      setData(next);
+      // Secili kimlikler listede KALMAYANLARDAN temizlenir: geri yuklenen
+      // ya da baska sekmede bosaltilan oge hayalet secim olarak kalmasin.
+      setSelected((previous) => {
+        const alive = new Set(next.entries.map((entry) => entry.id));
+        return new Set([...previous].filter((id) => alive.has(id)));
+      });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     }
@@ -132,6 +153,37 @@ export function Vault({ lang, onChanged }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const view = useMemo(
+    () => (data ? VaultView.view(data.entries, { search, sort, page, pageSize }) : null),
+    [data, search, sort, page, pageSize],
+  );
+
+  // Filtre/siralama degisince ilk sayfaya don; veri kuculunce sayfayi kirp.
+  useEffect(() => {
+    setPage(1);
+  }, [search, sort, pageSize]);
+
+  useEffect(() => {
+    if (view && view.page !== page) setPage(view.page);
+  }, [view, page]);
+
+  const pageIds = view?.rows.map((entry) => entry.id) ?? [];
+  const pageAll = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const pageSome = pageIds.some((id) => selected.has(id));
+
+  useEffect(() => {
+    if (pageCheck.current) pageCheck.current.indeterminate = pageSome && !pageAll;
+  }, [pageSome, pageAll]);
+
+  const togglePage = (): void => {
+    setSelected((previous) => {
+      const next = new Set(previous);
+      if (pageAll) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
 
   const toggle = (id: string): void => {
     setSelected((previous) => {
@@ -213,6 +265,11 @@ export function Vault({ lang, onChanged }: Props) {
             <span>
               {t('vault.total')}: <strong className="mono">{formatBytes(data.totalBytes)}</strong>
             </span>
+            {data.totalCount !== undefined && (
+              <span className="dim">
+                {data.totalCount} {t('vault.records')}
+              </span>
+            )}
             <span className="dim">
               {t('vault.retention')}: {data.retentionDays} {t('vault.days')}
             </span>
@@ -244,13 +301,94 @@ export function Vault({ lang, onChanged }: Props) {
         />
       )}
 
+      {data?.truncated && (
+        <div className="banner warn">
+          {t('vault.truncated', {
+            n: data.entries.length,
+            total: data.totalCount ?? data.entries.length,
+          })}
+        </div>
+      )}
+
       {data && data.entries.length > 0 && (
         <>
+          <div className="vault-toolbar">
+            <label className="vault-search">
+              <Icon name="search" size={14} />
+              <input
+                className="control"
+                type="search"
+                data-search
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t('vault.search')}
+                aria-label={t('vault.search')}
+                autoComplete="off"
+              />
+              {search !== '' && (
+                <button
+                  type="button"
+                  className="ghost vault-search-clear"
+                  onClick={() => setSearch('')}
+                  aria-label={t('vault.clearSearch')}
+                  title={t('vault.clearSearch')}
+                >
+                  <Icon name="close" size={12} />
+                </button>
+              )}
+            </label>
+            <label className="vault-field">
+              <span>{t('vault.sort')}</span>
+              <select
+                className="control"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as VaultSort)}
+              >
+                {VAULT_SORT_IDS.map((id) => (
+                  <option key={id} value={id}>
+                    {t(`vault.sort.${id}` as MessageKey)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="vault-toolbar-meta">
+              {view && view.total !== data.entries.length && (
+                <span className="dim">{t('vault.filtered', { n: view.total })}</span>
+              )}
+              {view && view.summary.conflicts > 0 && (
+                <span className="badge warn">
+                  {view.summary.conflicts} {t('vault.conflicts')}
+                </span>
+              )}
+              {view && view.summary.expiring > 0 && (
+                <span className="badge warn">
+                  {view.summary.expiring} {t('vault.expiring')}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {view && view.total === 0 ? (
+            <section className="panel vault-nomatch">
+              <p>{t('vault.noMatch')}</p>
+              <button type="button" className="ghost" onClick={() => setSearch('')}>
+                {t('vault.clearSearch')}
+              </button>
+            </section>
+          ) : (
           <section className="panel">
             <table className="table">
               <thead>
                 <tr>
-                  <th />
+                  <th>
+                    <input
+                      ref={pageCheck}
+                      type="checkbox"
+                      checked={pageAll}
+                      onChange={togglePage}
+                      aria-label={t('vault.selectPage')}
+                    />
+                  </th>
                   <th>{tu('vault.original')}</th>
                   <th className="num">{t('vault.size')}</th>
                   <th className="num">{t('vault.age')}</th>
@@ -259,7 +397,7 @@ export function Vault({ lang, onChanged }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {data.entries.map((entry) => (
+                {view?.rows.map((entry) => (
                   <tr key={entry.id}>
                     <td>
                       <input
@@ -297,7 +435,54 @@ export function Vault({ lang, onChanged }: Props) {
                 ))}
               </tbody>
             </table>
+            {view && (
+              <footer className="vault-pager">
+                <span className="dim">
+                  {t('vault.range', { from: view.from, to: view.to, total: view.total })}
+                </span>
+                <div className="vault-pager-controls">
+                  <label className="vault-field">
+                    <span>{t('vault.perPage')}</span>
+                    <select
+                      className="control"
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value))}
+                    >
+                      {VAULT_PAGE_SIZES.map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="ghost vault-page-btn"
+                    onClick={() => setPage(view.page - 1)}
+                    disabled={!view.hasPrev}
+                    aria-label={t('vault.pagePrev')}
+                    title={t('vault.pagePrev')}
+                  >
+                    <Icon name="chevronLeft" size={14} />
+                  </button>
+                  <span className="mono vault-page-no">
+                    {view.page} / {view.pageCount}
+                  </span>
+                  <button
+                    type="button"
+                    className="ghost vault-page-btn"
+                    onClick={() => setPage(view.page + 1)}
+                    disabled={!view.hasNext}
+                    aria-label={t('vault.pageNext')}
+                    title={t('vault.pageNext')}
+                  >
+                    <Icon name="chevronRight" size={14} />
+                  </button>
+                </div>
+              </footer>
+            )}
           </section>
+          )}
 
           <section className="panel approval">
             <h2>{tu('vault.purge')}</h2>
@@ -422,7 +607,11 @@ export function Vault({ lang, onChanged }: Props) {
                   {auditData.events.map((e, i) => (
                     <tr key={i}>
                       <td className="dim">{formatTimestamp(e.at, lang)}</td>
-                      <td>{t(`audit.kind.${e.kind}` as any)}</td>
+                      <td>
+                        {(AUDIT_KIND_IDS as readonly string[]).includes(e.kind)
+                          ? t(`audit.kind.${e.kind}` as MessageKey)
+                          : e.kind}
+                      </td>
                       <td>
                         <span className={`badge ${e.ok ? 'ok' : 'danger'}`}>{e.ok ? t('audit.ok') : t('audit.failed')}</span>
                         {!e.ok && e.code && <span className="dim"> {e.code}</span>}

@@ -4,6 +4,7 @@ import type {
   DashboardDetailId,
   DashboardDetailRow,
   DashboardLedgerId,
+  DashboardTarget,
   BackgroundViewResponse,
   DashboardResponse,
 } from '../../../src/core/contract.ts';
@@ -105,11 +106,14 @@ export function Dashboard({
   lang,
   onOpenDisk,
   onPlanWin,
+  onNavigate,
 }: {
   data: DashboardResponse;
   lang: Lang;
   onOpenDisk: () => void;
   onPlanWin?: (clusterKey: string) => void;
+  /** Dikkat karti hedefi: kullaniciyi ilgili ekrana goturur. */
+  onNavigate?: (target: Exclude<DashboardTarget, 'recover'>) => void;
 }) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(lang, key, vars);
@@ -327,28 +331,50 @@ export function Dashboard({
             <span className="mono dim">{formatCount(data.cards.length, lang)}</span>
           </div>
           <div className="cards">
-            {data.cards.map((card) => (
-              <article key={card.id} className={`card card-${card.tone}`}>
-                <span className="card-title">{t(CARD_TITLE_LABEL[card.titleId])}</span>
-                {card.target && (
-                  <span className="card-target">{tu(CARD_TARGET[card.target])}</span>
-                )}
-                <span className="card-summary">
-                  {card.count !== null && (
-                    <strong className="card-count">{card.count}</strong>
+            {data.cards.map((card) => {
+              // 'recover' icin ayri ekran yok; kart bilgi olarak kalir.
+              const target =
+                card.target && card.target !== 'recover' ? card.target : null;
+              const body = (
+                <>
+                  <span className="card-title">{t(CARD_TITLE_LABEL[card.titleId])}</span>
+                  {card.target && (
+                    <span className="card-target">
+                      {tu(CARD_TARGET[card.target])}
+                      {target ? ' →' : ''}
+                    </span>
                   )}
-                  <span className="card-state">{t(CARD_LABEL[card.stateId])}</span>
-                </span>
-                {card.meta?.at != null && (
-                  <span className="card-meta">
-                    <span>{formatTimestamp(card.meta.at, lang)}</span>
-                    {card.meta.ageMs !== null && (
-                      <span>{formatAge(card.meta.ageMs, lang)}</span>
+                  <span className="card-summary">
+                    {card.count !== null && (
+                      <strong className="card-count">{card.count}</strong>
                     )}
+                    <span className="card-state">{t(CARD_LABEL[card.stateId])}</span>
                   </span>
-                )}
-              </article>
-            ))}
+                  {card.meta?.at != null && (
+                    <span className="card-meta">
+                      <span>{formatTimestamp(card.meta.at, lang)}</span>
+                      {card.meta.ageMs !== null && (
+                        <span>{formatAge(card.meta.ageMs, lang)}</span>
+                      )}
+                    </span>
+                  )}
+                </>
+              );
+              return target ? (
+                <button
+                  key={card.id}
+                  type="button"
+                  className={`card card-${card.tone} card-link`}
+                  onClick={() => onNavigate?.(target)}
+                >
+                  {body}
+                </button>
+              ) : (
+                <article key={card.id} className={`card card-${card.tone}`}>
+                  {body}
+                </article>
+              );
+            })}
           </div>
         </section>
       )}

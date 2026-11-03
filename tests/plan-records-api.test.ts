@@ -10,6 +10,8 @@ let root = '';
 let server: Server;
 let base = '';
 let token = '';
+let createdPlanId = '';
+let createdRecordId = '';
 
 before(async () => {
   root = await mkdtemp(join(tmpdir(), 'residue-plan-records-api-'));
@@ -90,6 +92,22 @@ test('POST /api/plans basarili 201', async () => {
   assert.ok(body.record.planId);
   assert.ok(body.record.bytes > 0);
   assert.equal(body.plan.planId, body.record.planId);
+  createdPlanId = body.record.planId;
+  createdRecordId = body.record.id;
+});
+
+test('plan adi degisince bekleyen kayit da tazelenir', async () => {
+  const renamed = await fetch(`${base}/api/plan/${createdPlanId}`, {
+    method: 'PATCH',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'Yeni plan adi' }),
+  });
+  assert.equal(renamed.status, 200);
+
+  const list = await fetch(`${base}/api/plans`, { headers: { 'x-residue-token': token } });
+  const body = (await list.json()) as { records: Array<{ id: string; name: string }> };
+  const rec = body.records.find((r) => r.id === createdRecordId);
+  assert.equal(rec?.name, 'Yeni plan adi');
 });
 
 test('GET /api/plans kayit en ustte', async () => {
@@ -110,4 +128,33 @@ test('kalıcılık: kayıt diske yazıldı ve yeniden yüklenebiliyor', async ()
   const fromDisk = await loadPlanRecords();
   assert.ok(fromDisk.length >= 1);
   assert.equal(fromDisk[0]!.status, 'pending');
+});
+
+test('POST /api/plans/:id/cancel bekleyen kaydi iptal eder, ikinci kez 409', async () => {
+  const list = await fetch(`${base}/api/plans`, { headers: { 'x-residue-token': token } });
+  const body = (await list.json()) as { records: Array<{ id: string; status: string }> };
+  const pending = body.records.find((r) => r.status === 'pending');
+  assert.ok(pending);
+
+  const r = await fetch(`${base}/api/plans/${pending.id}/cancel`, {
+    method: 'POST',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: '{}',
+  });
+  assert.equal(r.status, 200);
+  const out = (await r.json()) as {
+    records: Array<{ id: string; status: string }>;
+    counts: Record<string, number>;
+    plan: unknown;
+  };
+  assert.equal(out.records.find((x) => x.id === pending.id)?.status, 'cancelled');
+  assert.equal(out.counts.cancelled, 1);
+  assert.equal(out.plan, null);
+
+  const again = await fetch(`${base}/api/plans/${pending.id}/cancel`, {
+    method: 'POST',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: '{}',
+  });
+  assert.equal(again.status, 409);
 });

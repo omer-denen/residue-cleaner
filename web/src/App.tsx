@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
@@ -30,6 +30,7 @@ import {
   type RightPanelModule,
   type RightPanelModuleId,
 } from './components/RightPanel.tsx';
+import { CommandPalette, type PaletteItem } from './components/CommandPalette.tsx';
 import { PlannedModule, PlanValidity } from './components/PlannedModule.tsx';
 import { ContextBlock } from './components/ContextBlock.tsx';
 import {
@@ -114,6 +115,8 @@ export function App() {
   const [scanVerify, setScanVerify] = useState<ScanVerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  /** Yenile dugmesi: ilk yuklemeden sonra da gorunur geri bildirim. */
+  const [refreshing, setRefreshing] = useState(false);
   const [help, setHelp] = useState(false);
   /** Tarama durumu ayrinti raporu (rozetten acilir). */
   const [scanReport, setScanReport] = useState(false);
@@ -141,6 +144,17 @@ export function App() {
   const [isNarrow, setIsNarrow] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches,
   );
+  /**
+   * Sag panelin sutun olarak sigmadigi genislik (1180px alti). Bu aralikta
+   * panel SUTUN degil, uzerine acilan cekmece olur; aksi halde detay/kanit
+   * portalleri gorunmez olur ve satir tiklamalari "olu" kalir.
+   */
+  const [isCompact, setIsCompact] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 1180px)').matches,
+  );
+  const [panelDrawerOpen, setPanelDrawerOpen] = useState(false);
+  /** Komut paleti (Ctrl/Cmd+K): ekran + eylem aramasi. */
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   const railRef = useRef<HTMLElement | null>(null);
   const helpRef = useRef<HTMLDivElement | null>(null);
@@ -218,6 +232,7 @@ export function App() {
       setPlanExpired(false);
       setPlanned(next);
       setPlan(next);
+      await refreshPlanRecords();
     } catch (err) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
         stalePlan();
@@ -246,6 +261,7 @@ export function App() {
       setPlanExpired(false);
       setPlan(next);
       setPlanned(next);
+      await refreshPlanRecords();
       setScreen('plan');
     } catch (err) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
@@ -261,16 +277,18 @@ export function App() {
     setError(null);
     try {
       // Tum istekler SALT OKUNUR; karar motorda verilir.
-      const [nextDashboard, nextMeta, nextStatus, nextPlanned] = await Promise.all([
+      const [nextDashboard, nextMeta, nextStatus, nextPlanned, nextRecords] = await Promise.all([
         api.dashboard(),
         api.meta(),
         api.scanStatus(),
         api.planned(),
+        api.plans(),
       ]);
       setDashboard(nextDashboard);
       setMeta(nextMeta);
       setStatus(nextStatus);
       setPlanned(nextPlanned);
+      setPlanRecords(nextRecords.records);
       // Plan ekranindaki sonuc gorunumunu ezmemek icin yalnizca varsa yaz.
       if (nextPlanned) setPlan(nextPlanned);
     } catch (err) {
@@ -280,7 +298,19 @@ export function App() {
     }
   }, []);
 
+  /** Topbar "Yenile": ayni yuklemeyi SESSIZCE tekrarlar; dugme kilitlenir. */
+  const refresh = useCallback(async (): Promise<void> => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load, refreshing]);
+
   const launchRanRef = useRef(false);
+
   useEffect(() => {
     if (launchRanRef.current) return;
     launchRanRef.current = true;
@@ -441,14 +471,40 @@ export function App() {
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
+  // Panel cekmecesi: 1180px altinda panel sutun olarak gizlenir; detay
+  // secimi cekmeceyi otomatik acar. Genis ekrana donunce cekmece kapanir.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1180px)');
+    const onChange = (e: MediaQueryListEvent): void => {
+      setIsCompact(e.matches);
+      if (!e.matches) setPanelDrawerOpen(false);
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   // Klavye: `/` arama, `?` kısayollar, `Esc` kapat / odaktan çık.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Ctrl/Cmd+K: komut paleti (yazarken de calisir; tarayici aramasini ez).
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((value) => !value);
+        return;
+      }
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
 
       if (e.key === 'Escape') {
+        if (paletteOpen) {
+          setPaletteOpen(false);
+          return;
+        }
         if (help) {
           setHelp(false);
+          return;
+        }
+        if (panelDrawerOpen) {
+          setPanelDrawerOpen(false);
           return;
         }
         if (isTypingTarget(e.target)) (e.target as HTMLElement).blur();
@@ -474,7 +530,7 @@ export function App() {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [help]);
+  }, [help, panelDrawerOpen, paletteOpen]);
 
   // Kısayol penceresi: odak tuzağı + kapanınca odağı geri ver.
   useEffect(() => {
@@ -715,6 +771,102 @@ export function App() {
   /** Persona yalniz sunum: rail grup ici sirasi (W2-2). */
   const navOrder = profileViewFor(profile).navOrder;
 
+  /** Panel gorunur mu? Genis ekranda sutun, dar ekranda cekmece. */
+  const showPanel = !rightCollapsed || (isCompact && panelDrawerOpen);
+
+  /**
+   * Ekran icinden `panel.activate(...)`: genis ekranda sekme acilir;
+   * 1180px altinda panel SUTUN DEGIL cekmecedir, bu yuzden otomatik acilir.
+   * Aksi halde "Detay" tiklamasi gorunmez bir paneli hedefliyordu.
+   */
+  const activatePanel = (id: RightPanelModuleId): void => {
+    setRightTab(id);
+    if (isCompact) setPanelDrawerOpen(true);
+  };
+
+  const closePanel = (): void => {
+    if (isCompact) setPanelDrawerOpen(false);
+    else setRightCollapsed(true);
+  };
+
+  /**
+   * Palet adaylari: 10 ekran + 5 eylem. Etiketler i18n'den; eslestirme
+   * `CommandView` motorunda (kural 18). Dil degisince yeniden uretilir.
+   */
+  const paletteItems = useMemo<PaletteItem[]>(
+    () => [
+      ...NAV.map((entry) => ({
+        id: `nav:${entry.id}`,
+        label: t(entry.label),
+        hint: t('palette.group.nav'),
+        keywords: [entry.id, 'sayfa', 'screen'],
+      })),
+      {
+        id: 'action:scan',
+        label: t('palette.action.scan'),
+        hint: t('palette.group.action'),
+        keywords: ['scan', 'tarama', 'disk'],
+      },
+      {
+        id: 'action:refresh',
+        label: t('palette.action.refresh'),
+        hint: t('palette.group.action'),
+        keywords: ['refresh', 'yenile'],
+      },
+      {
+        id: 'action:panel',
+        label: t('palette.action.panel'),
+        hint: t('palette.group.action'),
+        keywords: ['panel', 'detay', 'drawer'],
+      },
+      {
+        id: 'action:lang',
+        label: t('palette.action.lang'),
+        hint: t('palette.group.action'),
+        keywords: ['language', 'dil', 'english', 'turkce'],
+      },
+      {
+        id: 'action:help',
+        label: t('palette.action.help'),
+        hint: t('palette.group.action'),
+        keywords: ['help', 'yardim', 'shortcut', 'kisayol'],
+      },
+    ],
+    // t yalniz `lang`e baglidir; ekran degisimi listeyi degistirmez.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lang],
+  );
+
+  const runPalette = (id: string): void => {
+    if (id.startsWith('nav:')) {
+      setScreen(id.slice(4) as Screen);
+      return;
+    }
+    if (id === 'action:scan') {
+      setScreen('disk');
+      setScanRequest((value) => value + 1);
+      return;
+    }
+    if (id === 'action:refresh') {
+      void refresh();
+      return;
+    }
+    if (id === 'action:panel') {
+      if (isCompact) {
+        if (panelDrawerOpen) closePanel();
+        else activatePanel(rightTab);
+      } else {
+        setRightCollapsed((value) => !value);
+      }
+      return;
+    }
+    if (id === 'action:lang') {
+      setLang(lang === 'tr' ? 'en' : 'tr');
+      return;
+    }
+    if (id === 'action:help') setHelp(true);
+  };
+
   return (
     <div
       className={[
@@ -722,6 +874,7 @@ export function App() {
         railCollapsed ? 'rail-collapsed' : '',
         rightCollapsed ? 'panel-collapsed' : '',
         isNarrow && railOpen ? 'rail-drawer-open' : '',
+        isCompact && panelDrawerOpen ? 'panel-drawer-open' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -781,18 +934,43 @@ export function App() {
               <PlanValidity expiresAt={planned.expiresAt} lang={lang} compact />
             </button>
           )}
-          <button type="button" className="ghost" onClick={() => void load()}>
-            {t('top.refresh')}
+          <button
+            type="button"
+            className="ghost palette-trigger"
+            aria-label={t('top.paletteHint')}
+            aria-keyshortcuts="Control+K"
+            title={t('top.paletteHint')}
+            onClick={() => setPaletteOpen(true)}
+          >
+            <Icon name="search" size={13} />
+            <span className="palette-trigger-label">{t('top.palette')}</span>
+            <kbd>Ctrl K</kbd>
+          </button>
+          <button
+            type="button"
+            className="ghost refresh-btn"
+            disabled={refreshing}
+            aria-busy={refreshing}
+            onClick={() => void refresh()}
+          >
+            <Icon name="refresh" size={13} className={refreshing ? 'spin' : undefined} />
+            <span>{t('top.refresh')}</span>
           </button>
           <button
             type="button"
             className="ghost rp-toggle"
             aria-label={
-              rightCollapsed ? t('rightPanel.expand') : t('rightPanel.collapse')
+              (isCompact ? panelDrawerOpen : !rightCollapsed)
+                ? t('rightPanel.collapse')
+                : t('rightPanel.expand')
             }
-            aria-expanded={!rightCollapsed}
+            aria-expanded={isCompact ? panelDrawerOpen : !rightCollapsed}
             aria-controls="app-right-panel"
-            onClick={() => setRightCollapsed((value) => !value)}
+            onClick={() =>
+              isCompact
+                ? setPanelDrawerOpen((value) => !value)
+                : setRightCollapsed((value) => !value)
+            }
           >
             <Icon name="panel" size={14} />
           </button>
@@ -817,7 +995,7 @@ export function App() {
         </div>
       </header>
 
-      <RightPanelProvider active={panelActive} onActivate={setRightTab}>
+      <RightPanelProvider active={panelActive} onActivate={activatePanel}>
         <div
           className={`shell${rightCollapsed ? ' shell-wide' : ''}`}
           style={{ '--right-w': `${panelWidth}px` } as CSSProperties}
@@ -862,9 +1040,29 @@ export function App() {
           id="main"
           tabIndex={-1}
           aria-label={t('a11y.main')}
-          aria-busy={loading}
+          aria-busy={loading || refreshing}
         >
-          {loading && <div className="state">{t('common.loading')}</div>}
+          {loading && (
+            <div className="page-skeleton" role="status" aria-label={t('common.loading')}>
+              <span className="sk sk-kicker" />
+              <span className="sk sk-heading" />
+              <span className="sk sk-sub" />
+              <div className="sk-cards" aria-hidden="true">
+                {[0, 1, 2, 3].map((i) => (
+                  <span key={i} className="sk sk-card" />
+                ))}
+              </div>
+              <div className="skeleton-list" aria-hidden="true">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="skeleton-row">
+                    <span className="sk sk-dot" />
+                    <span className="sk sk-title" />
+                    <span className="sk sk-meta" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Plan 404/410 ya da TTL: uyarı HER ekranda görünür (sessiz
               kaybolma yok). Plan Durumu sekmesi açıkken panelin kendi
@@ -900,6 +1098,7 @@ export function App() {
               lang={lang}
               onOpenDisk={() => setScreen('disk')}
               onPlanWin={planWin}
+              onNavigate={(target) => setScreen(target)}
             />
           )}
 
@@ -945,12 +1144,15 @@ export function App() {
                 setPlan(next);
                 setPlanned(next);
                 setPlanError(null);
-                setPlanExpired(false);
+                if (next) setPlanExpired(false);
+                void refreshPlanRecords();
               }}
+              onRecordsChange={setPlanRecords}
               onExecuted={() => {
+                setPlan(null);
                 setPlanned(null);
                 setPlanExpired(false);
-                void load();
+                void refresh();
                 void refreshPlanRecords();
               }}
             />
@@ -985,24 +1187,9 @@ export function App() {
           {!loading && !error && screen === 'vault' && (
             <Vault lang={lang} onChanged={() => void load()} />
           )}
-
-          {!loading &&
-            !error &&
-            ![
-              'dashboard',
-              'disk',
-              'plan',
-              'projects',
-              'tools',
-              'env',
-              'graph',
-              'schedules',
-              'settings',
-              'vault',
-            ].includes(screen) && <div className="state">{t('common.soon')}</div>}
         </main>
 
-        {!rightCollapsed && (
+        {showPanel && !isCompact && (
           <div
             className="panel-resizer"
             role="separator"
@@ -1020,19 +1207,28 @@ export function App() {
             onKeyDown={onResizerKeyDown}
           />
         )}
-        {!rightCollapsed && (
+        {showPanel && (
           <RightPanel
             lang={lang}
             modules={panelModules}
             active={panelActive}
-            onActivate={setRightTab}
-            onCollapse={() => setRightCollapsed(true)}
+            onActivate={activatePanel}
+            onCollapse={closePanel}
             hiddenModules={panelVisibility.hidden}
             catalog={panelPlan.modules.map((id) => ({ id, label: PANEL_MODULE_LABEL[id] }))}
             onToggleModule={onToggleModule}
           />
         )}
       </div>
+      {isCompact && panelDrawerOpen && (
+        <button
+          type="button"
+          className="panel-backdrop"
+          aria-label={t('rightPanel.closeDrawer')}
+          tabIndex={-1}
+          onClick={() => setPanelDrawerOpen(false)}
+        />
+      )}
       </RightPanelProvider>
 
       <footer className="statusbar">
@@ -1099,6 +1295,15 @@ export function App() {
         }}
       />
 
+      {paletteOpen && (
+        <CommandPalette
+          lang={lang}
+          items={paletteItems}
+          onRun={runPalette}
+          onClose={() => setPaletteOpen(false)}
+        />
+      )}
+
       {help && (
         <div className="shortcuts-backdrop" onClick={() => setHelp(false)}>
           <div
@@ -1122,6 +1327,12 @@ export function App() {
               </button>
             </div>
             <dl className="shortcuts-list">
+              <div>
+                <dt>
+                  <kbd>{t('a11y.shortcut.palette.keys')}</kbd>
+                </dt>
+                <dd>{t('a11y.shortcut.palette')}</dd>
+              </div>
               <div>
                 <dt>
                   <kbd>{t('a11y.shortcut.nav.keys')}</kbd>

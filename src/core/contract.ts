@@ -450,10 +450,15 @@ export interface VaultEntryView {
 
 export interface VaultListResponse {
   entries: VaultEntryView[];
+  /** Kasadaki TUM kayitlarin boyut toplami (kirpilmadan bagimsiz). */
   totalBytes: number;
   retentionDays: number;
   /** Kalici bosaltma icin beklenen yazili ifade (tek kaynak). */
   purgePhrase: string;
+  /** Kasadaki toplam kayit sayisi (kirpilmadan once). */
+  totalCount?: number;
+  /** `entries` liste sinirina takildi mi? */
+  truncated?: boolean;
 }
 
 export interface VaultRestoreRequest {
@@ -632,6 +637,11 @@ export interface PlanRecordView extends PlanRecord {
 export interface PlanRecordsResponse {
   records: PlanRecordView[];
   counts: Record<PlanRecordStatus, number>;
+}
+
+/** Bekleyen kaydin iptali; canli plan da atildiysa `plan: null`. */
+export interface PlanRecordCancelResponse extends PlanRecordsResponse {
+  plan: PlanResponse | null;
 }
 
 export interface PlanRecordCreateRequest {

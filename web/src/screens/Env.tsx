@@ -27,6 +27,10 @@ export function Env({ lang }: Props) {
   // Etiket/basliklar: dil bilincli buyuk harf (TR: i -> İ).
   const tu = (key: MessageKey, vars?: Record<string, string | number>) =>
     translateUpper(lang, key, vars);
+
+  /** Enum sizintisi yok: kapsam kimligi gorunen etikete cevrilir. */
+  const scopeLabel = (scope: 'user' | 'machine'): string =>
+    t(scope === 'machine' ? 'env.scope.machine' : 'env.scope.user');
   const panel = useRightPanel();
 
   const [analysis, setAnalysis] = useState<EnvAnalysis | null>(null);
@@ -83,11 +87,10 @@ export function Env({ lang }: Props) {
     try {
       const out = await api.envApply(plan.planId, phrase);
       setResult(out);
-      if (out.ok) {
-        setPlan(null);
-        setPhrase('');
-        await loadAnalysis();
-      }
+      // Kismi uygulamada da analiz TAZELENIR: eski "once" degerleri kalmasin.
+      setPlan(null);
+      setPhrase('');
+      await loadAnalysis();
     } catch (err) {
       if (err instanceof ApiError) {
         const body = err.body as EnvApplyResult | null;
@@ -299,7 +302,7 @@ export function Env({ lang }: Props) {
                   {plan.plan.changes.map((change, index) => (
                     <li key={`${change.scope}:${change.name}:${index}`}>
                       <span className="mono">
-                        {change.scope} · {change.name}
+                        {scopeLabel(change.scope)} · {change.name}
                       </span>
                       <span className="dim">{change.reason}</span>
                       <span className="dim mono">
@@ -385,7 +388,7 @@ export function Env({ lang }: Props) {
                   <li key={`${err.scope}:${err.name}`}>
                     <span className="mono">{err.name}</span>
                     <span className="dim">
-                      {err.scope} · {err.reason}
+                      {scopeLabel(err.scope)} · {err.reason}
                     </span>
                   </li>
                 ))}

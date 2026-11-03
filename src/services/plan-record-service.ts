@@ -76,13 +76,57 @@ export class PlanRecordService {
     return this.mark(planId, 'executed', outcome);
   }
 
-  async cancel(recordId: string): Promise<PlanRecord[]> {
+  /**
+   * Canli planin kapsami degistiginde (ekle/cikar/yeniden kur/ad) bekleyen
+   * kaydi tazeler. Kayit yoksa veya kapsam ayniysa hicbir sey yazilmaz.
+   */
+  async sync(plan: PlanResponse): Promise<void> {
+    const records = await loadPlanRecords();
+    const next = PlanRecords.sync(records, {
+      planId: plan.planId,
+      name: plan.name,
+      clusterKeys: plan.plan.clusters.map((c) => c.key),
+      clusterTitles: plan.plan.clusters.map((c) => c.title),
+      bytes: plan.plan.totalBytes,
+      targetCount: plan.plan.targets.length,
+    });
+    if (next !== records) await savePlanRecords(next);
+  }
+
+  /** Plan atildiginda (discard) ona bagli bekleyen kaydi iptal eder. */
+  async cancelByPlan(planId: string): Promise<void> {
+    const records = await loadPlanRecords();
+    const next = PlanRecords.cancelPlan(records, planId, Date.now());
+    if (next !== records) await savePlanRecords(next);
+  }
+
+  /**
+   * Kullanici kaydi iptal eder. Ayni plan hala canliysa once o atilir;
+   * onaylanmis (armed) plan 10 dk kurali geregi atilamaz (409).
+   */
+  async cancel(recordId: string): Promise<{
+    records: PlanRecord[];
+    counts: Record<PlanRecordStatus, number>;
+  }> {
     const records = await loadPlanRecords();
     const target = records.find((r) => r.id === recordId);
-    if (!target) return PlanRecords.list(records);
+    if (!target) throw new ServiceError(404, 'Plan kaydi bulunamadi');
+    if (target.status !== 'pending') {
+      throw new ServiceError(409, 'Plan zaten sonuclanmis');
+    }
+
+    try {
+      this.deleteService.discardPlan(target.planId);
+    } catch (err) {
+      // Plan zaten atilmis/suresi dolmus olabilir; kaydi yine iptal et.
+      if (!(err instanceof ServiceError) || (err.status !== 404 && err.status !== 410)) {
+        throw err;
+      }
+    }
+
     const next = PlanRecords.apply(records, target.id, 'cancelled', Date.now());
-    if (next === records) return PlanRecords.list(records);
     await savePlanRecords(next);
-    return PlanRecords.list(await loadPlanRecords());
+    const sorted = PlanRecords.list(next);
+    return { records: sorted, counts: PlanRecords.counts(sorted) };
   }
 }

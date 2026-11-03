@@ -48,7 +48,12 @@ test('web kabugu node builtin ve servis/aksiyon import edemez', async () => {
           path.endsWith('plan-badge.ts') ||
           // sag panel modul gorunurlugu (gizle/goster, bos panel korumasi); saf TS,
           // modul kimliklerini tanimaz — sira/koruma kurali motorda kalir (AGENTS.md kural 18, T64/P1)
-          path.endsWith('panel-prefs.ts'),
+          path.endsWith('panel-prefs.ts') ||
+          // komut paleti sorgusu (katlama + siralama + ok tusu); saf TS, DOM/node builtin yok
+          path.endsWith('command-view.ts') ||
+          // kasa gorunumu (arama + siralama + sayfalama + ozet); saf TS, yalniz
+          // contract tipi import eder — karar motorda kalir (AGENTS.md kural 18)
+          path.endsWith('vault-view.ts'),
         `${file}: izin verilmeyen cekirdek importu: ${path}`,
       );
     }

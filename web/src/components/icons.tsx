@@ -23,9 +23,12 @@ export type IconName =
   | 'panel'
   | 'check'
   | 'chevronDown'
+  | 'chevronLeft'
+  | 'chevronRight'
   | 'file'
   | 'lock'
   | 'arrowRight'
+  | 'refresh'
   | 'search';
 
 const PATHS: Record<IconName, ReactElement> = {
@@ -105,6 +108,8 @@ const PATHS: Record<IconName, ReactElement> = {
   ),
   check: <path d="M3 8.5l3.5 3.5L13 4.5" />,
   chevronDown: <path d="M4 6l4 4 4-4" />,
+  chevronLeft: <path d="M10 3L5 8l5 5" />,
+  chevronRight: <path d="M6 3l5 5-5 5" />,
   file: (
     <>
       <path d="M4 1.5h5l3 3V14.5H4z" />
@@ -119,6 +124,12 @@ const PATHS: Record<IconName, ReactElement> = {
     </>
   ),
   arrowRight: <path d="M3 8h10M9 4l4 4-4 4" />,
+  refresh: (
+    <>
+      <path d="M13 8a5 5 0 1 1-1.6-3.7" />
+      <path d="M13 2.2V5h-2.8" />
+    </>
+  ),
   search: (
     <>
       <circle cx="7" cy="7" r="4.5" />
@@ -127,10 +138,18 @@ const PATHS: Record<IconName, ReactElement> = {
   ),
 };
 
-export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
+export function Icon({
+  name,
+  size = 16,
+  className,
+}: {
+  name: IconName;
+  size?: number;
+  className?: string;
+}) {
   return (
     <svg
-      className="icon"
+      className={`icon${className ? ` ${className}` : ''}`}
       width={size}
       height={size}
       viewBox="0 0 16 16"

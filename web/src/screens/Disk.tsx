@@ -1156,7 +1156,12 @@ export function Disk({
                   <li key={target.path}>
                     <span className="mono">{target.path}</span>
                     <span className="dim">
-                      {target.kind} · {formatBytes(target.bytes)}
+                      {t(
+                        target.kind === 'whole'
+                          ? 'disk.target.whole'
+                          : 'disk.target.older',
+                      )}{' '}
+                      · {formatBytes(target.bytes)}
                     </span>
                   </li>
                 ))}
@@ -1169,7 +1174,7 @@ export function Disk({
                 <li key={part.path}>
                   <span className="mono">{part.path}</span>
                   <span className="dim">
-                    {formatBytes(part.bytes)} · {part.files}
+                    {formatBytes(part.bytes)} · {part.files} {t('disk.detail.files')}
                   </span>
                 </li>
               ))}

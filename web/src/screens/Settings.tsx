@@ -248,9 +248,7 @@ export function Settings({ lang, version, onProfileChange }: Props) {
                 <span>{t('settings.advanced')}</span>
               </label>
             </div>
-            <p className="banner danger" role="alert">
-              {t('settings.advancedHint')}
-            </p>
+            <p className="banner danger">{t('settings.advancedHint')}</p>
           </section>
 
           <section className="panel">

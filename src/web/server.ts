@@ -865,7 +865,9 @@ async function handleRequest(
       return;
     }
     const body = await readJson<PlanRenameRequest>(req);
-    sendJson(res, 200, ctx.remove.renamePlan(id, typeof body.name === 'string' ? body.name : ''));
+    const renamed = ctx.remove.renamePlan(id, typeof body.name === 'string' ? body.name : '');
+    await ctx.plans.sync(renamed);
+    sendJson(res, 200, renamed);
     return;
   }
 
@@ -892,7 +894,9 @@ async function handleRequest(
 
     const planId = typeof body.planId === 'string' ? body.planId : '';
     if (planId) {
-      sendJson(res, 200, ctx.remove.addToPlan(planId, keys, scan));
+      const out = ctx.remove.addToPlan(planId, keys, scan);
+      await ctx.plans.sync(out);
+      sendJson(res, 200, out);
       return;
     }
     sendJson(res, 200, ctx.remove.createPlan(scan, keys, 'recycle'));
@@ -916,6 +920,8 @@ async function handleRequest(
       ? body.keys.filter((k): k is string => typeof k === 'string' && k.length > 0)
       : undefined;
     const out = ctx.remove.removeFromPlan(planId, { key, targetId, keys });
+    if (out) await ctx.plans.sync(out);
+    else await ctx.plans.cancelByPlan(planId);
     sendJson(res, 200, out);
     return;
   }
@@ -932,7 +938,9 @@ async function handleRequest(
     }
     await ctx.scan.ensureCacheLoaded();
     const scan = ctx.scan.last()?.scan ?? null;
-    sendJson(res, 200, ctx.remove.rebuildPlan(planId, scan));
+    const out = ctx.remove.rebuildPlan(planId, scan);
+    await ctx.plans.sync(out);
+    sendJson(res, 200, out);
     return;
   }
 
@@ -945,7 +953,9 @@ async function handleRequest(
       sendJson(res, 400, { error: 'planId gerekli' });
       return;
     }
-    sendJson(res, 200, ctx.remove.discardPlan(planId));
+    const out = ctx.remove.discardPlan(planId);
+    await ctx.plans.cancelByPlan(planId);
+    sendJson(res, 200, out);
     return;
   }
 
@@ -1056,31 +1066,35 @@ async function handleRequest(
   if (route === 'GET /api/vault') {
     const settings = await ctx.scan.settings();
     const now = Date.now();
-    const entries = (await listVaultEntries()).slice(0, 500);
-    const views: VaultEntryView[] = [];
-    for (const e of entries) {
-      const ageMs = Math.max(0, now - e.at);
-      views.push({
-        id: e.id,
-        batchId: e.batchId,
-        originalPath: e.originalPath,
-        storedPath: e.storedPath,
-        bytes: e.bytes,
-        files: e.files,
-        at: e.at,
-        ageMs,
-        remainingDays: Math.max(
-          0,
-          settings.vaultRetentionDays - Math.floor(ageMs / 86_400_000),
-        ),
-        originalExists: await exists(e.originalPath),
-      });
-    }
+    const all = await listVaultEntries();
+    const entries = all.slice(0, 500);
+    const views: VaultEntryView[] = await Promise.all(
+      entries.map(async (e) => {
+        const ageMs = Math.max(0, now - e.at);
+        return {
+          id: e.id,
+          batchId: e.batchId,
+          originalPath: e.originalPath,
+          storedPath: e.storedPath,
+          bytes: e.bytes,
+          files: e.files,
+          at: e.at,
+          ageMs,
+          remainingDays: Math.max(
+            0,
+            settings.vaultRetentionDays - Math.floor(ageMs / 86_400_000),
+          ),
+          originalExists: await exists(e.originalPath),
+        };
+      }),
+    );
     const body: VaultListResponse = {
       entries: views,
-      totalBytes: views.reduce((a, e) => a + e.bytes, 0),
+      totalBytes: all.reduce((a, e) => a + e.bytes, 0),
       retentionDays: settings.vaultRetentionDays,
       purgePhrase: ApprovalRules.phrase('vaultPurge'),
+      totalCount: all.length,
+      truncated: all.length > entries.length,
     };
     sendJson(res, 200, body);
     return;
@@ -1165,6 +1179,36 @@ async function handleRequest(
       clusterCount: r.clusterKeys.length,
     }));
     sendJson(res, 200, { records: views, counts });
+    return;
+  }
+
+  // Bekleyen plan kaydini iptal et. Ayni plan canliysa once atilir (armed
+  // plan 10 dk kurali geregi 409); kayit her durumda "cancelled" olur.
+  if (
+    req.method === 'POST' &&
+    pathname.startsWith('/api/plans/') &&
+    pathname.endsWith('/cancel')
+  ) {
+    const parts = pathname.split('/');
+    const recordId = parts[3] ?? '';
+    if (!recordId || parts.length !== 5) {
+      sendJson(res, 400, { error: 'Kayit kimligi gerekli' });
+      return;
+    }
+    try {
+      const out = await ctx.plans.cancel(recordId);
+      sendJson(res, 200, {
+        records: out.records.map((r) => ({ ...r, clusterCount: r.clusterKeys.length })),
+        counts: out.counts,
+        plan: ctx.remove.currentPlan(),
+      });
+    } catch (err) {
+      if (err instanceof ServiceError) {
+        sendJson(res, err.status, { error: describeError(err) });
+        return;
+      }
+      throw err;
+    }
     return;
   }
 
@@ -1417,17 +1461,15 @@ async function handleCreatePlan(
     : [];
   const mode = advanced ? 'recycle' : body.mode === 'purge' ? 'purge' : 'recycle';
   // W2-c: istege bagli plan adi; verilmezse bos string (ayni davranis).
-  sendJson(
-    res,
-    200,
-    ctx.remove.createPlan(
-      scan ?? null,
-      keys,
-      mode,
-      typeof body.name === 'string' ? body.name : undefined,
-      advanced,
-    ),
+  const plan = ctx.remove.createPlan(
+    scan ?? null,
+    keys,
+    mode,
+    typeof body.name === 'string' ? body.name : undefined,
+    advanced,
   );
+  await ctx.plans.sync(plan);
+  sendJson(res, 200, plan);
 }
 
 function openJobStream(

@@ -20,6 +20,7 @@ import type {
   MetaResponse,
   PlanPreview,
   PlanRecordCreateResponse,
+  PlanRecordCancelResponse,
   PlanRecordView,
   PlanRecordsResponse,
   PlanResponse,
@@ -254,6 +255,10 @@ export const api = {
 
   /** Tarihli plan kayitlari (motor: GET /api/plans). */
   plans: (): Promise<PlanRecordsResponse> => request<PlanRecordsResponse>('/api/plans'),
+
+  /** Bekleyen kaydi iptal eder; canli plan da atildiysa `plan: null`. */
+  cancelPlanRecord: (recordId: string): Promise<PlanRecordCancelResponse> =>
+    post<PlanRecordCancelResponse>(`/api/plans/${encodeURIComponent(recordId)}/cancel`, {}),
   /** Tarama gecmisi (salt okunur). */
   scans: (): Promise<ScanHistoryResponse> => request<ScanHistoryResponse>('/api/scans'),
   /** "Guvenli Kazanim" satirini plana cevirir: kayit acilir + onay plani uretilir. */

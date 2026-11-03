@@ -66,7 +66,7 @@ export function Schedules({ lang }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [name, setName] = useState('Planli temizlik');
+  const [name, setName] = useState(() => translate(lang, 'schedules.defaultName'));
   const [frequency, setFrequency] = useState<ScheduleFrequency>('daily');
   const [hour, setHour] = useState(3);
   const [minute, setMinute] = useState(0);
@@ -571,7 +571,7 @@ export function Schedules({ lang }: Props) {
                 {preview.data.items.length} {t('schedules.previewItems')} ·{' '}
                 {t('schedules.previewTotal')}:{' '}
                 <strong className="mono">{formatBytes(preview.data.totalBytes)}</strong> ·{' '}
-                {preview.data.mode}
+                {preview.data.mode === 'vault' ? t('plan.mode.vault') : preview.data.mode}
               </p>
               <ul className="detail-list">
                 {preview.data.items.map((item) => (

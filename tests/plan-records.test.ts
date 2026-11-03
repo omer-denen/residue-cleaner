@@ -58,6 +58,55 @@ test('apply yasal olmayan geciste listeyi aynen dondurur', () => {
   assert.equal(out.length, records.length);
 });
 
+test('sync bekleyen kaydin kapsamini tazeler, gecmisi degistirmez', () => {
+  const records = [
+    rec('a', 1, 'pending'),
+    { ...rec('b', 2, 'executed'), planId: 'pid' },
+    { ...rec('c', 3, 'pending'), planId: 'other' },
+  ];
+  const out = PlanRecords.sync(records, {
+    planId: 'pid',
+    name: 'yeni ad',
+    clusterKeys: ['k1', 'k2'],
+    clusterTitles: ['t1', 't2'],
+    bytes: 99,
+    targetCount: 4,
+  });
+  assert.equal(out[0]!.name, 'yeni ad');
+  assert.deepEqual(out[0]!.clusterKeys, ['k1', 'k2']);
+  assert.deepEqual(out[0]!.clusterTitles, ['t1', 't2']);
+  assert.equal(out[0]!.bytes, 99);
+  assert.equal(out[0]!.targetCount, 4);
+  assert.equal(out[1]!.name, 'n');
+  assert.equal(out[2]!.name, 'n');
+});
+
+test('sync degisiklik yoksa ayni referansi dondurur', () => {
+  const records = [rec('a', 1, 'pending')];
+  const out = PlanRecords.sync(records, {
+    planId: 'pid',
+    name: 'n',
+    clusterKeys: ['k'],
+    clusterTitles: ['t'],
+    bytes: 10,
+    targetCount: 1,
+  });
+  assert.equal(out, records);
+});
+
+test('cancelPlan yalniz o planin bekleyen kaydini iptal eder', () => {
+  const records = [
+    rec('a', 1, 'pending'),
+    { ...rec('b', 2, 'pending'), planId: 'other' },
+    { ...rec('c', 3, 'executed'), planId: 'pid' },
+  ];
+  const out = PlanRecords.cancelPlan(records, 'pid', 7);
+  assert.equal(out[0]!.status, 'cancelled');
+  assert.equal(out[0]!.executedAt, 7);
+  assert.equal(out[1]!.status, 'pending');
+  assert.equal(out[2]!.status, 'executed');
+});
+
 test('trim 205 kayitta 200 birakir ve en yeni 200u tutar', () => {
   const records: PlanRecord[] = [];
   for (let i = 0; i < 205; i++) records.push(rec(`r${i}`, i + 1));

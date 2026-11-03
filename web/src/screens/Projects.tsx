@@ -12,6 +12,7 @@ import { formatAge, formatBytes, formatCount } from '../format.ts';
 import { RightPanelPortal, useRightPanel } from '../components/RightPanel.tsx';
 import { PanelSummary } from '../components/PanelSummary.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { useNow } from '../useNow.ts';
 
 const TABS: Array<{ id: ProjectTab; label: MessageKey }> = [
   { id: 'all', label: 'projects.tab.all' },
@@ -54,6 +55,7 @@ export function Projects({ lang }: Props) {
   const tu = (key: MessageKey, vars?: Record<string, string | number>) =>
     translateUpper(lang, key, vars);
   const panel = useRightPanel();
+  const now = useNow();
 
   const [rootsInput, setRootsInput] = useState('');
   const [roots, setRoots] = useState<string[]>([]);
@@ -162,10 +164,10 @@ export function Projects({ lang }: Props) {
     setRefreshTick((n) => n + 1);
   }, [rootsInput]);
 
-  const lastActivity = (project: ProjectCandidateView): string =>
+  const lastActivity = (project: ProjectCandidateView, now: number): string =>
     project.lastActivityAt === null
       ? '—'
-      : formatAge(Math.max(0, Date.now() - project.lastActivityAt), lang);
+      : formatAge(Math.max(0, now - project.lastActivityAt), lang);
 
   return (
     <div className="projects">
@@ -202,6 +204,15 @@ export function Projects({ lang }: Props) {
         <p className="dim hint">{t('projects.rootsHint')}</p>
 
         {listError && <div className="banner danger" role="alert">{t('projects.error')}: {listError}</div>}
+
+        {ready && roots.length === 0 && (
+          <EmptyState
+            variant="wide"
+            icon="projects"
+            title={t('projects.noRoots')}
+            body={t('projects.rootsHint')}
+          />
+        )}
 
         {list && (
           <>
@@ -297,7 +308,7 @@ export function Projects({ lang }: Props) {
                         </span>
                       ))}
                     </span>
-                    <span className="dim num">{lastActivity(project)}</span>
+                    <span className="dim num">{lastActivity(project, now)}</span>
                   </button>
                 ))}
               </div>

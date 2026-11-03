@@ -18,7 +18,8 @@ interface Props {
   onDismissExpired?: () => void;
   onBack: () => void;
   onVault: () => void;
-  onReplace: (plan: PlanResponse) => void;
+  onReplace: (plan: PlanResponse | null) => void;
+  onRecordsChange: (records: PlanRecordView[]) => void;
   onExecuted: () => void;
 }
 
@@ -45,6 +46,7 @@ export function PlanScreen({
   onBack,
   onVault,
   onReplace,
+  onRecordsChange,
   onExecuted,
 }: Props) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
@@ -59,11 +61,30 @@ export function PlanScreen({
   const [job, setJob] = useState<JobState | null>(null);
   const [result, setResult] = useState<Extract<ExecuteEvent, { type: 'done' }> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cancelArm, setCancelArm] = useState<string | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const closeStream = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     return () => closeStream.current?.();
   }, []);
+
+  async function cancelRecord(recordId: string): Promise<void> {
+    if (cancelBusy) return;
+    setCancelBusy(true);
+    setCancelError(null);
+    try {
+      const out = await api.cancelPlanRecord(recordId);
+      onRecordsChange(out.records);
+      onReplace(out.plan);
+      setCancelArm(null);
+    } catch (err) {
+      setCancelError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setCancelBusy(false);
+    }
+  }
 
   function renderRecords() {
     return (
@@ -80,6 +101,7 @@ export function PlanScreen({
                 <th>{t('plan.records.scope')}</th>
                 <th className="num">{t('plan.records.size')}</th>
                 <th>{t('plan.records.result')}</th>
+                <th>{t('plan.records.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -108,10 +130,51 @@ export function PlanScreen({
                       ? `${formatBytes(r.freedBytes ?? 0)} · ${r.removed ?? 0}`
                       : r.error ?? '-'}
                   </td>
+                  <td className="record-actions">
+                    {r.status === 'pending' &&
+                      (cancelArm === r.id ? (
+                        <>
+                          <button
+                            type="button"
+                            className="danger-button"
+                            disabled={cancelBusy}
+                            onClick={() => void cancelRecord(r.id)}
+                          >
+                            {cancelBusy
+                              ? t('plan.records.cancelling')
+                              : t('plan.records.cancelConfirm')}
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost"
+                            disabled={cancelBusy}
+                            onClick={() => setCancelArm(null)}
+                          >
+                            {t('plan.records.keep')}
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="ghost"
+                          onClick={() => {
+                            setCancelError(null);
+                            setCancelArm(r.id);
+                          }}
+                        >
+                          {t('plan.records.cancel')}
+                        </button>
+                      ))}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        )}
+        {cancelError && (
+          <p className="banner danger" role="alert">
+            {cancelError}
+          </p>
         )}
       </section>
     );
@@ -205,12 +268,19 @@ export function PlanScreen({
 
   const removeCluster = async (key: string): Promise<void> => {
     const remaining = plan.plan.clusters.filter((c) => c.key !== key).map((c) => c.key);
-    if (remaining.length === 0) {
-      onBack();
-      return;
-    }
     try {
       setError(null);
+      if (remaining.length === 0) {
+        // Son hedef de cikti: sunucudaki plan silinir; ekran bos duruma
+        // duser (armed plan arkada KALMAZ).
+        onReplace(
+          await api.clearPlan(
+            plan.planId,
+            plan.plan.clusters.map((c) => c.key),
+          ),
+        );
+        return;
+      }
       // Icerik degisti: once yeni taslak kurulur, sonra YENIDEN arming edilir
       // (onay ekranindan cikmadan sure yeniden baslar).
       const created = await api.plan(remaining, plan.advanced);
