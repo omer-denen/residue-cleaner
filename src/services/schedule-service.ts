@@ -13,6 +13,7 @@ import {
 } from '../core/plan-engine.ts';
 import type {
   ScheduleCreateRequest,
+  ScheduleUpdateRequest,
   ScheduleView,
 } from '../core/contract.ts';
 import {
@@ -41,6 +42,7 @@ import type { DeleteService, ExecuteJob } from './delete-service.ts';
 
 export type {
   ScheduleCreateRequest,
+  ScheduleUpdateRequest,
   ScheduleView,
 } from '../core/contract.ts';
 export type ScheduleInput = ScheduleCreateRequest;
@@ -78,6 +80,60 @@ export class ScheduleService {
         `Onay ifadesi hatali (${ApprovalRules.phrase('schedule')} bekleniyordu)`,
       );
     }
+    const now = Date.now();
+    const rule = this.build(input, now);
+    await upsertRule(rule);
+    return this.view(rule, await loadScheduleStore(), now);
+  }
+
+  /**
+   * Kurali gunceller. Kapsam/zaman degisikligi otomasyonu yeniden kurdugu icin
+   * yazili PLANLA onayi ister. Yalnizca devre disi birakmak onay istemez.
+   */
+  async update(
+    id: string,
+    input: ScheduleUpdateRequest,
+    approval?: { phrase?: string },
+  ): Promise<ScheduleView> {
+    const store = await loadScheduleStore();
+    const base = store.rules.find((r) => r.id === id);
+    if (!base) throw new ServiceError(404, 'Plan bulunamadi');
+
+    const enabling = input.enabled === true && !base.enabled;
+    const touchesRule = Object.keys(input).some(
+      (key) => key !== 'phrase' && key !== 'enabled' && input[key as keyof ScheduleUpdateRequest] !== undefined,
+    );
+    if ((enabling || touchesRule) && !ApprovalRules.matches('schedule', approval?.phrase)) {
+      throw new ServiceError(
+        400,
+        `Onay ifadesi hatali (${ApprovalRules.phrase('schedule')} bekleniyordu)`,
+      );
+    }
+
+    const merged: ScheduleCreateRequest = {
+      name: input.name ?? base.name,
+      frequency: input.frequency ?? base.frequency,
+      hour: input.hour ?? base.hour,
+      minute: input.minute ?? base.minute,
+      ...(input.weekday !== undefined || base.weekday !== undefined
+        ? { weekday: input.weekday ?? base.weekday }
+        : {}),
+      ...(input.runAt !== undefined || base.runAt !== undefined
+        ? { runAt: input.runAt ?? base.runAt }
+        : {}),
+      selector: input.selector ?? base.selector,
+      enabled: input.enabled ?? base.enabled,
+      compensateMissed: input.compensateMissed ?? base.compensateMissed,
+    };
+
+    const now = Date.now();
+    const rule = this.build(merged, now, base);
+    await upsertRule(rule);
+    return this.view(rule, await loadScheduleStore(), now);
+  }
+
+  /** Dogrulanmis girdiden kural uretir; create ve update ayni kurallari kullanir. */
+  private build(input: ScheduleCreateRequest, now: number, base?: ScheduleRule): ScheduleRule {
     const name = String(input.name ?? '').trim();
     if (name.length < 2 || name.length > 80) {
       throw new ServiceError(400, 'Plan adi 2-80 karakter olmali');
@@ -114,9 +170,8 @@ export class ScheduleService {
       );
     }
 
-    const now = Date.now();
-    const rule: ScheduleRule = {
-      id: newId(),
+    return {
+      id: base?.id ?? newId(),
       name,
       frequency,
       hour,
@@ -133,11 +188,9 @@ export class ScheduleService {
       selector,
       mode: 'vault',
       enabled: input.enabled !== false,
-      createdAt: now,
+      createdAt: base?.createdAt ?? now,
       compensateMissed: input.compensateMissed !== false,
     };
-    await upsertRule(rule);
-    return this.view(rule, await loadScheduleStore(), now);
   }
 
   async remove(id: string): Promise<void> {

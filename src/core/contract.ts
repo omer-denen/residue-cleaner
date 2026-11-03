@@ -803,6 +803,9 @@ export interface ScheduleCreateRequest {
   phrase?: string;
 }
 
+/** Kismi guncelleme: yalniz verilen alanlar degisir. */
+export type ScheduleUpdateRequest = Partial<ScheduleCreateRequest>;
+
 export interface ScheduleListResponse {
   schedules: ScheduleView[];
 }

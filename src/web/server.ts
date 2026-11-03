@@ -789,6 +789,16 @@ async function handleRequest(
     return;
   }
 
+  if (req.method === 'PATCH' && pathname.startsWith('/api/schedules/')) {
+    const id = pathname.split('/')[3] ?? '';
+    const body = await readJson<Record<string, unknown>>(req);
+    const input = body as unknown as Parameters<typeof ctx.schedules.update>[1];
+    const phrase = typeof body.phrase === 'string' ? body.phrase : '';
+    // Kapsam/zaman/etkinlestirme degisikligi yazili PLANLA onayi ister.
+    sendJson(res, 200, await ctx.schedules.update(id, input, { phrase }));
+    return;
+  }
+
   if (req.method === 'DELETE' && pathname.startsWith('/api/schedules/')) {
     const id = pathname.split('/')[3] ?? '';
     await ctx.schedules.remove(id);

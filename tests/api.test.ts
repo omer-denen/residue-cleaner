@@ -136,6 +136,70 @@ test('plan kurali PLANLA onayi ister; onayla olusturulur ve silinir', async () =
   assert.equal(removed.status, 200);
 });
 
+test('zamanlama kurali PLANLA ile guncellenir; duraklatma onay istemez', async () => {
+  const payload = {
+    name: 'guncelleme testi',
+    frequency: 'daily',
+    hour: 4,
+    minute: 15,
+    selector: { maxRisk: 'safe', maxItems: 3 },
+    phrase: 'PLANLA',
+  };
+  const created = await fetch(`${base}/api/schedules`, {
+    method: 'POST',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  assert.equal(created.status, 201);
+  const rule = (await created.json()) as { id: string };
+
+  const denied = await fetch(`${base}/api/schedules/${rule.id}`, {
+    method: 'PATCH',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'yeni ad' }),
+  });
+  assert.equal(denied.status, 400);
+
+  const renamed = await fetch(`${base}/api/schedules/${rule.id}`, {
+    method: 'PATCH',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'yeni ad', hour: 6, phrase: 'PLANLA' }),
+  });
+  assert.equal(renamed.status, 200);
+  const updated = (await renamed.json()) as { name: string; hour: number; enabled: boolean };
+  assert.equal(updated.name, 'yeni ad');
+  assert.equal(updated.hour, 6);
+  assert.equal(updated.enabled, true);
+
+  const paused = await fetch(`${base}/api/schedules/${rule.id}`, {
+    method: 'PATCH',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ enabled: false }),
+  });
+  assert.equal(paused.status, 200);
+  assert.equal(((await paused.json()) as { enabled: boolean }).enabled, false);
+
+  const enableDenied = await fetch(`${base}/api/schedules/${rule.id}`, {
+    method: 'PATCH',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ enabled: true }),
+  });
+  assert.equal(enableDenied.status, 400);
+
+  const enabled = await fetch(`${base}/api/schedules/${rule.id}`, {
+    method: 'PATCH',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ enabled: true, phrase: 'PLANLA' }),
+  });
+  assert.equal(enabled.status, 200);
+  assert.equal(((await enabled.json()) as { enabled: boolean }).enabled, true);
+
+  await fetch(`${base}/api/schedules/${rule.id}`, {
+    method: 'DELETE',
+    headers: { 'x-residue-token': token },
+  });
+});
+
 test('ayarlar kaydedilir; kapali guncelleme kontrolu ag istegi yapmaz', async () => {
   const put = await fetch(`${base}/api/settings`, {
     method: 'PUT',

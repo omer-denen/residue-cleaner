@@ -35,6 +35,7 @@ import type {
   ScanVerifyResponse,
   ScheduleCatchUpResponse,
   ScheduleCreateRequest,
+  ScheduleUpdateRequest,
   ScheduleHistoryResponse,
   ScheduleListResponse,
   ScheduleRun,
@@ -207,6 +208,12 @@ export const api = {
 
   createSchedule: (body: ScheduleCreateRequest): Promise<ScheduleView> =>
     post<ScheduleView>('/api/schedules', body),
+
+  updateSchedule: (id: string, body: ScheduleUpdateRequest): Promise<ScheduleView> =>
+    request<ScheduleView>(`/api/schedules/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
 
   removeSchedule: (id: string): Promise<{ ok: boolean }> =>
     request<{ ok: boolean }>(`/api/schedules/${encodeURIComponent(id)}`, {

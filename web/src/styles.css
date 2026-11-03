@@ -4385,6 +4385,27 @@ body.resizing {
   margin-top: 10px;
 }
 
+.schedule-toggle-row {
+  display: flex;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line-soft);
+}
+
+.schedule-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.schedule-toggle .control {
+  flex: 1;
+  min-width: 120px;
+  max-width: 200px;
+}
+
 .settings {
   max-width: 920px;
 }

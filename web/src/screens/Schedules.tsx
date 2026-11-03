@@ -80,6 +80,10 @@ export function Schedules({ lang }: Props) {
   const [enabled, setEnabled] = useState(true);
   const [phrase, setPhrase] = useState('');
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [toggleId, setToggleId] = useState<string | null>(null);
+  const [togglePhrase, setTogglePhrase] = useState('');
+  const [toggling, setToggling] = useState(false);
 
   const [preview, setPreview] = useState<{ ruleId: string; data: PlanPreview } | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
@@ -122,36 +126,96 @@ export function Schedules({ lang }: Props) {
     });
   };
 
-  const create = async (): Promise<void> => {
+  const formBody = (): ScheduleCreateRequest => ({
+    name,
+    frequency,
+    hour,
+    minute,
+    ...(frequency === 'weekly' ? { weekday } : {}),
+    ...(frequency === 'once'
+      ? { runAt: Date.now() + Math.max(1, runMinutes) * 60_000 }
+      : {}),
+    selector: {
+      ...(categories.size > 0 ? { categories: [...categories] } : {}),
+      maxRisk,
+      ...(minIdleDays > 0 ? { minIdleDays } : {}),
+      maxItems,
+    },
+    enabled,
+    compensateMissed,
+    phrase,
+  });
+
+  const resetForm = (): void => {
+    setEditingId(null);
+    setName(translate(lang, 'schedules.defaultName'));
+    setFrequency('daily');
+    setHour(3);
+    setMinute(0);
+    setWeekday(1);
+    setRunMinutes(60);
+    setMaxRisk('safe');
+    setMinIdleDays(0);
+    setMaxItems(10);
+    setCategories(new Set());
+    setCompensateMissed(true);
+    setEnabled(true);
+    setPhrase('');
+  };
+
+  const startEdit = (rule: ScheduleView): void => {
+    setEditingId(rule.id);
+    setName(rule.name);
+    setFrequency(rule.frequency);
+    setHour(rule.hour);
+    setMinute(rule.minute);
+    setWeekday(rule.weekday ?? 1);
+    setRunMinutes(
+      Math.max(1, Math.ceil(((rule.runAt ?? Date.now() + 60 * 60_000) - Date.now()) / 60_000)),
+    );
+    setMaxRisk(rule.selector.maxRisk === 'low' ? 'low' : 'safe');
+    setMinIdleDays(rule.selector.minIdleDays ?? 0);
+    setMaxItems(rule.selector.maxItems ?? 10);
+    setCategories(new Set(rule.selector.categories ?? []));
+    setCompensateMissed(rule.compensateMissed);
+    setEnabled(rule.enabled);
+    setPhrase('');
+    setToggleId(null);
+    requestAnimationFrame(() => {
+      document.querySelector('.schedule-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  };
+
+  const submit = async (): Promise<void> => {
     setCreating(true);
     setError(null);
     try {
-      const body: ScheduleCreateRequest = {
-        name,
-        frequency,
-        hour,
-        minute,
-        ...(frequency === 'weekly' ? { weekday } : {}),
-        ...(frequency === 'once'
-          ? { runAt: Date.now() + Math.max(1, runMinutes) * 60_000 }
-          : {}),
-        selector: {
-          ...(categories.size > 0 ? { categories: [...categories] } : {}),
-          maxRisk,
-          ...(minIdleDays > 0 ? { minIdleDays } : {}),
-          maxItems,
-        },
-        enabled,
-        compensateMissed,
-        phrase,
-      };
-      await api.createSchedule(body);
-      setPhrase('');
+      if (editingId) await api.updateSchedule(editingId, formBody());
+      else await api.createSchedule(formBody());
+      resetForm();
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     } finally {
       setCreating(false);
+    }
+  };
+
+  const toggle = async (rule: ScheduleView, next: boolean): Promise<void> => {
+    setToggling(true);
+    setError(null);
+    try {
+      await api.updateSchedule(rule.id, {
+        enabled: next,
+        ...(next ? { phrase: togglePhrase } : {}),
+      });
+      setToggleId(null);
+      setTogglePhrase('');
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setToggling(false);
     }
   };
 
@@ -211,8 +275,10 @@ export function Schedules({ lang }: Props) {
       {!loading && (
         <>
           <section className="panel">
-            <h2>{tu('schedules.new')}</h2>
-            <p className="dim">{t('schedules.approvalNote')}</p>
+            <h2>{editingId ? tu('schedules.editTitle') : tu('schedules.new')}</h2>
+            <p className="dim">
+              {editingId ? t('schedules.editNote') : t('schedules.approvalNote')}
+            </p>
 
             <div className="schedule-form">
               <label className="control-label">
@@ -369,7 +435,11 @@ export function Schedules({ lang }: Props) {
 
             <div className="schedule-approval">
               <label className="approval-row">
-                <span>{t('schedules.phraseHint', { phrase: ApprovalRules.phrase('schedule') })}</span>
+                <span>
+                  {t(editingId ? 'schedules.editPhraseHint' : 'schedules.phraseHint', {
+                    phrase: ApprovalRules.phrase('schedule'),
+                  })}
+                </span>
                 <input
                   className="control mono"
                   value={phrase}
@@ -379,13 +449,22 @@ export function Schedules({ lang }: Props) {
                   autoComplete="off"
                 />
               </label>
+              {editingId && (
+                <button type="button" className="ghost" onClick={resetForm} disabled={creating}>
+                  {t('schedules.cancelEdit')}
+                </button>
+              )}
               <button
                 type="button"
                 className="primary"
                 disabled={creating || !phraseOk || name.trim().length < 2}
-                onClick={() => void create()}
+                onClick={() => void submit()}
               >
-                {creating ? t('schedules.creating') : t('schedules.create')}
+                {creating
+                  ? t('schedules.saving')
+                  : editingId
+                    ? t('schedules.save')
+                    : t('schedules.create')}
               </button>
             </div>
           </section>
@@ -493,6 +572,15 @@ export function Schedules({ lang }: Props) {
                       <button
                         type="button"
                         className="ghost"
+                        disabled={creating}
+                        onClick={() => startEdit(rule)}
+                      >
+                        {t('schedules.edit')}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="ghost"
                         disabled={previewing !== null}
                         onClick={() => void previewRule(rule.id)}
                       >
@@ -555,6 +643,59 @@ export function Schedules({ lang }: Props) {
                           onClick={() => setConfirmDelete(rule.id)}
                         >
                           {t('schedules.delete')}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="schedule-toggle-row">
+                      {toggleId === rule.id ? (
+                        <div className="schedule-toggle">
+                          {!rule.enabled && (
+                            <input
+                              className="control mono"
+                              value={togglePhrase}
+                              onChange={(e) => setTogglePhrase(e.target.value)}
+                              placeholder={ApprovalRules.phrase('schedule')}
+                              aria-label={t('schedules.phrase')}
+                              autoComplete="off"
+                            />
+                          )}
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() => {
+                              setToggleId(null);
+                              setTogglePhrase('');
+                            }}
+                          >
+                            {t('schedules.cancel')}
+                          </button>
+                          <button
+                            type="button"
+                            className="primary"
+                            disabled={
+                              toggling ||
+                              (!rule.enabled && !ApprovalRules.matches('schedule', togglePhrase))
+                            }
+                            onClick={() => void toggle(rule, !rule.enabled)}
+                          >
+                            {toggling
+                              ? t('schedules.saving')
+                              : rule.enabled
+                                ? t('schedules.pauseConfirm')
+                                : t('schedules.enableConfirm')}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="ghost"
+                          onClick={() => {
+                            setToggleId(rule.id);
+                            setTogglePhrase('');
+                          }}
+                        >
+                          {rule.enabled ? t('schedules.pause') : t('schedules.enable')}
                         </button>
                       )}
                     </div>
