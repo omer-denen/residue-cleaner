@@ -53,10 +53,7 @@ test('web kabugu node builtin ve servis/aksiyon import edemez', async () => {
           path.endsWith('command-view.ts') ||
           // kasa gorunumu (arama + siralama + sayfalama + ozet); saf TS, yalniz
           // contract tipi import eder — karar motorda kalir (AGENTS.md kural 18)
-          path.endsWith('vault-view.ts') ||
-          // arac toplu islem kapsami (onarim/karantina/secilebilirlik); saf TS,
-          // yalniz envanter tipi import eder — kume motorda kalir (kural 18)
-          path.endsWith('cli-bulk.ts'),
+          path.endsWith('vault-view.ts'),
         `${file}: izin verilmeyen cekirdek importu: ${path}`,
       );
     }

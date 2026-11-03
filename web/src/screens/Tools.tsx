@@ -2,8 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   CliExecuteResultView,
   CliInventoryStreamEvent,
-  CliQuarantineExecuteResponse,
-  CliQuarantinePlanResponse,
   CliRepairExecuteResponse,
   CliRepairPlanResponse,
   CliSort,
@@ -13,7 +11,6 @@ import type {
   CliViewResponse,
 } from '../../../src/core/contract.ts';
 import { ApprovalRules } from '../../../src/core/approval.ts';
-import { CliBulk } from '../../../src/core/cli-bulk.ts';
 import { api, ApiError } from '../api.ts';
 import { openEvents } from '../sse.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
@@ -66,21 +63,15 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
   const [sort, setSort] = useState<CliSort>('status');
   const [unusedDays, setUnusedDays] = useState(21);
 
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  type BulkPlan =
-    | { kind: 'repair'; data: CliRepairPlanResponse }
-    | { kind: 'quarantine'; data: CliQuarantinePlanResponse };
-  type BulkResult =
-    | { kind: 'repair'; data: CliRepairExecuteResponse }
-    | { kind: 'quarantine'; data: CliQuarantineExecuteResponse };
-  const [bulk, setBulk] = useState<BulkPlan | null>(null);
-  const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
-  const [bulkPhrase, setBulkPhrase] = useState('');
-  const [bulkBusy, setBulkBusy] = useState(false);
-  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'remove' | 'repair' | null>(null);
+  const [repairPlan, setRepairPlan] = useState<CliRepairPlanResponse | null>(null);
+  const [repairPhrase, setRepairPhrase] = useState('');
+  const [repairBusy, setRepairBusy] = useState(false);
+  const [repairError, setRepairError] = useState<string | null>(null);
+  const [repairResult, setRepairResult] = useState<CliRepairExecuteResponse | null>(null);
 
   const [job, setJob] = useState<{
     id: string;
@@ -126,6 +117,12 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
     setResult(null);
     setRemoveError(null);
     setPhrase('');
+    setMode(null);
+    setRepairPlan(null);
+    setRepairResult(null);
+    setRepairPhrase('');
+    setRepairError(null);
+    setDetailId(null);
     try {
       const { jobId } = await api.startCliInventory(unusedDays);
       setJob({ id: jobId, found: 0, latest: '' });
@@ -179,97 +176,70 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
     }
   };
 
-  const canSelect = (tool: CliTool): boolean =>
-    CliBulk.isSelectable(tool, view?.selectableIds ?? []);
+  const detail: CliTool | null =
+    detailId === null ? null : (view?.tools.find((tool) => tool.id === detailId) ?? null);
 
-  const visibleSelectable = (view?.tools ?? []).filter(canSelect);
-  const selectedTools = (view?.tools ?? []).filter((tool) => selected.has(tool.id));
-  const repairIds = CliBulk.repairIds(selectedTools);
-  const quarantineIds = CliBulk.quarantineIds(selectedTools);
-
-  // Secim yalniz gorunen ve uygun araclarda kalir (filtre/ yeniden tarama).
-  useEffect(() => {
-    setSelected((prev) => {
-      const valid = new Set((view?.tools ?? []).filter(canSelect).map((t) => t.id));
-      const next = new Set([...prev].filter((id) => valid.has(id)));
-      return next.size === prev.size ? prev : next;
-    });
-  }, [view]);
-
-  const toggleSelected = (id: string): void => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleAll = (): void => {
-    setSelected((prev) => {
-      const all = visibleSelectable.length > 0 && visibleSelectable.every((t) => prev.has(t.id));
-      return all ? new Set() : new Set(visibleSelectable.map((t) => t.id));
-    });
-  };
-
-  const openBulk = async (kind: 'repair' | 'quarantine'): Promise<void> => {
-    const ids = kind === 'repair' ? repairIds : quarantineIds;
-    if (ids.length === 0) return;
-    setBulkError(null);
-    setBulkResult(null);
-    setBulkPhrase('');
-    setDetailId(null);
+  const resetAction = (): void => {
+    setMode(null);
+    setRepairPlan(null);
+    setRepairResult(null);
+    setRepairPhrase('');
+    setRepairError(null);
     setPhrase('');
+    setRemoveError(null);
+  };
+
+  const selectTool = (id: string): void => {
+    resetAction();
+    setResult(null);
+    setDetailId(id);
+    panel?.activate('evidence');
+  };
+
+  const startRemove = (): void => {
+    if (!detail?.uninstall) return;
+    resetAction();
+    setResult(null);
+    setMode('remove');
+    panel?.activate('action');
+  };
+
+  const startRepair = async (): Promise<void> => {
+    if (!detail?.repair) return;
+    resetAction();
+    setResult(null);
     try {
-      if (kind === 'repair') {
-        setBulk({ kind, data: await api.cliRepairPlan({ ids }) });
-      } else {
-        setBulk({ kind, data: await api.cliQuarantinePlan({ ids }) });
-      }
+      const plan = await api.cliRepairPlan({ ids: [detail.id] });
+      setRepairPlan(plan);
+      setMode('repair');
       panel?.activate('action');
     } catch (err) {
-      setBulkError(err instanceof ApiError ? err.message : String(err));
+      setRepairError(err instanceof ApiError ? err.message : String(err));
     }
   };
 
-  const executeBulk = async (): Promise<void> => {
-    if (!bulk) return;
-    setBulkError(null);
-    setBulkBusy(true);
+  const executeRepair = async (): Promise<void> => {
+    if (!repairPlan) return;
+    setRepairError(null);
+    setRepairBusy(true);
     try {
-      if (bulk.kind === 'repair') {
-        const data = await api.cliRepairExecute({ planId: bulk.data.planId, phrase: bulkPhrase });
-        setBulkResult({ kind: 'repair', data });
-      } else {
-        const data = await api.cliQuarantineExecute({
-          planId: bulk.data.planId,
-          phrase: bulkPhrase,
-        });
-        setBulkResult({ kind: 'quarantine', data });
-      }
-      setBulk(null);
-      setBulkPhrase('');
-      setSelected(new Set());
+      const out = await api.cliRepairExecute({
+        planId: repairPlan.planId,
+        phrase: repairPhrase,
+      });
+      setRepairResult(out);
+      setRepairPlan(null);
+      setRepairPhrase('');
       setView(null);
       setLoaded(false);
       await loadView();
       onChanged?.();
     } catch (err) {
-      setBulkError(err instanceof ApiError ? err.message : String(err));
+      setRepairError(err instanceof ApiError ? err.message : String(err));
     } finally {
-      setBulkBusy(false);
+      setRepairBusy(false);
     }
   };
-
-  const clearBulk = (): void => {
-    setBulk(null);
-    setBulkResult(null);
-    setBulkPhrase('');
-    setBulkError(null);
-  };
-
-  const detail: CliTool | null =
-    detailId === null ? null : (view?.tools.find((tool) => tool.id === detailId) ?? null);
 
   const removeSingle = async (): Promise<void> => {
     if (!detail) return;
@@ -283,7 +253,7 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
         backup,
       });
       setResult(out);
-      setPhrase('');
+      resetAction();
       setDetailId(null);
       setView(null);
       setLoaded(false);
@@ -297,6 +267,7 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
   };
 
   const canExecute =
+    mode === 'remove' &&
     detail !== null &&
     detail.uninstall !== null &&
     !executing &&
@@ -366,7 +337,7 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
           </button>
         </div>
 
-        {diskScanning && !job && (
+        {diskScanning && !job && !view && (
           <p className="dim tools-blocked-note" role="status">
             {t('tools.scan.blocked')}
           </p>
@@ -497,66 +468,13 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
               <EmptyState variant="fill" icon="tools" title={t('tools.empty')} />
             )}
 
-            {view.tools.length > 0 && selected.size > 0 && (
-              <div className="selection-bar selection-bar-actions">
-                <span>
-                  <strong className="mono">{selected.size}</strong> {t('tools.selected')}
-                </span>
-                <span className="selection-actions">
-                  <button
-                    type="button"
-                    className="ghost"
-                    disabled={repairIds.length === 0}
-                    title={repairIds.length === 0 ? t('tools.bulk.noneRepair') : undefined}
-                    onClick={() => void openBulk('repair')}
-                  >
-                    {t('tools.bulk.repair')}
-                    {repairIds.length > 0 ? ` (${repairIds.length})` : ''}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost"
-                    disabled={quarantineIds.length === 0}
-                    title={
-                      quarantineIds.length === 0 ? t('tools.bulk.noneQuarantine') : undefined
-                    }
-                    onClick={() => void openBulk('quarantine')}
-                  >
-                    {t('tools.bulk.quarantine')}
-                    {quarantineIds.length > 0 ? ` (${quarantineIds.length})` : ''}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost"
-                    disabled={selected.size === 0}
-                    onClick={() => setSelected(new Set())}
-                  >
-                    {t('tools.selection.clear')}
-                  </button>
-                </span>
-              </div>
-            )}
-
             {view.tools.length > 0 && (
               <div className="cli-head">
-                <label className="cli-check">
-                  <input
-                    type="checkbox"
-                    checked={
-                      visibleSelectable.length > 0 &&
-                      visibleSelectable.every((tool) => selected.has(tool.id))
-                    }
-                    disabled={visibleSelectable.length === 0}
-                    onChange={toggleAll}
-                    aria-label={t('tools.select.all')}
-                  />
-                </label>
                 <span>{tu('tools.command')}</span>
                 <span>{tu('tools.source')}</span>
                 <span>{tu('tools.status')}</span>
                 <span className="num">{tu('tools.idle')}</span>
                 <span className="num">{tu('tools.size')}</span>
-                <span />
               </div>
             )}
 
@@ -571,28 +489,9 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                 {view.tools.map((tool) => (
                   <div
                     key={tool.id}
-                    className={`cli-row${detailId === tool.id ? ' active' : ''}${
-                      selected.has(tool.id) ? ' selected' : ''
-                    }`}
-                    onClick={() => {
-                      setBulk(null);
-                      setBulkResult(null);
-                      setDetailId(tool.id);
-                      panel?.activate('evidence');
-                    }}
+                    className={`cli-row${detailId === tool.id ? ' active' : ''}`}
+                    onClick={() => selectTool(tool.id)}
                   >
-                    <label
-                      className="cli-check"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected.has(tool.id)}
-                        disabled={!canSelect(tool)}
-                        onChange={() => toggleSelected(tool.id)}
-                        aria-label={`${t('tools.select.row')}: ${tool.command}`}
-                      />
-                    </label>
                     <button
                       type="button"
                       className="cli-name-wrap row-open"
@@ -600,10 +499,7 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                       aria-current={detailId === tool.id ? 'true' : undefined}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setBulk(null);
-                        setBulkResult(null);
-                        setDetailId(tool.id);
-                        panel?.activate('evidence');
+                        selectTool(tool.id);
                       }}
                     >
                       <span className="cli-command mono">{tool.command}</span>
@@ -626,34 +522,6 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                         : '—'}
                     </span>
                     <span className="num mono">{formatBytes(tool.totalBytes)}</span>
-                    <span className="badges-right">
-                      {(tool.usageSignals ?? []).map((sig) => (
-                        <span
-                          key={sig}
-                          className="badge signal-badge"
-                          aria-label={t(`tools.signal.${sig}` as MessageKey)}
-                        >
-                          {t(`tools.signal.${sig}` as MessageKey)}
-                        </span>
-                      ))}
-                      {tool.atimeSuspect && (
-                        <span
-                          className="badge warn signal-badge"
-                          aria-label={t('tools.signal.atimeSuspect')}
-                        >
-                          {t('tools.signal.atimeSuspect')}
-                        </span>
-                      )}
-                      {tool.health === 'broken' && (
-                        <span className="badge warn">{t('tools.brokenBadge')}</span>
-                      )}
-                      {tool.activeShim === false && (
-                        <span className="badge">{t('tools.shadowed')}</span>
-                      )}
-                      {tool.uninstall === null && (
-                        <span className="badge">{t('cli.status.protected')}</span>
-                      )}
-                    </span>
                   </div>
                 ))}
               </div>
@@ -701,127 +569,46 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
           </section>
         )}
 
-        {bulkError && (
+        {repairError && !mode && (
           <div className="banner danger" role="alert">
-            {bulkError}
+            {repairError}
           </div>
         )}
 
-        {bulkResult && (
+        {repairResult && (
           <section className="plan-panel">
-            <h2>{tu('tools.bulk.doneTitle')}</h2>
+            <h2>{tu('tools.action.repairDone')}</h2>
             <ul className="detail-list">
-              {bulkResult.kind === 'repair'
-                ? bulkResult.data.results.map((row) => (
-                    <li key={row.command}>
-                      <span className="mono">
-                        {row.ok ? '✓' : '✗'} {row.command}
-                      </span>
-                      <span className="dim">
-                        {row.verified ? t('plan.done') : t('tools.plan.failed')}
-                        {row.error ? ` · ${row.error}` : ''}
-                      </span>
-                    </li>
-                  ))
-                : bulkResult.data.results.map((row) => (
-                    <li key={row.command}>
-                      <span className="mono">
-                        {row.ok ? '✓' : '✗'} {row.command}
-                      </span>
-                      <span className="dim mono">
-                        {row.movedShims} shim · {row.copiedState} · {row.vaultDir}
-                      </span>
-                      {row.error && <span className="dim">{row.error}</span>}
-                    </li>
-                  ))}
-            </ul>
-            <div className="approval-actions">
-              <button type="button" className="ghost" onClick={clearBulk}>
-                {t('common.back')}
-              </button>
-            </div>
-          </section>
-        )}
-
-        {!bulkResult && bulk && (
-          <section className="plan-panel">
-            <h2>
-              {tu(
-                bulk.kind === 'repair'
-                  ? 'tools.bulk.repairTitle'
-                  : 'tools.bulk.quarantineTitle',
-              )}
-            </h2>
-            <p className="dim">
-              {t(
-                bulk.kind === 'repair'
-                  ? 'tools.bulk.repairHint'
-                  : 'tools.bulk.quarantineHint',
-                { phrase: ApprovalRules.phrase(bulk.kind) },
-              )}
-            </p>
-
-            <ul className="detail-list">
-              {bulk.data.items.map((item) => (
-                <li key={item.id}>
-                  <span className="mono">{item.command}</span>
-                  <span className="dim mono">
-                    {item.packageName}@{item.version}
+              {repairResult.results.map((row) => (
+                <li key={row.command}>
+                  <span className="mono">
+                    {row.ok ? '✓' : '✗'} {row.command}
                   </span>
-                  {'repairCommand' in item ? (
-                    <span className="dim mono">{item.repairCommand}</span>
-                  ) : (
-                    <span className="dim mono">
-                      {item.shims.length} shim · {formatBytes(item.totalBytes)}
-                    </span>
-                  )}
+                  <span className="dim">
+                    {row.verified ? t('plan.done') : t('tools.plan.failed')}
+                    {row.error ? ` · ${row.error}` : ''}
+                  </span>
                 </li>
               ))}
             </ul>
-
-            <label className="approval-row">
-              <span>{t('tools.bulk.phrase')}</span>
-              <input
-                className="control mono"
-                value={bulkPhrase}
-                onChange={(e) => setBulkPhrase(e.target.value)}
-                placeholder={ApprovalRules.phrase(bulk.kind)}
-                aria-label={t('tools.bulk.phrase')}
-                autoComplete="off"
-                disabled={bulkBusy}
-              />
-            </label>
-
             <div className="approval-actions">
               <button
                 type="button"
                 className="ghost"
-                disabled={bulkBusy}
-                onClick={clearBulk}
+                onClick={() => {
+                  setRepairResult(null);
+                  resetAction();
+                }}
               >
                 {t('common.back')}
-              </button>
-              <button
-                type="button"
-                className="primary"
-                disabled={bulkBusy || !ApprovalRules.matches(bulk.kind, bulkPhrase)}
-                onClick={() => void executeBulk()}
-              >
-                {bulkBusy
-                  ? t('tools.bulk.running')
-                  : t(
-                      bulk.kind === 'repair'
-                        ? 'tools.bulk.executeRepair'
-                        : 'tools.bulk.executeQuarantine',
-                    )}
               </button>
             </div>
           </section>
         )}
 
-        {!result && !bulk && detail && (
+        {!result && !repairResult && mode === 'remove' && detail && (
           <section className="plan-panel">
-            <h2>{tu('tools.plan.title')}</h2>
+            <h2>{tu('tools.action.removeTitle')}</h2>
             <p className="dim">{t('tools.plan.phraseHint', { phrase: ApprovalRules.phrase('delete') })}</p>
 
             <dl className="meta-list">
@@ -855,7 +642,7 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                 placeholder={ApprovalRules.phrase('delete')}
                 aria-label={t('tools.plan.phrase')}
                 autoComplete="off"
-                disabled={executing || detail.uninstall === null}
+                disabled={executing}
               />
             </label>
 
@@ -864,11 +651,7 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                 type="button"
                 className="ghost"
                 disabled={executing}
-                onClick={() => {
-                  setDetailId(null);
-                  setPhrase('');
-                  setResult(null);
-                }}
+                onClick={resetAction}
               >
                 {t('common.back')}
               </button>
@@ -878,7 +661,7 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                 disabled={!canExecute}
                 onClick={() => void removeSingle()}
               >
-                {executing ? t('tools.plan.running') : t('tools.plan.execute')}
+                {executing ? t('tools.plan.running') : t('tools.action.remove')}
               </button>
             </div>
 
@@ -888,7 +671,63 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
           </section>
         )}
 
-        {!result && !detail && !bulk && !bulkResult && (
+        {!result && !repairResult && mode === 'repair' && repairPlan && detail && (
+          <section className="plan-panel">
+            <h2>{tu('tools.action.repairTitle')}</h2>
+            <p className="dim">
+              {t('tools.action.repairHint', { phrase: ApprovalRules.phrase('repair') })}
+            </p>
+
+            <dl className="meta-list">
+              <dt>{t('tools.command')}</dt>
+              <dd className="mono">{detail.command}</dd>
+              <dt>{t('tools.reinstall')}</dt>
+              <dd className="mono">
+                <code>{detail.repair?.display ?? repairPlan.items[0]?.repairCommand}</code>
+              </dd>
+            </dl>
+
+            <label className="approval-row">
+              <span>{t('tools.action.repairPhrase')}</span>
+              <input
+                className="control mono"
+                value={repairPhrase}
+                onChange={(e) => setRepairPhrase(e.target.value)}
+                placeholder={ApprovalRules.phrase('repair')}
+                aria-label={t('tools.action.repairPhrase')}
+                autoComplete="off"
+                disabled={repairBusy}
+              />
+            </label>
+
+            <div className="approval-actions">
+              <button
+                type="button"
+                className="ghost"
+                disabled={repairBusy}
+                onClick={resetAction}
+              >
+                {t('common.back')}
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={repairBusy || !ApprovalRules.matches('repair', repairPhrase)}
+                onClick={() => void executeRepair()}
+              >
+                {repairBusy ? t('tools.action.repairing') : t('tools.action.repair')}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {!result && !repairResult && !mode && detail && (
+          <section className="plan-panel">
+            <p className="dim">{t('tools.action.hint')}</p>
+          </section>
+        )}
+
+        {!result && !repairResult && !mode && !detail && (
           <EmptyState
             icon="tools"
             tone="warn"
@@ -1020,6 +859,32 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                     <span className="dim">{t('tools.reinstall')}</span>
                     <code>{detail.repair.display}</code>
                   </div>
+                )}
+
+                {(detail.repair || detail.uninstall) && (
+                  <div className="tool-actions">
+                    {detail.repair && (
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => void startRepair()}
+                      >
+                        {t('tools.action.repair')}
+                      </button>
+                    )}
+                    {detail.uninstall && (
+                      <button
+                        type="button"
+                        className="danger-button"
+                        onClick={startRemove}
+                      >
+                        {t('tools.action.remove')}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {!detail.repair && !detail.uninstall && (
+                  <p className="dim">{t('cli.status.protected')}</p>
                 )}
 
                 {detail.shims.length > 0 && (
