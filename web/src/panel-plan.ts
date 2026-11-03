@@ -60,8 +60,8 @@ const PLANS: Record<PanelScreen, PanelPlan> = {
   dashboard: { modules: ['evidence', 'planned', 'context'], planned: 'compact' },
   // Disk: planin ASIL ekrani; tam liste burada.
   disk: { modules: ['evidence', 'planned', 'context'], planned: 'full' },
-  // Projeler: SALT OKUNUR kesif; plan yalnizca hatirlatma.
-  projects: { modules: ['evidence', 'planned', 'context'], planned: 'compact' },
+  // Projeler: kesif + tek proje icin tarif onayi (`KUR`); disk plani hatirlatmasi yok.
+  projects: { modules: ['evidence', 'action', 'context'], planned: null },
   // Araclar: kendi kaldirma islemi `action`; disk plani kompakt hatirlatma YOK
   // (kaldirma artik arac basina tek islem).
   tools: { modules: ['evidence', 'action'], planned: null },

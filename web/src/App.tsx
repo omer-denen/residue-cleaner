@@ -782,6 +782,7 @@ export function App() {
   const activatePanel = (id: RightPanelModuleId): void => {
     setRightTab(id);
     if (isCompact) setPanelDrawerOpen(true);
+    else setRightCollapsed(false);
   };
 
   const closePanel = (): void => {

@@ -33,7 +33,10 @@ import type {
   PlanRecordsResponse,
   PlanResponse,
   ProjectAnalysisResponse,
+  ProjectCleanupMode,
   ProjectListResponse,
+  ProjectPlanResponse,
+  ProjectRestoreResponse,
   ProjectRootsResponse,
   ProjectSort,
   ProjectTab,
@@ -160,6 +163,16 @@ export const api = {
   /** Tek proje analizi (SALT OKUNUR; artifact + tarif + hash). */
   projectAnalysis: (path: string): Promise<ProjectAnalysisResponse> =>
     request<ProjectAnalysisResponse>(`/api/projects?path=${encodeURIComponent(path)}`),
+
+  /** Tarif plani: yalniz yeniden uretilebilir artifact'lar; KUR onayi ile calisir. */
+  projectPlan: (
+    path: string,
+    mode: ProjectCleanupMode = 'recipe',
+  ): Promise<ProjectPlanResponse> => post<ProjectPlanResponse>('/api/projects/plan', { path, mode }),
+
+  /** Tarifi calistirir (yalniz kurulum; kaynak silinmez). Tek kullanimlik plan. */
+  projectRestore: (planId: string, phrase: string): Promise<ProjectRestoreResponse> =>
+    post<ProjectRestoreResponse>('/api/projects/restore', { planId, phrase }),
 
   /** Envanter onbelleginden MOTOR filtreli arac listesi (yoksa null). */
   cliView: (q: {

@@ -298,6 +298,45 @@ test('dashboard ve proje kesfi uclari yanit verir', async () => {
   assert.equal(missing.status, 404);
 });
 
+test('proje tarif plani KUR onayi ister; yanlis ifade kurulumu baslatmaz', async () => {
+  const proj = join(root, 'proj-plan');
+  await mkdir(join(proj, 'node_modules', 'ornek'), { recursive: true });
+  await writeFile(join(proj, 'package.json'), '{"name":"proj-plan"}', 'utf8');
+
+  const planRes = await fetch(`${base}/api/projects/plan`, {
+    method: 'POST',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ path: proj, mode: 'recipe' }),
+  });
+  assert.equal(planRes.status, 200);
+  const plan = (await planRes.json()) as {
+    planId?: string;
+    phrase?: string;
+    approvalKind?: string;
+    expiresAt?: number;
+    plan?: { mode?: string; planned?: unknown[] };
+  };
+  assert.equal(typeof plan.planId, 'string');
+  assert.equal(plan.phrase, 'KUR');
+  assert.equal(plan.approvalKind, 'projectRestore');
+  assert.equal(plan.plan?.mode, 'recipe');
+  assert.ok((plan.expiresAt ?? 0) > Date.now());
+
+  const wrong = await fetch(`${base}/api/projects/restore`, {
+    method: 'POST',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ planId: plan.planId, phrase: 'SIL' }),
+  });
+  assert.equal(wrong.status, 400);
+
+  const missing = await fetch(`${base}/api/projects/plan`, {
+    method: 'POST',
+    headers: { 'x-residue-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ path: join(root, 'yok-proje-plan') }),
+  });
+  assert.equal(missing.status, 404);
+});
+
 test('disk gorunumu ve bilinmeyen kume', async () => {
   const d = await fetch(`${base}/api/disk`, { headers: { 'x-residue-token': token } });
   assert.equal(d.status, 200);

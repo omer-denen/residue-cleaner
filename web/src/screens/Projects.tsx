@@ -3,9 +3,12 @@ import type {
   ProjectAnalysisResponse,
   ProjectCandidateView,
   ProjectListResponse,
+  ProjectPlanResponse,
+  ProjectRestoreResponse,
   ProjectSort,
   ProjectTab,
 } from '../../../src/core/contract.ts';
+import { ApprovalRules } from '../../../src/core/approval.ts';
 import { api, ApiError } from '../api.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
 import { formatAge, formatBytes, formatCount } from '../format.ts';
@@ -45,7 +48,7 @@ interface Props {
  * yanittaki `projects`/`counts`/`summary` alanlarini gosterir.
  * Proje kaynagi ASLA hedef degildir; yalniz yeniden uretilebilir
  * klasorler (node_modules, .venv, target...) raporlanir.
- * Silme/plan yurütme yoktur.
+ * Tek islem: tarif plani + yazili `KUR` onayiyla kurulum; silme yoktur.
  */
 export function Projects({ lang }: Props) {
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
@@ -76,6 +79,13 @@ export function Projects({ lang }: Props) {
   const [analysis, setAnalysis] = useState<ProjectAnalysisResponse | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  const [actionPlan, setActionPlan] = useState<ProjectPlanResponse | null>(null);
+  const [actionPhrase, setActionPhrase] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionResult, setActionResult] = useState<ProjectRestoreResponse | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -131,6 +141,10 @@ export function Projects({ lang }: Props) {
   }, [ready, roots, debouncedText, tab, sort, refreshTick]);
 
   useEffect(() => {
+    setActionPlan(null);
+    setActionPhrase('');
+    setActionError(null);
+    setActionResult(null);
     if (!selected) {
       setAnalysis(null);
       setAnalysisError(null);
@@ -168,6 +182,55 @@ export function Projects({ lang }: Props) {
     project.lastActivityAt === null
       ? '—'
       : formatAge(Math.max(0, now - project.lastActivityAt), lang);
+
+  const startProjectPlan = async () => {
+    if (!analysis) return;
+    setActionLoading(true);
+    setActionError(null);
+    setActionResult(null);
+    try {
+      const next = await api.projectPlan(analysis.root, 'recipe');
+      setActionPlan(next);
+      setActionPhrase('');
+      panel?.activate('action');
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const runProjectPlan = async () => {
+    if (!actionPlan) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      const out = await api.projectRestore(actionPlan.planId, actionPhrase);
+      setActionResult(out);
+      setActionPlan(null);
+      setActionPhrase('');
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const clearProjectAction = () => {
+    setActionPlan(null);
+    setActionPhrase('');
+    setActionError(null);
+    setActionResult(null);
+    panel?.activate('evidence');
+  };
+
+  // `now` yalnizca yeniden cizim tetikler; kalan sure her cizimde gercek andan.
+  const actionCurrent = Date.now();
+  const actionExpired = actionPlan !== null && actionPlan.expiresAt <= actionCurrent;
+  const actionReady =
+    actionPlan !== null &&
+    !actionExpired &&
+    ApprovalRules.matches('projectRestore', actionPhrase);
 
   return (
     <div className="projects">
@@ -380,6 +443,22 @@ export function Projects({ lang }: Props) {
 
             <p className="banner success">{t('projects.sourceSafe')}</p>
 
+            {analysis.plan.planned.length > 0 && (
+              <div className="project-action-cta">
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => void startProjectPlan()}
+                  disabled={actionLoading}
+                >
+                  {actionLoading
+                    ? t('projects.action.planning')
+                    : t('projects.action.start')}
+                </button>
+                <span className="dim">{t('projects.action.ctaHint')}</span>
+              </div>
+            )}
+
             <div className="project-stats">
               <div>
                 <strong className="mono">{analysis.summary.artifacts}</strong>
@@ -502,6 +581,173 @@ export function Projects({ lang }: Props) {
           </>
         )}
       </aside>
+      </RightPanelPortal>
+
+      <RightPanelPortal module="action" when={selected !== null}>
+        <aside className="disk-detail projects-action">
+          <h2>{tu('projects.action.title')}</h2>
+
+          {actionError && (
+            <div className="banner danger" role="alert">
+              {actionError}
+            </div>
+          )}
+
+          {actionResult ? (
+            <>
+              <p className={`banner ${actionResult.failed > 0 ? 'warn' : 'success'}`}>
+                {t('projects.action.done', {
+                  restored: actionResult.restored,
+                  failed: actionResult.failed,
+                })}
+              </p>
+              <ul className="detail-list project-restore-results">
+                {actionResult.results.map((result) => (
+                  <li key={`${result.projectRoot}:${result.command}`}>
+                    <span className={`badge${result.ok ? ' git' : ' warn'}`}>
+                      {result.ok
+                        ? t('projects.action.ok')
+                        : t('projects.action.failed')}
+                    </span>
+                    <span className="mono">{result.projectRoot}</span>
+                    <code>{result.command}</code>
+                    {(result.output || result.error) && (
+                      <pre className="project-output">
+                        {result.output || result.error}
+                      </pre>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="ghost" onClick={clearProjectAction}>
+                {t('projects.action.close')}
+              </button>
+            </>
+          ) : actionPlan ? (
+            <>
+              <p className="dim">{t('projects.action.planBody')}</p>
+              <div className="project-action-summary">
+                <span>
+                  <strong className="mono">{actionPlan.plan.planned.length}</strong>{' '}
+                  {t('projects.action.planned')}
+                </span>
+                <span>
+                  <strong className="mono">{actionPlan.plan.blocked.length}</strong>{' '}
+                  {t('projects.action.blocked')}
+                </span>
+                <span>
+                  <strong className="mono">
+                    {formatBytes(actionPlan.plan.realisticBytes)}
+                  </strong>{' '}
+                  {t('projects.action.realistic')}
+                </span>
+              </div>
+
+              <ul className="detail-list project-plan-list">
+                {actionPlan.plan.planned.map((item) => {
+                  const command = actionPlan.artifacts.find(
+                    (artifact) => artifact.artifactPath === item.artifactPath,
+                  )?.installCommand;
+                  return (
+                    <li key={item.artifactPath}>
+                      <span className="mono">{item.artifactPath}</span>
+                      <span className="dim">
+                        {formatBytes(item.bytes)} ·{' '}
+                        {t('projects.action.realisticShort')}{' '}
+                        {formatBytes(item.realisticBytes)}
+                      </span>
+                      {command && <code>{command}</code>}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {actionPlan.plan.blocked.length > 0 && (
+                <>
+                  <h4>{tu('projects.action.blockedTitle')}</h4>
+                  <ul className="detail-list">
+                    {actionPlan.plan.blocked.map((blocked) => (
+                      <li key={blocked.artifactPath}>
+                        <span className="mono">{blocked.artifactPath}</span>
+                        <span className="dim">{blocked.reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {actionPlan.plan.warnings.length > 0 && (
+                <ul className="detail-list">
+                  {actionPlan.plan.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              )}
+
+              <p className={`banner ${actionExpired ? 'danger' : 'warn'}`}>
+                {actionExpired
+                  ? t('projects.action.expired')
+                  : t('projects.action.expires', {
+                      minutes: Math.max(
+                        1,
+                        Math.ceil((actionPlan.expiresAt - actionCurrent) / 60_000),
+                      ),
+                    })}
+              </p>
+
+              <label className="approval-field">
+                <span className="dim">{t('projects.action.phrase')}</span>
+                <input
+                  className="control mono"
+                  value={actionPhrase}
+                  onChange={(e) => setActionPhrase(e.target.value)}
+                  placeholder={ApprovalRules.phrase('projectRestore')}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+              </label>
+
+              <div className="approval-actions">
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={clearProjectAction}
+                  disabled={actionBusy}
+                >
+                  {t('projects.action.back')}
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => void runProjectPlan()}
+                  disabled={!actionReady || actionBusy}
+                >
+                  {actionBusy
+                    ? t('projects.action.running')
+                    : t('projects.action.execute')}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="dim">{t('projects.action.body')}</p>
+              {analysis && analysis.plan.planned.length > 0 ? (
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => void startProjectPlan()}
+                  disabled={actionLoading}
+                >
+                  {actionLoading
+                    ? t('projects.action.planning')
+                    : t('projects.action.start')}
+                </button>
+              ) : (
+                <p className="dim">{t('projects.action.none')}</p>
+              )}
+            </>
+          )}
+        </aside>
       </RightPanelPortal>
     </div>
   );
