@@ -1,7 +1,15 @@
 import type {
   CliExecuteResultView,
   CliInventoryStartResponse,
+  CliQuarantineExecuteRequest,
+  CliQuarantineExecuteResponse,
+  CliQuarantinePlanRequest,
+  CliQuarantinePlanResponse,
   CliRemoveRequest,
+  CliRepairExecuteRequest,
+  CliRepairExecuteResponse,
+  CliRepairPlanRequest,
+  CliRepairPlanResponse,
   CliSort,
   CliSourceFilter,
   CliStatusFilter,
@@ -176,6 +184,22 @@ export const api = {
 
   cliRemove: (body: CliRemoveRequest): Promise<CliExecuteResultView> =>
     post<CliExecuteResultView>('/api/cli/remove', body),
+
+  /** Bozuk/yarim kurulum onarim plani (yazili ONAR ister). */
+  cliRepairPlan: (body: CliRepairPlanRequest): Promise<CliRepairPlanResponse> =>
+    post<CliRepairPlanResponse>('/api/cli/repair/plan', body),
+
+  cliRepairExecute: (body: CliRepairExecuteRequest): Promise<CliRepairExecuteResponse> =>
+    post<CliRepairExecuteResponse>('/api/cli/repair/execute', body),
+
+  /** Bagimsiz araci kasaya tasima plani (yazili KARANTINA ister). */
+  cliQuarantinePlan: (body: CliQuarantinePlanRequest): Promise<CliQuarantinePlanResponse> =>
+    post<CliQuarantinePlanResponse>('/api/cli/quarantine/plan', body),
+
+  cliQuarantineExecute: (
+    body: CliQuarantineExecuteRequest,
+  ): Promise<CliQuarantineExecuteResponse> =>
+    post<CliQuarantineExecuteResponse>('/api/cli/quarantine/execute', body),
 
   envAnalyze: (): Promise<EnvAnalysis> => request<EnvAnalysis>('/api/env'),
 

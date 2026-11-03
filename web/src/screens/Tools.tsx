@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   CliExecuteResultView,
   CliInventoryStreamEvent,
+  CliQuarantineExecuteResponse,
+  CliQuarantinePlanResponse,
+  CliRepairExecuteResponse,
+  CliRepairPlanResponse,
   CliSort,
   CliSourceFilter,
   CliStatusFilter,
@@ -9,6 +13,7 @@ import type {
   CliViewResponse,
 } from '../../../src/core/contract.ts';
 import { ApprovalRules } from '../../../src/core/approval.ts';
+import { CliBulk } from '../../../src/core/cli-bulk.ts';
 import { api, ApiError } from '../api.ts';
 import { openEvents } from '../sse.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
@@ -64,6 +69,18 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  type BulkPlan =
+    | { kind: 'repair'; data: CliRepairPlanResponse }
+    | { kind: 'quarantine'; data: CliQuarantinePlanResponse };
+  type BulkResult =
+    | { kind: 'repair'; data: CliRepairExecuteResponse }
+    | { kind: 'quarantine'; data: CliQuarantineExecuteResponse };
+  const [bulk, setBulk] = useState<BulkPlan | null>(null);
+  const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
+  const [bulkPhrase, setBulkPhrase] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
 
   const [job, setJob] = useState<{
     id: string;
@@ -162,7 +179,94 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
     }
   };
 
-  const selectable = new Set(view?.selectableIds ?? []);
+  const canSelect = (tool: CliTool): boolean =>
+    CliBulk.isSelectable(tool, view?.selectableIds ?? []);
+
+  const visibleSelectable = (view?.tools ?? []).filter(canSelect);
+  const selectedTools = (view?.tools ?? []).filter((tool) => selected.has(tool.id));
+  const repairIds = CliBulk.repairIds(selectedTools);
+  const quarantineIds = CliBulk.quarantineIds(selectedTools);
+
+  // Secim yalniz gorunen ve uygun araclarda kalir (filtre/ yeniden tarama).
+  useEffect(() => {
+    setSelected((prev) => {
+      const valid = new Set((view?.tools ?? []).filter(canSelect).map((t) => t.id));
+      const next = new Set([...prev].filter((id) => valid.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [view]);
+
+  const toggleSelected = (id: string): void => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = (): void => {
+    setSelected((prev) => {
+      const all = visibleSelectable.length > 0 && visibleSelectable.every((t) => prev.has(t.id));
+      return all ? new Set() : new Set(visibleSelectable.map((t) => t.id));
+    });
+  };
+
+  const openBulk = async (kind: 'repair' | 'quarantine'): Promise<void> => {
+    const ids = kind === 'repair' ? repairIds : quarantineIds;
+    if (ids.length === 0) return;
+    setBulkError(null);
+    setBulkResult(null);
+    setBulkPhrase('');
+    setDetailId(null);
+    setPhrase('');
+    try {
+      if (kind === 'repair') {
+        setBulk({ kind, data: await api.cliRepairPlan({ ids }) });
+      } else {
+        setBulk({ kind, data: await api.cliQuarantinePlan({ ids }) });
+      }
+      panel?.activate('action');
+    } catch (err) {
+      setBulkError(err instanceof ApiError ? err.message : String(err));
+    }
+  };
+
+  const executeBulk = async (): Promise<void> => {
+    if (!bulk) return;
+    setBulkError(null);
+    setBulkBusy(true);
+    try {
+      if (bulk.kind === 'repair') {
+        const data = await api.cliRepairExecute({ planId: bulk.data.planId, phrase: bulkPhrase });
+        setBulkResult({ kind: 'repair', data });
+      } else {
+        const data = await api.cliQuarantineExecute({
+          planId: bulk.data.planId,
+          phrase: bulkPhrase,
+        });
+        setBulkResult({ kind: 'quarantine', data });
+      }
+      setBulk(null);
+      setBulkPhrase('');
+      setSelected(new Set());
+      setView(null);
+      setLoaded(false);
+      await loadView();
+      onChanged?.();
+    } catch (err) {
+      setBulkError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const clearBulk = (): void => {
+    setBulk(null);
+    setBulkResult(null);
+    setBulkPhrase('');
+    setBulkError(null);
+  };
 
   const detail: CliTool | null =
     detailId === null ? null : (view?.tools.find((tool) => tool.id === detailId) ?? null);
@@ -393,8 +497,60 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
               <EmptyState variant="fill" icon="tools" title={t('tools.empty')} />
             )}
 
+            {view.tools.length > 0 && selected.size > 0 && (
+              <div className="selection-bar selection-bar-actions">
+                <span>
+                  <strong className="mono">{selected.size}</strong> {t('tools.selected')}
+                </span>
+                <span className="selection-actions">
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={repairIds.length === 0}
+                    title={repairIds.length === 0 ? t('tools.bulk.noneRepair') : undefined}
+                    onClick={() => void openBulk('repair')}
+                  >
+                    {t('tools.bulk.repair')}
+                    {repairIds.length > 0 ? ` (${repairIds.length})` : ''}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={quarantineIds.length === 0}
+                    title={
+                      quarantineIds.length === 0 ? t('tools.bulk.noneQuarantine') : undefined
+                    }
+                    onClick={() => void openBulk('quarantine')}
+                  >
+                    {t('tools.bulk.quarantine')}
+                    {quarantineIds.length > 0 ? ` (${quarantineIds.length})` : ''}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={selected.size === 0}
+                    onClick={() => setSelected(new Set())}
+                  >
+                    {t('tools.selection.clear')}
+                  </button>
+                </span>
+              </div>
+            )}
+
             {view.tools.length > 0 && (
               <div className="cli-head">
+                <label className="cli-check">
+                  <input
+                    type="checkbox"
+                    checked={
+                      visibleSelectable.length > 0 &&
+                      visibleSelectable.every((tool) => selected.has(tool.id))
+                    }
+                    disabled={visibleSelectable.length === 0}
+                    onChange={toggleAll}
+                    aria-label={t('tools.select.all')}
+                  />
+                </label>
                 <span>{tu('tools.command')}</span>
                 <span>{tu('tools.source')}</span>
                 <span>{tu('tools.status')}</span>
@@ -415,12 +571,28 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                 {view.tools.map((tool) => (
                   <div
                     key={tool.id}
-                    className={`cli-row${detailId === tool.id ? ' active' : ''}`}
+                    className={`cli-row${detailId === tool.id ? ' active' : ''}${
+                      selected.has(tool.id) ? ' selected' : ''
+                    }`}
                     onClick={() => {
+                      setBulk(null);
+                      setBulkResult(null);
                       setDetailId(tool.id);
                       panel?.activate('evidence');
                     }}
                   >
+                    <label
+                      className="cli-check"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected.has(tool.id)}
+                        disabled={!canSelect(tool)}
+                        onChange={() => toggleSelected(tool.id)}
+                        aria-label={`${t('tools.select.row')}: ${tool.command}`}
+                      />
+                    </label>
                     <button
                       type="button"
                       className="cli-name-wrap row-open"
@@ -428,6 +600,8 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
                       aria-current={detailId === tool.id ? 'true' : undefined}
                       onClick={(e) => {
                         e.stopPropagation();
+                        setBulk(null);
+                        setBulkResult(null);
                         setDetailId(tool.id);
                         panel?.activate('evidence');
                       }}
@@ -527,7 +701,125 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
           </section>
         )}
 
-        {!result && detail && (
+        {bulkError && (
+          <div className="banner danger" role="alert">
+            {bulkError}
+          </div>
+        )}
+
+        {bulkResult && (
+          <section className="plan-panel">
+            <h2>{tu('tools.bulk.doneTitle')}</h2>
+            <ul className="detail-list">
+              {bulkResult.kind === 'repair'
+                ? bulkResult.data.results.map((row) => (
+                    <li key={row.command}>
+                      <span className="mono">
+                        {row.ok ? '✓' : '✗'} {row.command}
+                      </span>
+                      <span className="dim">
+                        {row.verified ? t('plan.done') : t('tools.plan.failed')}
+                        {row.error ? ` · ${row.error}` : ''}
+                      </span>
+                    </li>
+                  ))
+                : bulkResult.data.results.map((row) => (
+                    <li key={row.command}>
+                      <span className="mono">
+                        {row.ok ? '✓' : '✗'} {row.command}
+                      </span>
+                      <span className="dim mono">
+                        {row.movedShims} shim · {row.copiedState} · {row.vaultDir}
+                      </span>
+                      {row.error && <span className="dim">{row.error}</span>}
+                    </li>
+                  ))}
+            </ul>
+            <div className="approval-actions">
+              <button type="button" className="ghost" onClick={clearBulk}>
+                {t('common.back')}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {!bulkResult && bulk && (
+          <section className="plan-panel">
+            <h2>
+              {tu(
+                bulk.kind === 'repair'
+                  ? 'tools.bulk.repairTitle'
+                  : 'tools.bulk.quarantineTitle',
+              )}
+            </h2>
+            <p className="dim">
+              {t(
+                bulk.kind === 'repair'
+                  ? 'tools.bulk.repairHint'
+                  : 'tools.bulk.quarantineHint',
+                { phrase: ApprovalRules.phrase(bulk.kind) },
+              )}
+            </p>
+
+            <ul className="detail-list">
+              {bulk.data.items.map((item) => (
+                <li key={item.id}>
+                  <span className="mono">{item.command}</span>
+                  <span className="dim mono">
+                    {item.packageName}@{item.version}
+                  </span>
+                  {'repairCommand' in item ? (
+                    <span className="dim mono">{item.repairCommand}</span>
+                  ) : (
+                    <span className="dim mono">
+                      {item.shims.length} shim · {formatBytes(item.totalBytes)}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+
+            <label className="approval-row">
+              <span>{t('tools.bulk.phrase')}</span>
+              <input
+                className="control mono"
+                value={bulkPhrase}
+                onChange={(e) => setBulkPhrase(e.target.value)}
+                placeholder={ApprovalRules.phrase(bulk.kind)}
+                aria-label={t('tools.bulk.phrase')}
+                autoComplete="off"
+                disabled={bulkBusy}
+              />
+            </label>
+
+            <div className="approval-actions">
+              <button
+                type="button"
+                className="ghost"
+                disabled={bulkBusy}
+                onClick={clearBulk}
+              >
+                {t('common.back')}
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={bulkBusy || !ApprovalRules.matches(bulk.kind, bulkPhrase)}
+                onClick={() => void executeBulk()}
+              >
+                {bulkBusy
+                  ? t('tools.bulk.running')
+                  : t(
+                      bulk.kind === 'repair'
+                        ? 'tools.bulk.executeRepair'
+                        : 'tools.bulk.executeQuarantine',
+                    )}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {!result && !bulk && detail && (
           <section className="plan-panel">
             <h2>{tu('tools.plan.title')}</h2>
             <p className="dim">{t('tools.plan.phraseHint', { phrase: ApprovalRules.phrase('delete') })}</p>
@@ -596,7 +888,7 @@ export function Tools({ lang, onChanged, diskScanning = false }: Props) {
           </section>
         )}
 
-        {!result && !detail && (
+        {!result && !detail && !bulk && !bulkResult && (
           <EmptyState
             icon="tools"
             tone="warn"
