@@ -19,8 +19,17 @@ before(async () => {
 });
 
 after(async () => {
-  await rm(root, { recursive: true, force: true });
+  await rmRetry(root);
 });
+
+/**
+ * Windows'ta AV/indeksleyici kisa sureli dosya kilitleri `rm` sirasinda
+ * ENOTEMPTY/EPERM uretebilir. Test sonu temizligi bu yuzden yeniden dener;
+ * urun davranisi degismez.
+ */
+function rmRetry(p: string) {
+  return rm(p, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
+}
 
 function makeScan(clusters: any[], finishedAt: number): ScanResult {
   return {
@@ -139,7 +148,7 @@ test('uc: cache yokken POST /api/scan/verify -> 200 scanAt null', async () => {
   assert.equal(body.checkedTargets, 0);
   server.closeAllConnections?.();
   await new Promise<void>((ok) => server.close(() => ok()));
-  await rm(tmpRoot, { recursive: true, force: true });
+  await rmRetry(tmpRoot);
 });
 
 test('uc: cache varken POST /api/scan/verify -> 200 alanlar', async () => {
@@ -179,7 +188,7 @@ test('uc: cache varken POST /api/scan/verify -> 200 alanlar', async () => {
   assert.equal(body.missingBytes, 9);
   server.closeAllConnections?.();
   await new Promise<void>((ok) => server.close(() => ok()));
-  await rm(tmpRoot, { recursive: true, force: true });
+  await rmRetry(tmpRoot);
 });
 
 test('sıra korunur: 3 küme × 2 hedef → out.targets girdi sırasıyla aynı', async () => {

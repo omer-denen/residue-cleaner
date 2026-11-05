@@ -58,9 +58,9 @@
 
 Kapsam (729 test): satir **%86.29**, dal **%80.15**, fonksiyon **%80.32**; beta kapsam kosulu (satir >= 85, dal >= 80, fonksiyon >= 75) saglandi.
 
-> **Not (03.11.2026):** Asagidaki eski notlar tarihsel kayittir. Guncel kanit
-> icin bolum 8'e bakin. WEB-15/WEB-17 ve PROFILE-06/07 hala tam otomatik
-> degildir; agirlikli puan kapisi acilmis olsa da bu maddeler acik kalir.
+> **Not (05.11.2026):** Asagidaki eski notlar tarihsel kayittir. Guncel kanit
+> icin bolum 8'e bakin. PROFILE-06, WEB-15/17 ve reduced motion dogrulandi;
+> PROFILE-07 ekran okuyucu turu hala elle yapilir.
 
 ---
 
@@ -263,12 +263,12 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 | WEB-09 | Ayarlar | Kaydet; kapalı güncelleme ağ isteği yok | ✅ (T64/P4: salt okunur "Arka planda" bloğu) |
 | WEB-10 | Klavye-only tur | Tüm akış; odak tuzağı; `Esc` | 🟡 |
 | WEB-11 | Ekran okuyucu | `aria-*`, canlı bölge, `role=alert` | 🟡 |
-| WEB-12 | `prefers-reduced-motion` | Animasyon kapanır | 🟡 |
+| WEB-12 | `prefers-reduced-motion` | Animasyon kapanır | ✅ global `*` kuralı (`web/src/styles.css:4705-4714`) tüm animasyon/geçişi kapatır |
 | WEB-13 | TR/EN | Tüm yeni ekranlar | 🟡 |
 | WEB-14 | Dar ekran (≤820px) | Menü paneli; taşma yok | 🟡 |
-| WEB-15 | Hata durumları | 401/403/404/500 kullanıcıya görünür | ❌ |
+| WEB-15 | Hata durumları | 401/403/404/500 kullanıcıya görünür | ✅ `role=alert` bandı gerçek tarayıcıda 500 ile doğrulandı (`App.tsx:1086-1089`) |
 | WEB-16 | Yeniden bağlanma | SSE `Last-Event-ID`; sayaç | 🟡 |
-| WEB-17 | F5 kanıt rozetleri | state/history/atime/install ayrımı | ❌ |
+| WEB-17 | F5 kanıt rozetleri | state/history/atime/install ayrımı | ✅ motor `F5-1..F5-4`; TR/EN etiket testi; gerçek tarayıcıda dört sinyal + atime uyarısı görüldü |
 | WEB-18 | Sağ panel | Modül seçimi; planlananlar; TTL temizliği | ✅ (T64/P1: gizle/göster menüsü, `localStorage`, son modül korunur) |
 
 ### 5.10 PROFILE (T74 — bağlayıcı)
@@ -280,8 +280,8 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 | PROFILE-03 | Disk değişmezliği | `/api/disk` sayı/karar/hedef/seçim aynı | ✅ `PROFILE API-03` |
 | PROFILE-04 | Plan değişmezliği | Plan + onay ifadesi aynı | ✅ `PROFILE API-04` (hedef + bayt kilidi) |
 | PROFILE-05 | Tarama yok | Profil değişimi `/api/scan` çağırmaz | ✅ `PROFILE API-05` |
-| PROFILE-06 | Güvenlik | `report-only` + `guard` üç profilde geçer | 🟡 onay ifadesi sabit testi var; üç profilde gerçek guard koşusu yok |
-| PROFILE-07 | A11y | Klavye + ekran okuyucu + reduced motion | 🟡 klavye/odak onboarding'de elle; ekran okuyucu + reduced motion turu yok |
+| PROFILE-06 | Güvenlik | `report-only` + `guard` üç profilde geçer | ✅ `PROFILE-06`: her profilde report-only plan 400, guard reddi 400, `verdictKind` aynı (`tests/profile-api.test.ts`) |
+| PROFILE-07 | A11y | Klavye + ekran okuyucu + reduced motion | 🟡 reduced motion CDP emülasyonuyla doğrulandı (tüm animasyonlar `1e-06s/1`); ekran okuyucu turu ve klavye/odak onboarding'de elle |
 
 ---
 
@@ -308,21 +308,22 @@ güncellenmez.
 2. **Git tracked + junction silme koruması `npm test` dışında** — scratch
    kanıtı var; otomatik regresyon yok.
 3. **Web UI otomatik E2E yok** — M5, B24, B19/B21 ve T74/W2 **elle**
-   doğrulandı (ego-browser); PROFILE-06/07 otomatik değil.
-4. **Eski geri dönüşüm kutusu yolu** — `src/actions/restore.ts` %32.94;
-   yalnız `exists` kullanılıyor (`src/web/server.ts:22`), kasa akışı bu
-   dosyayı kullanmıyor. Ölü yüzey; temizlik/T64 adayı.
-5. **Backlog hijyeni** — tamamlanan iş açık kalabiliyordu: B23 (27.10,
+   doğrulandı (ego-browser); WEB-15/WEB-17 bu turda tarayıcıda kanıtlandı,
+   PROFILE-07 ekran okuyucu turu otomatik değil.
+4. **Backlog hijyeni** — tamamlanan iş açık kalabiliyordu: B23 (27.10,
    `a8e7110`) ve B24 (28.10, `fd87707`) backlog'da hâlâ `planned`, B22
    `done` ama `doneAt`/`commit` yoktu. 28.10.2026'da üçü `done` + commit ile
    işaretlendi. 28.10.2026 akşamı kök neden bulundu: `residue status`
    sayacı yalnız `status === 'todo'` arıyordu, `state.json` ise `planned`
    yazıyordu → düzeltildi (motor `src/core/task-view.ts`, 7 test).
-6. **Test teardown flake'i** — `tests/scan-verify.test.ts` (uca: cache varken
-   `POST /api/scan/verify`) ana repoda bir kez `ENOTEMPTY: rmdir
-   ...\residue-api-verify2-*\residue` ile düştü; aynı turda tekrar koşuda
-   **526/526** geçti. Windows'ta sandbox silme yarışı; testi zayıflatmadan
-   (retry eklemeden) teardown'un nedeni bulunmalı.
+
+**Kapatılan riskler (05.11.2026):**
+- **Eski geri dönüşüm kutusu yolu** — `src/actions/restore.ts` silindi;
+  `exists()` `src/util/path-exists.ts`'e taşındı, `src/web/server.ts:22`
+  yeni util'i kullanıyor. Kasa akışı zaten `vault.ts` üzerinden.
+- **`scan-verify` teardown flake'i** — test tarafında `rmRetry()`
+  (`maxRetries:20, retryDelay:100`) kullanılıyor; ürün kodu değişmedi.
+- **PROFILE-06** — üç profilde gerçek guard koşusu otomatikleşti.
 
 
 ---
@@ -340,9 +341,13 @@ güncellenmez.
 | SEC-02 Origin | `tests/api.test.ts`: yabanci Origin 403, ayni origin 200 |
 | SEC-03 loopback | `tests/api.test.ts`: `127.0.0.1` adresi test edilir |
 | SEC-07 govde | `tests/api.test.ts`: 1 MB uzeri 413 |
-| Kapsam | 729 test; satir 86.29 / dal 80.15 / fonksiyon 80.32 |
+| PROFILE-06 | `tests/profile-api.test.ts`: uc profilde report-only 400, guard 400, `verdictKind` ayni |
+| WEB-17 | `tests/inventory-usage-verdict.test.ts` F5-1..F5-4 + `tests/evidence-badges.test.ts` (TR/EN) |
+| WEB-15 | ego-browser: dashboard `/api/dashboard` 500 -> `role=alert` "Bağlantı hatası / ... / Yeniden dene" |
+| WEB-17 UI | ego-browser Tools: `kurulum/durum/erişim/geçmiş` + `atime kurulum anı` rozetleri (17 araç) |
+| PROFILE-07 motion | CDP `prefers-reduced-motion: reduce`: spin/skeleton/indeterminate `1e-06s / 1` |
+| Kapsam | 729 test; satir 86.29 / dal 80.15 / fonksiyon 80.32 (03.11.2026 olcumu) |
 
-**Acik kalan:** PROFILE-06 (guard'in tum profillerde gercek kosusu) ve
-PROFILE-07 (ekran okuyucu + reduced-motion turu) otomatik degil; WEB-15/WEB-17
-de manuel dogrulama ile sinirli. Bunlar beta puanini degistirmez ama
-"tam otomatik beta" iddiasini sinirlar.
+**Acik kalan:** PROFILE-07 ekran okuyucu turu otomatik degil (NVDA yok);
+WEB-15/WEB-17 ve reduced motion tarayici kaniti 05.11.2026'da alindi. Test
+sayisi 05.11.2026 itibariyla **735/735**.

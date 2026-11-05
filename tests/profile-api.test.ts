@@ -51,6 +51,32 @@ before(async () => {
         verdict: { risk: 'safe', kind: 'recommend', title: 't', what: 'w', consequence: 'c', because: [], preconditions: [], regenerability: 'regenerable', confidence: 'high' },
         deleteTargets: [{ path: 'C:\\Cache\\p-b', kind: 'whole', label: 'p b', bytes: 500 }],
       },
+      {
+        // PROFILE-06: korunan yol hedefi. Guard bunu her profilde reddetmeli.
+        key: 'p-protected',
+        title: 'P Protected',
+        archetype: 'pkg-manager-cache',
+        parts: [{ path: root, bytes: 100, files: 1, lastTouched: finishedAt - 10 * 86400000, reclaimableBytes: 100, origin: 'custom' }],
+        totalBytes: 100,
+        reclaimableBytes: 100,
+        lastTouched: finishedAt - 10 * 86400000,
+        evidence: { markers: ['cache'] },
+        verdict: { risk: 'safe', kind: 'recommend', title: 't', what: 'w', consequence: 'c', because: [], preconditions: [], regenerability: 'regenerable', confidence: 'high' },
+        deleteTargets: [{ path: root, kind: 'whole', label: 'protected', bytes: 100 }],
+      },
+      {
+        // PROFILE-06: report-only karar hedef uretmemeli; profilden bagimsiz.
+        key: 'p-report',
+        title: 'P Report',
+        archetype: 'agent-workspace',
+        parts: [{ path: join(root, 'report-only-target'), bytes: 50, files: 1, lastTouched: finishedAt - 10 * 86400000, reclaimableBytes: 50, origin: 'custom' }],
+        totalBytes: 50,
+        reclaimableBytes: 50,
+        lastTouched: finishedAt - 10 * 86400000,
+        evidence: { markers: ['skill'] },
+        verdict: { risk: 'medium', kind: 'report-only', title: 't', what: 'w', consequence: 'c', because: [], preconditions: [], regenerability: 'regenerable', confidence: 'high' },
+        deleteTargets: [{ path: join(root, 'report-only-target'), kind: 'whole', label: 'report', bytes: 50 }],
+      },
     ],
     stats: { rootsScanned: 1, dirsVisited: 3, filesSeen: 0, bytesSeen: 0, denied: 0, longPathErrors: 0 },
     skipped: [],
@@ -119,6 +145,52 @@ test('PROFILE API-04: plan phrase and counts identical across profiles', async (
     assert.equal(res.targets, first.targets);
     assert.equal(res.totalBytes, first.totalBytes);
   }
+});
+
+test('PROFILE-06: report-only ve guard uc profilde de gecerli', async () => {
+  for (const p of ['developer', 'vibe', 'hybrid']) {
+    await fetch(`${base}/api/settings`, {
+      method: 'PUT',
+      headers: hdr(),
+      body: JSON.stringify({ uiProfile: p }),
+    });
+
+    // report-only karar hedef uretmez (profil yalniz sunum secer).
+    const reportRes = await fetch(`${base}/api/plan`, {
+      method: 'POST',
+      headers: hdr(),
+      body: JSON.stringify({ keys: ['p-report'], mode: 'recycle' }),
+    });
+    assert.equal(reportRes.status, 400, `${p}: report-only plan uretmemeli`);
+    const reportBody = (await reportRes.json()) as { error?: string };
+    assert.match(String(reportBody.error), /silinecek yol yok/i, p);
+
+    // Gercek guard kosusu: korunan yol (LOCALAPPDATA) plana hicbir profilde girmez.
+    const guardRes = await fetch(`${base}/api/plan`, {
+      method: 'POST',
+      headers: hdr(),
+      body: JSON.stringify({ keys: ['p-protected'], mode: 'recycle' }),
+    });
+    assert.equal(guardRes.status, 400, `${p}: guard korunan hedefi reddetmeli`);
+    const guardBody = (await guardRes.json()) as { error?: string };
+    assert.match(String(guardBody.error), /Guvenlik reddi/i, p);
+
+    // Karar gorunumu de profilden bagimsiz: report-only olarak isaretli.
+    const diskRes = await fetch(`${base}/api/disk`, { headers: { 'x-residue-token': token } });
+    assert.equal(diskRes.status, 200);
+    const diskBody = (await diskRes.json()) as {
+      clusters: Array<{ key: string; verdictKind: string; targetCount: number }>;
+    };
+    const report = diskBody.clusters.find((c) => c.key === 'p-report');
+    assert.ok(report, `${p}: p-report gorunmeli`);
+    assert.equal(report.verdictKind, 'report-only', p);
+  }
+  // Testin sonunda varsayilan profile don (sonraki testler etkilenmesin).
+  await fetch(`${base}/api/settings`, {
+    method: 'PUT',
+    headers: hdr(),
+    body: JSON.stringify({ uiProfile: 'hybrid' }),
+  });
 });
 
 test('PROFILE API-05: settings change does not start scan', async () => {
