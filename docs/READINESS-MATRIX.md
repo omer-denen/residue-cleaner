@@ -346,8 +346,9 @@ güncellenmez.
 | WEB-15 | ego-browser: dashboard `/api/dashboard` 500 -> `role=alert` "Bağlantı hatası / ... / Yeniden dene" |
 | WEB-17 UI | ego-browser Tools: `kurulum/durum/erişim/geçmiş` + `atime kurulum anı` rozetleri (17 araç) |
 | PROFILE-07 motion | CDP `prefers-reduced-motion: reduce`: spin/skeleton/indeterminate `1e-06s / 1` |
+| Kasa mesajı | `tests/vault-restore.test.ts` (empty/newer/older/cancel) + `tests/vault-message.test.ts` (TR/EN, "dolu" yasağı) |
 | Kapsam | 729 test; satir 86.29 / dal 80.15 / fonksiyon 80.32 (03.11.2026 olcumu) |
 
 **Acik kalan:** PROFILE-07 ekran okuyucu turu otomatik degil (NVDA yok);
 WEB-15/WEB-17 ve reduced motion tarayici kaniti 05.11.2026'da alindi. Test
-sayisi 05.11.2026 itibariyla **735/735**.
+sayisi 05.11.2026 itibariyla **741/741**.

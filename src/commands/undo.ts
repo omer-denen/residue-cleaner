@@ -29,7 +29,17 @@ export async function runUndo(args: string[]): Promise<void> {
     const r = await restoreVaultEntry(entry);
     if (r.restored) {
       console.log(`\n${C.green}Geri yuklendi:${C.reset} ${prettyPath(r.to)}`);
-      if (r.conflict) console.log(`${C.yellow}Cakisma: yan ada geri kondu.${C.reset}`);
+      if (r.conflict) {
+        const label =
+          r.targetState === 'newer'
+            ? 'orijinal konumda daha yeni icerik vardi'
+            : r.targetState === 'older'
+              ? 'orijinal konumda daha eski icerik vardi'
+              : r.targetState === 'empty'
+                ? 'orijinal konumda bos klasor vardi'
+                : 'orijinal yolda baska icerik vardi';
+        console.log(`${C.yellow}Cakisma: ${label}; kopya yan ada kondu.${C.reset}`);
+      }
       if (!r.verified) console.log(`${C.red}Dogrulama basarisiz; dosyalari kontrol edin.${C.reset}`);
     } else {
       console.log(`${C.red}Geri yuklenemedi:${C.reset} ${r.reason ?? 'bilinmeyen hata'}`);
@@ -78,7 +88,7 @@ export async function runUndo(args: string[]): Promise<void> {
   console.log(`\n${C.green}Geri yuklendi: ${r.restored} kayit${C.reset}`);
   if (r.conflict > 0) {
     console.log(
-      `${C.yellow}Cakisma: ${r.conflict} kayit orijinal yol dolu oldugu icin ".restored-<zaman>" olarak geri kondu.${C.reset}`,
+      `${C.yellow}Cakisma: ${r.conflict} kayit orijinal yolda icerik oldugu icin ".restored-<zaman>" olarak geri kondu.${C.reset}`,
     );
   }
   if (r.failed > 0) console.log(`${C.red}Basarisiz: ${r.failed}${C.reset}`);

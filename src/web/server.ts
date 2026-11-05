@@ -1128,6 +1128,8 @@ async function handleRequest(
       ok: r.restored,
       to: r.to,
       conflict: r.conflict,
+      targetState: r.targetState,
+      ...(r.currentNewestAt ? { currentNewestAt: r.currentNewestAt } : {}),
       mode: r.mode,
       verified: r.verified,
       ...(r.reason ? { error: r.reason } : {}),

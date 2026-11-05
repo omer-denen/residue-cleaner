@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, writeFile, readdir } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile, readdir, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { walk } from '../src/core/walker.ts';
@@ -37,6 +37,7 @@ test('1. hedef yok: geri yukleme basarili, manifest temizlenir', async () => {
   assert.equal(r.restored, true);
   assert.equal(r.verified, true);
   assert.equal(r.to, src);
+  assert.equal(r.targetState, 'absent');
   assert.ok((r.attempts ?? 0) >= 1);
   assert.equal(await vault.findVaultEntry(entry.id), null);
   // icerik geri geldi
@@ -53,6 +54,7 @@ test('2. hedef var (bos klasor): conflict, hedef ezilmez', async () => {
   const r = await vault.restoreVaultEntry(entry, { conflict: 'rename' });
   assert.equal(r.restored, true);
   assert.equal(r.conflict, true);
+  assert.equal(r.targetState, 'empty');
   assert.ok(r.to.startsWith(`${src}.restored-`));
   // bos klasor hala duruyor
   const st = await (await import('node:fs/promises')).stat(src);
@@ -69,9 +71,13 @@ test('3. hedef var (dolu klasor): icerik birebir korunur', async () => {
 
   await mkdir(src, { recursive: true });
   await writeFile(join(src, 'new.txt'), 'new-content');
+  const newerAt = entry.at + 60_000;
+  await utimes(join(src, 'new.txt'), new Date(newerAt), new Date(newerAt));
   const r = await vault.restoreVaultEntry(entry, { conflict: 'rename' });
   assert.equal(r.restored, true);
   assert.equal(r.conflict, true);
+  assert.equal(r.targetState, 'newer');
+  assert.equal(r.currentNewestAt, newerAt);
   // dolu klasorun icerigi korunur
   assert.equal(await readFile(join(src, 'new.txt'), 'utf8'), 'new-content');
   // geri yuklenen to ayri
@@ -168,4 +174,56 @@ test('9. attempts raporu: basari >=1, suffix cakismasinda benzersiz yol', async 
   assert.ok((r.attempts ?? 0) >= 1);
   assert.ok(!r.to.includes(suffix) || r.to !== suffix);
   assert.ok(r.to.startsWith(`${src}.restored-`));
+});
+
+test('10. hedefteki icerik silme anindan eski: older', async () => {
+  const src = await makeSource('r10');
+  const w = await walk({ root: src, largeThreshold: Infinity, maxLarge: 0 });
+  const batch = await vault.newVaultBatch();
+  const entry = await vault.moveIntoVault(batch, src, w.bytes, w.files);
+
+  await mkdir(src, { recursive: true });
+  await writeFile(join(src, 'old.txt'), 'old-content');
+  const olderAt = entry.at - 60_000;
+  await utimes(join(src, 'old.txt'), new Date(olderAt), new Date(olderAt));
+  await utimes(src, new Date(olderAt), new Date(olderAt));
+
+  const r = await vault.restoreVaultEntry(entry, { conflict: 'rename' });
+  assert.equal(r.restored, true);
+  assert.equal(r.conflict, true);
+  assert.equal(r.targetState, 'older');
+  assert.equal(r.currentNewestAt, olderAt);
+});
+
+test('11. RestoreTarget.classify saf siniflandirici', () => {
+  const at = 1_000_000;
+  assert.equal(RestoreTarget.classify(null, at), 'absent');
+  assert.equal(RestoreTarget.classify({ entries: 0, newestAt: 0 }, at), 'empty');
+  assert.equal(RestoreTarget.classify({ entries: 1, newestAt: at + 5_000 }, at), 'newer');
+  assert.equal(RestoreTarget.classify({ entries: 1, newestAt: at - 5_000 }, at), 'older');
+  // tolerans icinde: iddia yok
+  assert.equal(RestoreTarget.classify({ entries: 1, newestAt: at + 500 }, at), 'unknown');
+  // zaman okunamadi
+  assert.equal(RestoreTarget.classify({ entries: 1, newestAt: 0 }, at), 'unknown');
+  // tolerans parametresi
+  assert.equal(RestoreTarget.classify({ entries: 1, newestAt: at + 500 }, at, 100), 'newer');
+});
+
+test('12. iptal politikasi da hedef durumunu raporlar', async () => {
+  const src = await makeSource('r12');
+  const w = await walk({ root: src, largeThreshold: Infinity, maxLarge: 0 });
+  const batch = await vault.newVaultBatch();
+  const entry = await vault.moveIntoVault(batch, src, w.bytes, w.files);
+
+  await mkdir(src, { recursive: true });
+  await writeFile(join(src, 'kept.txt'), 'kept');
+  const newerAt = entry.at + 60_000;
+  await utimes(join(src, 'kept.txt'), new Date(newerAt), new Date(newerAt));
+
+  const r = await vault.restoreVaultEntry(entry, { conflict: 'cancel' });
+  assert.equal(r.restored, false);
+  assert.equal(r.conflict, true);
+  assert.equal(r.targetState, 'newer');
+  assert.equal(r.currentNewestAt, newerAt);
+  assert.ok(r.reason && r.reason.includes('cancel'));
 });

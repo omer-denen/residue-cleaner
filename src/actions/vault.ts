@@ -5,6 +5,7 @@ import { dirname, join, resolve, sep } from 'node:path';
 import { longPath } from '../util/longpath.ts';
 import { dataDir } from '../core/data-dir.ts';
 import { RestoreTarget } from '../core/restore-target.ts';
+import type { RestoreTargetObservation, RestoreTargetState } from '../core/restore-target.ts';
 import { walk } from '../core/walker.ts';
 import { warn } from '../util/log.ts';
 import { audit } from '../util/audit.ts';
@@ -73,6 +74,10 @@ export interface RestoreResult {
   restored: boolean;
   to: string;
   conflict: boolean;
+  /** Hedefte ne oldugu: yok / bos / daha yeni / daha eski / bilinmiyor. */
+  targetState: RestoreTargetState;
+  /** Hedefteki en yeni girdinin mtime'i (varsa). */
+  currentNewestAt?: number;
   mode: RestoreMode;
   verified: boolean;
   reason?: string;
@@ -459,6 +464,45 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
+/** Hedef gozleminde en fazla bu kadar ust duzey girdi okunur (maliyet siniri). */
+const MAX_OBSERVED_ENTRIES = 256;
+
+/**
+ * Hedefte ne oldugunu SINIRLI ve yan etkisiz olcer.
+ *
+ * - Reparse point takip EDILMEZ (lstat); link ise yas bilgisi verilmez.
+ * - Ust duzey girdilerin mtime'i kullanilir; tum agac yurunmez (buyuk
+ *   klasorde geri yukleme yavaslamasin).
+ * - Yaris sirasinda kaybolan girdi yok sayilir.
+ */
+async function observeTarget(p: string): Promise<RestoreTargetObservation | null> {
+  try {
+    const st = await lstat(longPath(p));
+    if (st.isSymbolicLink()) return { entries: 1, newestAt: 0 };
+    if (!st.isDirectory()) return { entries: 1, newestAt: st.mtimeMs };
+    const children = await readdir(longPath(p), { withFileTypes: true });
+    // Kok mtime'i da sayilir: hedef klasor silme anindan sonra yeniden
+    // olusturulduysa icerigi eski mtime tasisa bile "sonradan olusmus"
+    // demek dogrudur. Ust duzey girdiler ek sinyal verir.
+    let newestAt = st.mtimeMs;
+    let seen = 0;
+    for (const child of children) {
+      if (seen >= MAX_OBSERVED_ENTRIES) break;
+      seen++;
+      try {
+        const c = await lstat(longPath(join(p, child.name)));
+        if (!c.isSymbolicLink() && c.mtimeMs > newestAt) newestAt = c.mtimeMs;
+      } catch {
+        /* yaris: girdi bu arada silindi */
+      }
+    }
+    return { entries: children.length, newestAt };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    return null;
+  }
+}
+
 async function verifyRestored(dst: string, entry: VaultEntry): Promise<boolean> {
   try {
     const st = await lstat(longPath(dst));
@@ -512,6 +556,7 @@ export async function restoreVaultEntry(
       restored: false,
       to: entry.originalPath,
       conflict: false,
+      targetState: 'unknown',
       mode,
       verified: false,
       reason,
@@ -519,6 +564,15 @@ export async function restoreVaultEntry(
       code,
     };
   }
+
+  // Hedefte ne oldugunu olc: "dolu" demek yerine yas/icerik ayrimi yap.
+  const observed = exists ? await observeTarget(entry.originalPath) : null;
+  const targetState: RestoreTargetState = !exists
+    ? 'absent'
+    : observed
+      ? RestoreTarget.classify(observed, entry.at)
+      : 'unknown';
+  const currentNewestAt = observed?.newestAt;
 
   // Cakisma politikasi: hedef ASLA ezilmez (overwrite haric, o da yedekler).
   let to: string;
@@ -529,9 +583,11 @@ export async function restoreVaultEntry(
       restored: false,
       to: entry.originalPath,
       conflict: true,
+      targetState,
+      ...(currentNewestAt ? { currentNewestAt } : {}),
       mode,
       verified: false,
-      reason: 'hedef dolu; cakisma politikasi "cancel"',
+      reason: 'hedefte icerik var; cakisma politikasi "cancel"',
     };
   } else if (conflictPolicy === 'overwrite') {
     const backup = `${entry.originalPath}.replaced-${now}`;
@@ -556,6 +612,8 @@ export async function restoreVaultEntry(
         restored: false,
         to: entry.originalPath,
         conflict: true,
+        targetState,
+        ...(currentNewestAt ? { currentNewestAt } : {}),
         mode,
         verified: false,
         reason,
@@ -609,6 +667,8 @@ export async function restoreVaultEntry(
       restored: false,
       to,
       conflict: exists,
+      targetState,
+      ...(currentNewestAt ? { currentNewestAt } : {}),
       mode,
       verified: false,
       reason,
@@ -629,6 +689,8 @@ export async function restoreVaultEntry(
     id: entry.id,
     to,
     conflict: exists,
+    targetState,
+    ...(currentNewestAt ? { currentNewestAt } : {}),
     mode,
     verified,
     attempts,
@@ -637,6 +699,8 @@ export async function restoreVaultEntry(
     restored: true,
     to,
     conflict: exists,
+    targetState,
+    ...(currentNewestAt ? { currentNewestAt } : {}),
     mode,
     verified,
     attempts,

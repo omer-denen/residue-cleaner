@@ -473,6 +473,14 @@ export interface VaultRestoreResponse {
   ok: boolean;
   to: string;
   conflict: boolean;
+  /**
+   * Geri yukleme aninda hedefin durumu: `absent` (bos), `empty` (bos
+   * klasor), `newer` (silme anindan sonra olusmus/degismis icerik),
+   * `older` (daha eski icerik) veya `unknown`.
+   */
+  targetState?: 'absent' | 'empty' | 'newer' | 'older' | 'unknown';
+  /** Hedefteki en yeni girdinin mtime'i (varsa). */
+  currentNewestAt?: number;
   mode?: string;
   verified?: boolean;
   error?: string;

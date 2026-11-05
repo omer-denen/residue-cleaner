@@ -974,7 +974,15 @@ const tr = {
   'vault.purge': 'Seçilenleri kalıcı sil',
   'vault.purgeHint': 'Kalıcı silme için {phrase} yazın.',
   'vault.phrase': 'Onay ifadesi',
-  'vault.conflict': 'Orijinal yol dolu',
+  'vault.conflict': 'Orijinal yol mevcut',
+  'vault.target.newer':
+    'Orijinal konumda sonradan oluşmuş veya güncellenmiş içerik var (son değişiklik: {at}); senin kopyan ayrı adla geri yüklendi.',
+  'vault.target.older':
+    'Orijinal konumda daha eski bir içerik var; senin kopyan ayrı adla geri yüklendi.',
+  'vault.target.empty':
+    'Orijinal konumda boş bir klasör var; senin kopyan ayrı adla geri yüklendi.',
+  'vault.target.unknown':
+    'Orijinal yolda başka bir içerik var; senin kopyan ayrı adla geri yüklendi.',
   'vault.selected': 'seçili',
   'vault.restored': 'Geri yüklendi',
   'vault.busyOther': 'Başka bir geri yükleme sürüyor, bitmesini bekle.',
@@ -2074,6 +2082,14 @@ const en: Record<keyof typeof tr, string> = {
   'vault.purgeHint': 'Type {phrase} to permanently delete.',
   'vault.phrase': 'Approval phrase',
   'vault.conflict': 'Original path exists',
+  'vault.target.newer':
+    'The original location has content created or updated after your copy (last change: {at}); your copy was restored under a separate name.',
+  'vault.target.older':
+    'The original location has older content; your copy was restored under a separate name.',
+  'vault.target.empty':
+    'The original location has an empty folder; your copy was restored under a separate name.',
+  'vault.target.unknown':
+    'The original path has different content; your copy was restored under a separate name.',
   'vault.selected': 'selected',
   'vault.restored': 'Restored',
   'vault.busyOther': 'Another restore is in progress; please wait.',

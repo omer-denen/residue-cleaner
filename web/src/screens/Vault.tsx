@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { VaultListResponse, AuditResponse } from '../../../src/core/contract.ts';
+import type { VaultListResponse, VaultRestoreResponse, AuditResponse } from '../../../src/core/contract.ts';
 import { ApprovalRules } from '../../../src/core/approval.ts';
 import {
   AuditExport,
@@ -194,6 +194,18 @@ export function Vault({ lang, onChanged }: Props) {
     });
   };
 
+  const conflictText = (result: VaultRestoreResponse): string => {
+    const state = result.targetState ?? 'unknown';
+    if (state === 'newer' && result.currentNewestAt) {
+      return t('vault.target.newer', {
+        at: formatTimestamp(result.currentNewestAt, lang),
+      });
+    }
+    if (state === 'older') return t('vault.target.older');
+    if (state === 'empty') return t('vault.target.empty');
+    return t('vault.target.unknown');
+  };
+
   const restore = async (id: string): Promise<void> => {
     if (purgeBusy || (busyId !== null && busyId !== id)) {
       setNotice(t('vault.busyOther'));
@@ -211,7 +223,9 @@ export function Vault({ lang, onChanged }: Props) {
       const result = await api.restore(id);
       if (result.ok) {
         setNotice(
-          `${t('vault.restored')}: ${result.to}${result.conflict ? ` (${t('vault.conflict')})` : ''}`,
+          result.conflict
+            ? `${t('vault.restored')}: ${result.to} — ${conflictText(result)}`
+            : `${t('vault.restored')}: ${result.to}`,
         );
       } else {
         const msg = result.error ?? t('vault.restoreFailed');
