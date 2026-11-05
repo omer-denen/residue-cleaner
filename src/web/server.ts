@@ -19,7 +19,7 @@ import {
   restoreAllVault,
   restoreVaultEntry,
 } from '../actions/vault.ts';
-import { exists } from '../actions/restore.ts';
+import { exists } from '../util/path-exists.ts';
 import { BUILTIN_PROFILES, ENVS } from '../core/discover.ts';
 import { CATEGORY_ORDER } from '../core/categories.ts';
 import { DiskView, toClusterDetail } from '../core/disk-view.ts';
