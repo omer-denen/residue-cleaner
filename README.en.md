@@ -18,8 +18,8 @@ folder is, what exactly deletion would cost, and why it decided that way.
 > the developer and AI leftovers that Windows never lists. **Nothing is
 > deleted without your approval;** the first scan only lists.
 
-> **Beta (0.3.0-beta.0) — not a stable release.** Run it from source; it will
-> be published to npm under the `beta` tag, while the `latest` tag stays on the
+> **Beta (0.3.0-beta.0) — not a stable release.** It is published to npm under
+> the `beta` tag: `npx residue-cleaner@beta scan`. The `latest` tag stays on the
 > stable `2.2.0` release. The UI and contract may still change during beta;
 > before real deletions, try `--dry-run` and the vault. The version stays
 > **0.x** until a stable release is announced.

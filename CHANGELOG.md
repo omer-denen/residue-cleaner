@@ -31,9 +31,8 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.1/) temellidir.
 
 ### Değişti
 
-- Proje **beta** aşamasına geçti; sürüm `0.3.0-beta.0`. Paket artık npm'de
-  `beta` etiketiyle yayınlanabilir; `latest` etiketi kararlı `2.2.0`
-  sürümünde kalır.
+- Proje **beta** aşamasına geçti; sürüm `0.3.0-beta.0`. Paket npm'de `beta`
+  etiketiyle yayınlandı; `latest` etiketi kararlı `2.2.0` sürümünde kalıyor.
 - **Arayüz görsel dili yenilendi.** Üst çubuk, kartlar, tablolar, sağ panel
   ve form kontrolleri aynı yükselti ve yarıçap dilini kullanıyor; dar ekran,
   dokunmatik ve yüksek kontrast tercihleri eklendi.

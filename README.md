@@ -19,9 +19,9 @@ olacağını ve kararın gerekçesini gösterir.
 > artıklardır. **Hiçbir şey sen onaylamadan silinmez;** ilk tarama yalnızca
 > listeler.
 
-> **Beta (0.3.0-beta.0) — kararlı sürüm değil.** Kaynaktan çalıştırılabilir;
-> npm'de `beta` etiketiyle yayınlanacak, `latest` etiketi kararlı `2.2.0`
-> sürümünde kalacak. Arayüz ve sözleşme beta süresince değişebilir; gerçek veri
+> **Beta (0.3.0-beta.0) — kararlı sürüm değil.** npm'de `beta` etiketiyle
+> yayınlandı: `npx residue-cleaner@beta scan`. `latest` etiketi kararlı `2.2.0`
+> sürümünde kalıyor. Arayüz ve sözleşme beta süresince değişebilir; gerçek veri
 > silmeden önce `--dry-run` ve kasa ile deneyin. Kararlı bir sürüm duyurulana
 > kadar sürüm numarası **0.x** kalır.
 
