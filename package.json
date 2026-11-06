@@ -1,6 +1,6 @@
 {
   "name": "residue-cleaner",
-  "version": "0.3.0-alpha.0",
+  "version": "0.3.0-beta.0",
   "description": "Residue — CLI cleaner and evidence-first auditor for developer caches, CLI installs and AI runtime leftovers; shows what each folder is before anything is deleted",
   "type": "module",
   "license": "MIT",
@@ -95,6 +95,5 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "tsx": "^4.23.15"
-  },
-  "private": true
+  }
 }

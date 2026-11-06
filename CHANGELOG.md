@@ -3,29 +3,7 @@
 Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kullanır.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.1/) temellidir.
 
-## [0.3.0-alpha.0] - 2026-10-22
-
-### Düzeltildi
-
-- Tarama durumu artık tek kaynaktan geliyor; üst çubuk ile Genel Bakış
-  kartı aynı bilgiyi gösteriyor.
-- "Yeniden tara" düğmesi taramayı gerçekten başlatıyor.
-- Genel Bakış detay listeleri ve PATH gerekçeleri TR/EN olarak gösteriliyor.
-- Aynı detayı paylaşan plan kartlarının seçimi düzeltildi.
-- "Disk değişti" durumu tüm yüzeylerde aynı önem tonunu kullanıyor.
-
-### Eklendi
-
-- **Sağ panel ekranlardan bağımsız modül yüzeyine dönüştü.** Kanıtlar, İşlem,
-  Planlananlar ve Bağlam sekmeleri; Disk, Araçlar, PATH & Ortam, Projeler ve
-  Graf detayları aynı panelde; planı görüntüleme ve plandan çıkarma.
-- Sağ panel varsayılan açık, katlanabilir; dar ekranda gizlenir.
-
-### Değişti
-
-- Proje **beta öncesi (alpha)** olarak işaretlendi; sürüm `0.3.0-alpha.0`.
-
-## [Unreleased]
+## [0.3.0-beta.0] - 2026-11-06
 
 ### Eklendi
 
@@ -50,6 +28,15 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.1/) temellidir.
 - **Graf hazırlığında ilerleme.** İlk envanter taraması canlı araç sayısı ve
   adım göstergesiyle (1/2 → 2/2) ilerliyor; düz metin yerine ilerleme
   çubuğu gösteriliyor.
+
+### Değişti
+
+- Proje **beta** aşamasına geçti; sürüm `0.3.0-beta.0`. Paket artık npm'de
+  `beta` etiketiyle yayınlanabilir; `latest` etiketi kararlı `2.2.0`
+  sürümünde kalır.
+- **Arayüz görsel dili yenilendi.** Üst çubuk, kartlar, tablolar, sağ panel
+  ve form kontrolleri aynı yükselti ve yarıçap dilini kullanıyor; dar ekran,
+  dokunmatik ve yüksek kontrast tercihleri eklendi.
 
 ### Kaldırıldı
 
@@ -77,6 +64,28 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.1/) temellidir.
 - **Klavye odağı.** İlk açılış diyaloğu ve komut paleti artık odağı içeride
   tutuyor; kapandığında odak açan öğeye dönüyor. `Esc` sonrası odak `body`'ye
   düşmüyor. Bu, klavye ve ekran okuyucu kullanımında gezinmeyi güvenilir kılar.
+
+## [0.3.0-alpha.0] - 2026-10-22
+
+### Düzeltildi
+
+- Tarama durumu artık tek kaynaktan geliyor; üst çubuk ile Genel Bakış
+  kartı aynı bilgiyi gösteriyor.
+- "Yeniden tara" düğmesi taramayı gerçekten başlatıyor.
+- Genel Bakış detay listeleri ve PATH gerekçeleri TR/EN olarak gösteriliyor.
+- Aynı detayı paylaşan plan kartlarının seçimi düzeltildi.
+- "Disk değişti" durumu tüm yüzeylerde aynı önem tonunu kullanıyor.
+
+### Eklendi
+
+- **Sağ panel ekranlardan bağımsız modül yüzeyine dönüştü.** Kanıtlar, İşlem,
+  Planlananlar ve Bağlam sekmeleri; Disk, Araçlar, PATH & Ortam, Projeler ve
+  Graf detayları aynı panelde; planı görüntüleme ve plandan çıkarma.
+- Sağ panel varsayılan açık, katlanabilir; dar ekranda gizlenir.
+
+### Değişti
+
+- Proje **beta öncesi (alpha)** olarak işaretlendi; sürüm `0.3.0-alpha.0`.
 
 ## [2.2.0] - 2026-10-21
 

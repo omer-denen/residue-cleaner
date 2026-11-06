@@ -1,6 +1,6 @@
-# READINESS MATRIX — 0.3.x (T74 / W0-a)
+# READINESS MATRIX — 0.3.0-beta.0 (T74 / W0-a)
 
-> **Durum:** guncellendi 06.11.2026; 750 test; kapsam satir **%86.29** / dal **%80.15** / fonksiyon **%80.32** (03.11.2026 olcumu); agirlikli skor **85.00**.
+> **Durum:** guncellendi 06.11.2026; 750 test; kapsam satir **%86.29** / dal **%80.15** / fonksiyon **%80.32** (03.11.2026 olcumu); agirlikli skor **85.00**; beta kapisi **✅ (kosullu)**.
 > **Kapsam:** alpha/beta kapıları + E2E senaryo kataloğu (CLI, SAFE, ERR,
 > SEC, API, PARITY, SCHED, ENV, PERF, LOAD, WEB, PROFILE).
 > **Kaynak kararlar:** `docs/HANDOVER-2026-10-23c.md` §4, `AGENTS.md`,
@@ -76,8 +76,8 @@ Kapsam (729 test): satir **%86.29**, dal **%80.15**, fonksiyon **%80.32**; beta 
 | Servisler (`scan/delete/cli/env/project/graph/schedule`) | 3 | 4 | 2 | 3 | 0 | 0 | 2 | API testleri + motor testleri; yük yok |
 | `store` (cache/settings/schedules) | 3 | 3 | 2 | 3 | 0 | 0 | 2 | Atomik yazma; bozuk JSON testi var |
 | HTTP adaptörü (`server.ts` / `http.ts`) | 3 | 4 | 2 | 4 | 0 | 0 | 2 | 401/403 + 34 smoke; Origin/gövde sınırı E2E değil |
-| CLI komutları | 2 | 4 | 2 | — | 0 | 0 | 2 | `npm test` içinde gerçek CLI E2E yok |
-| Web UI (React) | 2 | — | 1 | — | 0 | 0 | 1 | M5 elle doğrulandı; otomatik tarayıcı E2E yok |
+| CLI komutları | 2 | 4 | 2 | — | 0 | 0 | 2 | CLI-01..06 gerçek süreç E2E (`tests/cli-e2e.test.ts`) |
+| Web UI (React) | 2 | — | 1 | — | 0 | 0 | 1 | WEB ekranları ego-browser ile manuel; otomatik tarayıcı E2E yok |
 | Kullanıcı profilleri (T74) | 3 | 3 | 1 | 3 | 0 | 0 | 3 | Persona yalnız sunum: kalıcılık + API sözleşmesi + `/api/disk`/plan değişmezliği test edildi (26 test); ekran okuyucu turu yok |
 
 ---
@@ -117,7 +117,11 @@ Kalan açıklar beta maddeleridir: web E2E, PROFIL.
    tetiklemiyor.
 7. Klavye-only tur + ekran okuyucu + `prefers-reduced-motion` üç profilde.
 
-**Beta durumu:** ❌ — web E2E ve yük ölçümü yok.
+**Beta durumu:** ✅ **koşullu** — 06.11.2026. Puan **85.00** (eşik 85) ve kapsam
+eşikleri sağlandı; ERR-01/02/06/07/08, SAFE-02/08, SEC-02/03/07, PROFILE-06 ve
+LOAD-01..04 otomatik kanıtlandı. **Açık kanıt boşlukları:** WEB-02..08/10/11/13/14/16
+elle (ego-browser) doğrulandı, otomatik tarayıcı E2E yok; PROFILE-07 için gerçek
+NVDA/Narrator ses çıktısı alınmadı (AX ağacı + klavye kanıtı var).
 
 ---
 
@@ -211,8 +215,8 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 | PARITY-01b | `scan --root` ↔ `/api/disk` | Kök taraması sonucu değiştirmez (T27) | ✅ |
 | PARITY-02 | `clean --dry-run` ↔ `POST /api/plan` | Aynı hedef/ifade | ✅ |
 | PARITY-03 | `inventory --json` ↔ `GET /api/cli/view` | Aynı sayaç/kanıt | ✅ (id/source/bayt) |
-| PARITY-04 | `graph` ↔ `GET /api/graph` | Aynı düğüm/kenar | ❌ (T79) |
-| PARITY-05 | `project` ↔ `GET /api/projects` | Aynı artifact/tarif | ❌ (T79) |
+| PARITY-04 | `graph` ↔ `GET /api/graph` | Aynı düğüm/kenar | ✅ (T79, `tests/parity-t79.test.ts`) |
+| PARITY-05 | `project` ↔ `GET /api/projects` | Aynı artifact/tarif | ✅ (T79, `tests/parity-t79.test.ts`) |
 
 > **PARITY-01…03 otomatik (26.10.2026):** `tests/parity-e2e.test.ts` — gerçek CLI
 > çocuk süreci + in-process API sunucusu, **tek sandbox**. PARITY-01 env kapsamlı
@@ -303,11 +307,13 @@ güncellenmez.
 
 ## 7. Açık riskler (öncelik sırası)
 
-1. **`delete.ts` yürütme döngüleri test dışı** — satır %61.2 / fonksiyon
-   %34.4 (109-214 purge, 220-304 taşıma); hata enjeksiyonu (ERR-01…08) yok.
-   Beta kapısının ana maddesi.
-2. **Git tracked + junction silme koruması `npm test` dışında** — scratch
-   kanıtı var; otomatik regresyon yok.
+1. **`delete.ts` kapsamı kısmi** — 28.10 ölçümü satır %61.2 / fonksiyon
+   %34.4 (109-214 purge, 220-304 taşıma). 03.11'de hata enjeksiyonu
+   (ERR-01/02/05, `tests/delete-errors.test.ts`) eklendi; satır kapsamı
+   yeniden ölçülmedi. Beta kapısı puanla kapandı.
+2. **Git tracked + junction koruması (kapandı)** — 03.11.2026'dan beri
+   otomatik: `tests/safety-fs.test.ts` gerçek `git init` + junction hedefini
+   doğrular; scratch kanıtı tarihsel.
 3. **Web UI otomatik E2E yok** — M5, B24, B19/B21, T74/W2 ve PROFILE-07
    **elle** doğrulandı (ego-browser); WEB-15/WEB-17 ve PROFILE-07 tarayıcıda
    kanıtlandı. Otomatik tarayıcı E2E'si hâlâ yok.
