@@ -74,6 +74,9 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.1/) temellidir.
   kopyanın geri yüklenmediği ve kasadaki kopyanın kalıcı silindiği açıkça
   söyleniyor. Payload'u zaten kaybolmuş kayıtlarda yalnız kayıt temizlenir;
   orijinal içeriğin korunduğu bildirilir.
+- **Klavye odağı.** İlk açılış diyaloğu ve komut paleti artık odağı içeride
+  tutuyor; kapandığında odak açan öğeye dönüyor. `Esc` sonrası odak `body`'ye
+  düşmüyor. Bu, klavye ve ekran okuyucu kullanımında gezinmeyi güvenilir kılar.
 
 ## [2.2.0] - 2026-10-21
 

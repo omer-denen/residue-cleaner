@@ -1,6 +1,6 @@
 # READINESS MATRIX — 0.3.x (T74 / W0-a)
 
-> **Durum:** guncellendi 06.11.2026; 745 test; kapsam satir **%86.29** / dal **%80.15** / fonksiyon **%80.32** (03.11.2026 olcumu); agirlikli skor **85.00**.
+> **Durum:** guncellendi 06.11.2026; 750 test; kapsam satir **%86.29** / dal **%80.15** / fonksiyon **%80.32** (03.11.2026 olcumu); agirlikli skor **85.00**.
 > **Kapsam:** alpha/beta kapıları + E2E senaryo kataloğu (CLI, SAFE, ERR,
 > SEC, API, PARITY, SCHED, ENV, PERF, LOAD, WEB, PROFILE).
 > **Kaynak kararlar:** `docs/HANDOVER-2026-10-23c.md` §4, `AGENTS.md`,
@@ -59,8 +59,9 @@
 Kapsam (729 test): satir **%86.29**, dal **%80.15**, fonksiyon **%80.32**; beta kapsam kosulu (satir >= 85, dal >= 80, fonksiyon >= 75) saglandi.
 
 > **Not (05.11.2026):** Asagidaki eski notlar tarihsel kayittir. Guncel kanit
-> icin bolum 8'e bakin. PROFILE-06, WEB-15/17 ve reduced motion dogrulandi;
-> PROFILE-07 ekran okuyucu turu hala elle yapilir.
+> icin bolum 8'e bakin. PROFILE-06, WEB-15/17 ve reduced motion dogrulandi.
+> **PROFILE-07 (06.11.2026):** AX agaci + klavye/odak turu tamam; NVDA/Narrator
+> ses ciktisi yerine UIA/AX agaci kaniti kullanildi.
 
 ---
 
@@ -281,7 +282,7 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 | PROFILE-04 | Plan değişmezliği | Plan + onay ifadesi aynı | ✅ `PROFILE API-04` (hedef + bayt kilidi) |
 | PROFILE-05 | Tarama yok | Profil değişimi `/api/scan` çağırmaz | ✅ `PROFILE API-05` |
 | PROFILE-06 | Güvenlik | `report-only` + `guard` üç profilde geçer | ✅ `PROFILE-06`: her profilde report-only plan 400, guard reddi 400, `verdictKind` aynı (`tests/profile-api.test.ts`) |
-| PROFILE-07 | A11y | Klavye + ekran okuyucu + reduced motion | 🟡 reduced motion CDP emülasyonuyla doğrulandı (tüm animasyonlar `1e-06s/1`); ekran okuyucu turu ve klavye/odak onboarding'de elle |
+| PROFILE-07 | A11y | Klavye + ekran okuyucu + reduced motion | ✅ reduced motion `1e-06s/1`; AX ağacında 33 etkileşimli öğe, adsız yok; onboarding/palet odak tuzağı + `Esc` dönüşü; sekme okları ve skip-link tarayıcıda doğrulandı (`tests/focus-trap.test.ts`) |
 
 ---
 
@@ -307,9 +308,9 @@ güncellenmez.
    Beta kapısının ana maddesi.
 2. **Git tracked + junction silme koruması `npm test` dışında** — scratch
    kanıtı var; otomatik regresyon yok.
-3. **Web UI otomatik E2E yok** — M5, B24, B19/B21 ve T74/W2 **elle**
-   doğrulandı (ego-browser); WEB-15/WEB-17 bu turda tarayıcıda kanıtlandı,
-   PROFILE-07 ekran okuyucu turu otomatik değil.
+3. **Web UI otomatik E2E yok** — M5, B24, B19/B21, T74/W2 ve PROFILE-07
+   **elle** doğrulandı (ego-browser); WEB-15/WEB-17 ve PROFILE-07 tarayıcıda
+   kanıtlandı. Otomatik tarayıcı E2E'si hâlâ yok.
 4. **Backlog hijyeni** — tamamlanan iş açık kalabiliyordu: B23 (27.10,
    `a8e7110`) ve B24 (28.10, `fd87707`) backlog'da hâlâ `planned`, B22
    `done` ama `doneAt`/`commit` yoktu. 28.10.2026'da üçü `done` + commit ile
@@ -346,12 +347,16 @@ güncellenmez.
 | WEB-15 | ego-browser: dashboard `/api/dashboard` 500 -> `role=alert` "Bağlantı hatası / ... / Yeniden dene" |
 | WEB-17 UI | ego-browser Tools: `kurulum/durum/erişim/geçmiş` + `atime kurulum anı` rozetleri (17 araç) |
 | PROFILE-07 motion | CDP `prefers-reduced-motion: reduce`: spin/skeleton/indeterminate `1e-06s / 1` |
+| PROFILE-07 AX | ego-browser AX ağacı: 33 etkileşimli öğe, **adsız yok**; `banner`, `navigation "Bölümler"`, `main "Ana içerik"`, `complementary "Sağ panel"`, `contentinfo`; h1 `Genel Bakış` + h2/h3 |
+| PROFILE-07 klavye | Onboarding: ilk odak Developer, Tab döngüsü 5 öğe, Shift+Tab geri, `Esc` → `#main`. Palet: Ctrl+K → arama, Tab/Shift+Tab döngüsü, `Esc` → açan düğme. Skip-link → `main`; panel sekmeleri ok tuşları; tarama durumu diyaloğu `Esc` → rozet |
+| PROFILE-07 test | `tests/focus-trap.test.ts` 5 test: ileri/geri sarma, odak dışarıdayken çekme, boş liste, tek öğe |
 | Kasa mesajı | `tests/vault-restore.test.ts` (empty/newer/older/cancel) + `tests/vault-message.test.ts` (TR/EN, "dolu" yasağı) |
 | Kasa boşaltma bildirimi | `tests/vault.test.ts` (newer notice + payload'sız kayıt) + `tests/vault-message.test.ts` (purgeNewer/purgePruned TR/EN) |
 | T95 purge kaldırma | `tests/delete-errors.test.ts` (red + dosya yerinde), `tests/approval.test.ts` (400), `tests/plan-add.test.ts` (API 400), `tests/cli-e2e.test.ts` (`--purge` exit 1) |
-| Kapsam | 745 test (06.11.2026); satir 86.29 / dal 80.15 / fonksiyon 80.32 (03.11.2026 olcumu) |
+| Kapsam | 750 test (06.11.2026); satir 86.29 / dal 80.15 / fonksiyon 80.32 (03.11.2026 olcumu) |
 
-**Acik kalan:** PROFILE-07 ekran okuyucu turu otomatik degil (NVDA yok);
+**Acik kalan:** PROFILE-07 icin gercek NVDA/Narrator ses ciktisi alinmadi;
+kanit AX agaci + klavye/odak turudur. Otomatik tarayici E2E'si yok.
 WEB-15/WEB-17 ve reduced motion tarayici kaniti 05.11.2026'da alindi;
 T95 dogrudan yol kalici silme 06.11.2026'da kaldirildi. Test sayisi
-**745/745**.
+**750/750**.

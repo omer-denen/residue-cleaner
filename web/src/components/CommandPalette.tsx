@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { CommandView } from '../../../src/core/command-view.ts';
 import { translate, type Lang, type MessageKey } from '../i18n.ts';
 import { Icon } from './icons.tsx';
+import { nextFocusIndex } from '../a11y/focus-trap.ts';
 
 /** Palet ogesi: kimlik + gorunen ad; filtreleme MOTORDA (kural 18). */
 export interface PaletteItem {
@@ -33,11 +40,37 @@ export function CommandPalette({
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   const matches = useMemo(() => CommandView.filter(query, items, 14), [query, items]);
 
   useEffect(() => {
+    openerRef.current = document.activeElement as HTMLElement | null;
     inputRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const dlg = dialogRef.current;
+      if (!dlg) return;
+      const focusable = Array.from(
+        dlg.querySelectorAll<HTMLElement>(
+          'input, button, [href], select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => !el.hasAttribute('disabled'));
+      if (focusable.length === 0) return;
+      const active = document.activeElement as HTMLElement | null;
+      const current = active ? focusable.indexOf(active) : -1;
+      const next = nextFocusIndex(current, focusable.length, e.shiftKey, current >= 0);
+      if (next < 0) return;
+      e.preventDefault();
+      focusable[next]?.focus();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      // Palet kapaninca odak acan dugmeye doner; body'ye dusmez.
+      if (openerRef.current?.isConnected) openerRef.current.focus();
+    };
   }, []);
 
   useEffect(() => {
@@ -49,7 +82,7 @@ export function CommandPalette({
     onClose();
   };
 
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setIndex((i) => CommandView.move(i, 1, matches.length));

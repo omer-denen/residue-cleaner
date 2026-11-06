@@ -3,6 +3,7 @@ import type { UserProfile } from '../../../src/core/contract.ts';
 import { translate, type Lang, type MessageKey } from '../i18n.ts';
 import { PROFILE_IDS } from '../profiles.ts';
 import { onboardingChoice } from '../onboarding.ts';
+import { nextFocusIndex } from '../a11y/focus-trap.ts';
 
 interface Props {
   lang: Lang;
@@ -20,22 +21,20 @@ export function Onboarding({ lang, open, onChoose }: Props) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const firstRef = useRef<HTMLButtonElement | null>(null);
   const openerRef = useRef<HTMLElement | null>(null);
+  const onChooseRef = useRef(onChoose);
 
+  // App her render'da yeni bir onChoose gecirir. Dinleyiciyi her render'da
+  // yeniden kurmak, cleanup'in odagi main'e tasimasina yol aciyordu.
   useEffect(() => {
-    if (!open) return;
-    openerRef.current = document.activeElement as HTMLElement | null;
-    setSelected('hybrid');
-    // Ilk secenek odaklanir (bir sonraki tick).
-    const id = window.setTimeout(() => firstRef.current?.focus(), 0);
-    return () => window.clearTimeout(id);
-  }, [open]);
+    onChooseRef.current = onChoose;
+  }, [onChoose]);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onChoose('hybrid');
+        onChooseRef.current('hybrid');
         return;
       }
       if (e.key !== 'Tab') return;
@@ -47,29 +46,34 @@ export function Onboarding({ lang, open, onChoose }: Props) {
         ),
       ).filter((el) => !el.hasAttribute('disabled'));
       if (focusable.length === 0) return;
-      const first = focusable[0]!;
-      const last = focusable[focusable.length - 1]!;
-      const active = document.activeElement;
-      if (e.shiftKey && (active === first || active === dlg)) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && active === last) {
-        e.preventDefault();
-        first.focus();
-      }
+      const active = document.activeElement as HTMLElement | null;
+      const current = active ? focusable.indexOf(active) : -1;
+      const next = nextFocusIndex(current, focusable.length, e.shiftKey, current >= 0);
+      if (next < 0) return;
+      e.preventDefault();
+      focusable[next]?.focus();
     };
     window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    openerRef.current = document.activeElement as HTMLElement | null;
+    setSelected('hybrid');
+    // Ilk secenek odaklanir (bir sonraki tick). Cleanup yalnizca diyalog
+    // kapaninca calisir; parent render'i odagi calmaz.
+    const id = window.setTimeout(() => firstRef.current?.focus(), 0);
     return () => {
-      window.removeEventListener('keydown', onKey, true);
-      // Kapanista odak main basligina doner (document.body degil).
+      window.clearTimeout(id);
       const main = document.getElementById('main');
       if (main) {
-        (main as HTMLElement).focus?.();
+        main.focus?.();
       } else {
         openerRef.current?.focus?.();
       }
     };
-  }, [open, onChoose]);
+  }, [open]);
 
   if (!open) return null;
 
