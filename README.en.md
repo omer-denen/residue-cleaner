@@ -61,8 +61,9 @@ It answers one question with evidence: **"What is this folder, and what happens 
    decided that way**. Measuring large folders can take a few minutes; stop
    it with `Ctrl+C`.
 5. Pick what you want to move to the vault → `residue clean` → read the plan
-   → type `TASI` for medium/high risk → confirm. Permanent deletion
-   (`--purge`) asks for `SIL`.
+   → type `TASI` for medium/high risk → confirm. Permanent deletion applies
+   only to vault items (`residue vault purge --id <vault-id>`) and asks for
+   `BOŞALT`.
 6. Prefer a browser over the terminal? Run `node bin/residue.mjs ui --web`.
 
 The default mode moves items into the tool's own **vault**, so a wrong

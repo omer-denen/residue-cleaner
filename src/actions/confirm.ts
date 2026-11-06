@@ -63,7 +63,8 @@ export async function confirmPlan(
   const hasHigh = plan.clusters.some((c) => c.risk === 'high');
   const hasMedium = plan.clusters.some((c) => c.risk === 'medium');
 
-  const approvalKind = plan.mode === 'recycle' ? 'vaultMove' : 'delete';
+  // 3.0: planlar yalniz kasaya tasima modundadir; kalici silme yolu yok.
+  const approvalKind = 'vaultMove' as const;
   const phrase = ApprovalRules.requiresPhrase(plan.clusters.map((c) => c.risk))
     ? ApprovalRules.phrase(approvalKind)
     : (opts.phrase ?? '');
@@ -87,11 +88,7 @@ export async function confirmPlan(
     // En tehlikeli durum: her kumeyi tek tek sor
     for (const c of plan.clusters.filter((x) => x.risk === 'high')) {
       stdout.write(`\n  ${c.title}\n    ${c.reason}\n`);
-      const a = await rl.question(
-        plan.mode === 'recycle'
-          ? '    Bu kume kasaya tasinsin mi? (evet/hayir): '
-          : '    Bu kume silinsin mi? (evet/hayir): ',
-      );
+      const a = await rl.question('    Bu kume kasaya tasinsin mi? (evet/hayir): ');
       if (!isYes(a)) {
         rl.close();
         return { approved: false, reason: 'kullanici vazgecildi' };
@@ -99,14 +96,8 @@ export async function confirmPlan(
     }
   }
 
-  stdout.write(
-    `\n  ${format(plan.totalBytes)} ${plan.mode === 'recycle' ? 'kasaya tasinacak' : 'silinecek'} (${label})\n`,
-  );
-  if (plan.mode === 'recycle') {
-    stdout.write('  Aracin kendi kasasina tasinacak - geri alinabilir.\n');
-  } else {
-    stdout.write('  KALICI SILME — geri alinamaz.\n');
-  }
+  stdout.write(`\n  ${format(plan.totalBytes)} kasaya tasinacak (${label})\n`);
+  stdout.write('  Aracin kendi kasasina tasinacak - geri alinabilir.\n');
 
   const prompt = phrase
     ? `  Onaylamak icin "${phrase}" yaz: `

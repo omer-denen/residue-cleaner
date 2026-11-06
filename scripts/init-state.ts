@@ -20,7 +20,7 @@ const s: ProjectState = {
     { cmd: 'node bin/residue.mjs ui', desc: 'Terminal TUI — Ink, TTY gerektirir' },
     { cmd: 'node bin/residue.mjs clean', desc: 'Iki asamali onay + geri donusum kutusu' },
     { cmd: 'node bin/residue.mjs clean --only <ad>', desc: 'Tek kumu temizle' },
-    { cmd: 'node bin/residue.mjs clean --purge', desc: 'Kalici silme (yazili onay gerekir)' },
+    { cmd: 'node bin/residue.mjs vault purge --id <kasa-id>', desc: 'Kasa ogesini kalici sil (yazili onay)' },
     { cmd: 'node bin/residue.mjs explain <ad>', desc: 'Karar gerekcesini kanitlarla goster' },
     { cmd: 'node bin/residue.mjs log --summary', desc: 'Son 1 saat: siniflandirma/uyari/hata' },
     { cmd: 'node bin/residue.mjs doctor', desc: 'Ortam kontrolu (uzun yol, geri donusum, GPU)' },

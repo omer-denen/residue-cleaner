@@ -51,6 +51,13 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.1/) temellidir.
   adım göstergesiyle (1/2 → 2/2) ilerliyor; düz metin yerine ilerleme
   çubuğu gösteriliyor.
 
+### Kaldırıldı
+
+- **Doğrudan yol kalıcı silme.** `clean --purge` ve
+  `POST /api/plan {mode:'purge'}` artık reddedilir; kalıcı silme yalnız kasa
+  öğelerinde (`residue vault purge --id <kasa-id>`) ve `BOŞALT` onayıyla
+  yapılır.
+
 ### Düzeltildi
 
 - **Türkçe büyük harf.** Başlık ve etiketler artık dile göre büyütülüyor:
@@ -60,6 +67,9 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.1/) temellidir.
 - **Graf metinleri.** “Hiçbir şey silinmez” gibi ifadeler kaldırıldı; ekran
   yalnızca ilişki ve etki analizi gösterdiğini söylüyor. Bu, seçim/silme
   olmayan bir ekranda gereksiz korku yaratıyordu.
+- **Kasa geri yükleme çakışması.** “Klasör dolu” yerine hedefin durumu
+  açıklanıyor: sonradan oluşmuş/güncellenmiş içerik, daha eski içerik, boş
+  klasör veya bilinmiyor. Kopya çakışmada ayrı adla geri yüklenir.
 
 ## [2.2.0] - 2026-10-21
 

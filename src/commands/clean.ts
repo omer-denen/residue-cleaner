@@ -19,7 +19,6 @@ const C = {
 export interface CleanArgs {
   envs: Env[];
   profile?: string;
-  purge: boolean;
   yes: boolean;
   only?: string[];
   exclude: string[];
@@ -40,10 +39,10 @@ export interface CleanArgs {
  *   2. ONAYLA  : riske gore kademeli onay, sonra ARACIN KENDI KASASINA
  *
  * Kasa varsayilandir (Windows Geri Donusum Kutusu kullanilmaz).
- * Kalici silme ancak --purge ile ve yine de yazili onayla yapilir.
+ * 3.0: dogrudan yol kalici silme kaldirildi; bu akis yalniz kasaya tasir.
  */
 export async function runClean(args: CleanArgs): Promise<void> {
-  const mode: DeleteMode = args.purge ? 'purge' : 'recycle';
+  const mode: DeleteMode = 'recycle';
 
   info('temizleme basladi', {
     mode,
@@ -195,10 +194,8 @@ export async function runClean(args: CleanArgs): Promise<void> {
   if (failedCount > 0) {
     console.log(`${C.red}  Hata       : ${failedCount}${C.reset}`);
   }
-  if (mode === 'recycle' && removed > 0) {
+  if (removed > 0) {
     console.log(`${C.cyan}  Geri al    : "residue undo --restore" ile kasadan${C.reset}`);
-  } else if (mode === 'purge' && removed > 0) {
-    console.log(`${C.red}  Kalici silindi — geri alinamaz${C.reset}`);
   }
   if (journalPath) {
     console.log(`${C.dim}  Gunluk     : ${prettyPath(journalPath)}${C.reset}`);

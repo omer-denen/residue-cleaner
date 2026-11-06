@@ -152,6 +152,13 @@ test('CLI-02 clean --dry-run --env temp', async () => {
   assert.ok(!(await pathExists(join(sandbox, 'la', 'residue', 'vault'))), 'vault olusmamali');
 });
 
+test('CLI-02b clean --purge reddedilir, hicbir sey silinmez', async () => {
+  const r = await runCli(['clean', '--purge', '--env', 'temp']);
+  assert.equal(r.code, 1, `exit code ${r.code}: ${r.stderr}`);
+  assert.match(r.stdout + r.stderr, /kaldirildi/);
+  assert.ok(existsSync(join(sandbox, 'temp', 'app-cache', 'GPUCache', 'data_0')), 'dosya kalmali');
+});
+
 test('CLI-03 inventory --json', async () => {
   const r = await runCli(['inventory', '--json']);
   assert.equal(r.code, 0, `exit code ${r.code}: ${r.stderr}`);

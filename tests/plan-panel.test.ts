@@ -82,7 +82,7 @@ test('planTargetId deterministiktir; kume degisse kimlik degisir', () => {
 });
 
 test('bos plan cokmez; gruplar bos, sayilar sifir', () => {
-  const panel = PlanPanel.from({ mode: 'purge', clusters: [], targets: [], totalBytes: 0 });
+  const panel = PlanPanel.from({ mode: 'recycle', clusters: [], targets: [], totalBytes: 0 });
   assert.deepEqual(panel.groups, []);
   assert.deepEqual(panel.keys, []);
   assert.equal(panel.clusterCount, 0);

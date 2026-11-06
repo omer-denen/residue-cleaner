@@ -1,6 +1,5 @@
 import { runScan } from './scan.ts';
 import type { Env } from '../core/types.ts';
-import type { DeleteMode } from '../actions/delete.ts';
 
 /**
  * TUI surucusu.
@@ -12,7 +11,6 @@ export async function runTui(args: {
   envs: Env[];
   profile?: string;
   exclude: string[];
-  mode: DeleteMode;
 }): Promise<void> {
   const React = (await import('react')).default;
   const { render } = await import('ink');
@@ -20,7 +18,6 @@ export async function runTui(args: {
 
   const instance = render(
     React.createElement(App, {
-      mode: args.mode,
       onScan: async (
         onProgress: (done: number, total: number, bytes: number) => void,
       ) => {

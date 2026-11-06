@@ -2,6 +2,7 @@
 import { runScan, renderReport } from './commands/scan.ts';
 import { currentVersion } from './util/version.ts';
 import { runClean } from './commands/clean.ts';
+import { PURGE_REMOVED_MESSAGE } from './actions/delete.ts';
 import { runExplain } from './commands/explain.ts';
 import { runDoctor } from './commands/doctor.ts';
 import { runUndo } from './commands/undo.ts';
@@ -69,10 +70,11 @@ ${C.bold}Secenekler${C.reset}
   -h, --help         Bu yardim
 
 ${C.bold}Sadece clean icin${C.reset}
-  --purge            Geri donusum kutusu yerine KALICI sil
   --only <ad>        Sadece bu kume/anahtari temizle (tekrar edilebilir)
   --dry-run          Sadece plani goster, hicbir sey silme
   -y, --yes          Onay sormadan calistir
+  ${C.gray}Kalici silme 3.0'da kaldirildi: yalniz kasa ogeleri
+  "residue vault purge --id <kasa-id>" ile silinir.${C.reset}
 
 ${C.bold}Hassas siniflar (yalnizca acikca istenirse)${C.reset}
   --clear-history    Sohbet/oturum gecmisi klasorlerini plana dahil et
@@ -94,7 +96,7 @@ ${C.bold}Sadece inventory icin${C.reset}
 ${C.bold}Ornekler${C.reset}
   residue scan --env pkgcache
   residue clean --env pkgcache
-  residue clean --only nuget --purge
+  residue clean --only nuget
   residue inventory --unused 21 --verbose
   residue inventory --report envanter.md
   residue scan --profile audit --json
@@ -179,7 +181,6 @@ async function main(): Promise<void> {
     const only: string[] = [];
     const exclude: string[] = [];
     let profile: string | undefined;
-    let purge = false;
     let yes = false;
     let dryRun = false;
     const allow: { history?: boolean; models?: boolean; rules?: boolean } = {};
@@ -190,7 +191,7 @@ async function main(): Promise<void> {
       else if (a === '--profile') profile = rest[++i];
       else if (a === '--exclude') exclude.push(rest[++i]!);
       else if (a === '--only') only.push(rest[++i]!);
-      else if (a === '--purge') purge = true;
+      else if (a === '--purge') throw new Error(PURGE_REMOVED_MESSAGE);
       else if (a === '--yes' || a === '-y') yes = true;
       else if (a === '--dry-run') dryRun = true;
       else if (a === '--clear-history') allow.history = true;
@@ -198,7 +199,7 @@ async function main(): Promise<void> {
       else if (a === '--reset-rules') allow.rules = true;
     }
 
-    await runClean({ envs, profile, purge, yes, only, exclude, dryRun, allow });
+    await runClean({ envs, profile, yes, only, exclude, dryRun, allow });
     return;
   }
 
@@ -209,7 +210,6 @@ async function main(): Promise<void> {
     const envs: Env[] = [];
     const exclude: string[] = [];
     let profile: string | undefined;
-    let purge = false;
     let web = false;
     let noBrowser = false;
     let port = 0;
@@ -219,7 +219,7 @@ async function main(): Promise<void> {
       if (a === '--env') envs.push(rest[++i] as Env);
       else if (a === '--profile') profile = rest[++i];
       else if (a === '--exclude') exclude.push(rest[++i]!);
-      else if (a === '--purge') purge = true;
+      else if (a === '--purge') throw new Error(PURGE_REMOVED_MESSAGE);
       else if (a === '--web') web = true;
       else if (a === '--no-browser') noBrowser = true;
       else if (a === '--port') {
@@ -242,7 +242,7 @@ async function main(): Promise<void> {
     }
 
     const { runTui } = await import('./commands/tui.ts');
-    await runTui({ envs, profile, exclude, mode: purge ? 'purge' : 'recycle' });
+    await runTui({ envs, profile, exclude });
     return;
   }
 

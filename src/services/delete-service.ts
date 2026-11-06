@@ -1,4 +1,5 @@
 import {
+  PURGE_REMOVED_MESSAGE,
   buildPlan,
   closeRecycle,
   deleteTarget,
@@ -98,6 +99,7 @@ export class DeleteService {
   ): PlanResponse {
     if (!scan) throw new ServiceError(400, 'Once tarama yapilmali');
     if (keys.length === 0) throw new ServiceError(400, 'Kume secilmedi');
+    if (mode === 'purge') throw new ServiceError(400, PURGE_REMOVED_MESSAGE);
     if (advanced && mode !== 'recycle') throw new ServiceError(400, 'Gelismis mod yalniz kasaya tasima ile kullanilabilir');
 
     const selected = scan.clusters.filter((c) => keys.includes(c.key));
@@ -138,16 +140,12 @@ export class DeleteService {
   }
 
   /**
-   * Plan kaydini sozlesme yanitina cevirir. Onay ifadesi MODA baglidir:
-   * kasaya tasima "TASI", kalici silme "SIL"; ifade tek kaynaktan
-   * (ApprovalRules) gelir. Panel motor hesabidir (kural 18).
+   * Plan kaydini sozlesme yanitina cevirir. 3.0'da tum planlar kasaya
+   * tasima modundadir; ifade tek kaynaktan (ApprovalRules) gelir. Panel
+   * motor hesabidir (kural 18).
    */
   private viewOf(stored: StoredPlan): PlanResponse {
-    const approvalKind = stored.advanced
-      ? 'advanced'
-      : stored.plan.mode === 'recycle'
-        ? 'vaultMove'
-        : 'delete';
+    const approvalKind = stored.advanced ? 'advanced' : 'vaultMove';
     const view: PlanView = {
       mode: stored.plan.mode,
       clusters: stored.plan.clusters,
@@ -467,11 +465,7 @@ export class DeleteService {
       this.plans.delete(stored.planId);
       throw new ServiceError(410, 'Plan suresi doldu; yeniden planlayin');
     }
-    const approvalKind = stored.advanced
-      ? 'advanced'
-      : stored.plan.mode === 'recycle'
-        ? 'vaultMove'
-        : 'delete';
+    const approvalKind = stored.advanced ? 'advanced' : 'vaultMove';
     if (stored.requiresPhrase && !ApprovalRules.matches(approvalKind, phrase)) {
       throw new ServiceError(
         400,

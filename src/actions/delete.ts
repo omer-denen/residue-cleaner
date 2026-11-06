@@ -1,4 +1,4 @@
-import { lstat, rename, rm, stat, readdir } from 'node:fs/promises';
+import { lstat, rename, stat, readdir } from 'node:fs/promises';
 import { lstatSync } from 'node:fs';
 import { dirname, resolve, basename } from 'node:path';
 import type { ChildProcess } from 'node:child_process';
@@ -21,7 +21,15 @@ import { moveIntoVault, newVaultBatch } from './vault.ts';
  *     yeni dosyalar korunur.
  */
 
+/**
+ * 3.0: dogrudan yol kalici silme kaldirildi. Tip geriye uyum icin
+ * `'purge'` degerini tasir; calisma zamaninda REDDEDILIR. Kalici silme
+ * yalniz kasa ogeleri icin (`residue vault purge --id <kasa-id>`) vardir.
+ */
 export type DeleteMode = 'recycle' | 'purge';
+
+export const PURGE_REMOVED_MESSAGE =
+  'Kalici silme yolu kaldirildi (3.0); yalniz kasa ogeleri `residue vault purge --id <kasa-id>` ile silinebilir. Hicbir sey silinmedi.';
 
 export type RiskLevel = 'safe' | 'low' | 'medium' | 'high';
 
@@ -84,6 +92,7 @@ export function buildPlan(
   allow?: SensitiveAllow,
   advanced = false,
 ): DeletePlan {
+  if (mode !== 'recycle') throw new Error(PURGE_REMOVED_MESSAGE);
   const f = only?.map((o) => o.toLowerCase());
 
   const planned: PlannedCluster[] = [];
@@ -185,17 +194,13 @@ export interface DeleteResult {
 /**
  * Test/hata enjeksiyonu kancalari.
  *
- * Uretimde bos gecer; varsayilanlar gercek kasa ve `fs.rm` cagrilaridir.
- * Yalnizca testlerden verilir, boylece kasa/rm hata yollari gercek disk
- * bozulmadan dogrulanabilir.
+ * Uretimde bos gecer; varsayilanlar gercek kasadir. Yalnizca testlerden
+ * verilir, boylece kasa tasima hata yollari gercek disk bozulmadan
+ * dogrulanabilir.
  */
 export interface DeleteHooks {
   newBatch?: () => ReturnType<typeof newVaultBatch>;
   move?: typeof moveIntoVault;
-  remove?: (
-    path: string,
-    options: { recursive?: boolean; force?: boolean; maxRetries?: number },
-  ) => Promise<void>;
 }
 
 export interface JournalEntry {
@@ -282,14 +287,13 @@ export async function deleteTarget(
   now = Date.now(),
   hooks: DeleteHooks = {},
 ): Promise<DeleteResult> {
+  // 3.0: dogrudan yol kalici silme yolu yoktur. Plan katmanini atlayan
+  // cagrilar da ayni sekilde reddedilir.
+  if (mode !== 'recycle') throw new Error(PURGE_REMOVED_MESSAGE);
   // Savunma katmani: buildPlan'i atlayan dogrudan cagrilar da korunur.
   assertSafeTarget(target);
   const newBatch = hooks.newBatch ?? newVaultBatch;
   const move = hooks.move ?? moveIntoVault;
-  const remove =
-    hooks.remove ??
-    ((path: string, options: { recursive?: boolean; force?: boolean; maxRetries?: number }) =>
-      rm(longPath(path), options));
 
   try {
     await lstat(longPath(target.path));
@@ -349,21 +353,6 @@ export async function deleteTarget(
       sizeMB: Math.round(w / 1048576),
     });
 
-    if (mode === 'purge') {
-      try {
-        await remove(target.path, { recursive: true, force: true, maxRetries: 3 });
-        // Sayaclar YALNIZCA basarili rm'den sonra guncellenir. Aksi
-        // halde basarisiz bir silme "yer kazanildi" gibi raporlanirdi.
-        res.bytesFreed = w;
-        res.removed = 1;
-        info('kalici silindi', { path: target.path, bytes: w });
-      } catch (err) {
-        logError('kalici silme basarisiz', { path: target.path, err: describe(err) });
-        res.failed.push({ path: target.path, reason: describe(err) });
-      }
-      return res;
-    }
-
     // Kasa modu: sayaclar tasima basarili olduktan sonra artar.
     try {
       const batch = await newBatch();
@@ -418,30 +407,6 @@ export async function deleteTarget(
   }
 
   if (eligible.length === 0) return res;
-
-  if (mode === 'purge') {
-    // Kalici silme: dogrudan rm, surec gerekmez (cok daha hizli)
-    const CONC = 16;
-    for (let i = 0; i < eligible.length; i += CONC) {
-      await Promise.all(
-        eligible.slice(i, i + CONC).map(async (e) => {
-          try {
-            await remove(e.path, { force: true, maxRetries: 1 });
-            res.bytesFreed += e.size;
-            res.removed++;
-          } catch (err) {
-            const code = (err as NodeJS.ErrnoException).code;
-            if (code === 'EPERM' || code === 'EBUSY' || code === 'EACCES') {
-              res.skipped.push({ path: e.path, reason: 'dosya kilitli (uygulama acik)' });
-            } else {
-              res.failed.push({ path: e.path, reason: describe(err) });
-            }
-          }
-        }),
-      );
-    }
-    return res;
-  }
 
   // Kendi kasamiz: her dosya tek tek tasinir (yas filtresi zaten uygulandi).
   let batch: Awaited<ReturnType<typeof newVaultBatch>> | null = null;

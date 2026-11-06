@@ -28,7 +28,7 @@ export type ApprovalKind =
   | 'advanced';
 
 const PHRASES = {
-  /** Kalici silme (yalniz purge). */
+  /** CLI araci kaldirma (dogrudan yol kalici silme 3.0'da kaldirildi). */
   delete: 'SIL',
   /** Kasaya tasima: geri alinabilir; "sil" demek yaniltici olur. */
   vaultMove: 'TASI',

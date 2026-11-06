@@ -6,7 +6,7 @@ import { formatBytes, padStart, truncatePath } from '../util/format.ts';
 import { prettyPath } from '../util/longpath.ts';
 import { groupByVerdict } from '../core/merge.ts';
 import { DefaultSelection } from '../core/selection.ts';
-import { deleteTarget, Journal, type DeleteMode } from '../actions/delete.ts';
+import { deleteTarget, Journal } from '../actions/delete.ts';
 import { dataDir } from '../core/data-dir.ts';
 import type { Cluster, ScanResult } from '../core/types.ts';
 
@@ -53,10 +53,9 @@ function useRows(clusters: Cluster[], filter: string): { rows: FlatRow[]; sectio
 
 export interface AppProps {
   onScan: (onProgress: (done: number, total: number, bytes: number) => void) => Promise<ScanResult>;
-  mode: DeleteMode;
 }
 
-export const App: React.FC<AppProps> = ({ onScan, mode }) => {
+export const App: React.FC<AppProps> = ({ onScan }) => {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const termWidth = (stdout as unknown as { columns?: number })?.columns ?? 100;
@@ -189,18 +188,18 @@ export const App: React.FC<AppProps> = ({ onScan, mode }) => {
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i]!;
       setExecIndex(i);
-      const r = await deleteTarget(t, mode);
+      const r = await deleteTarget(t, 'recycle');
       freedTotal += r.bytesFreed;
       skippedTotal += r.skipped.length;
       failedTotal += r.failed.length;
 
       for (const s of r.skipped) {
-        journal.add({ at: Date.now(), mode, action: 'skipped', path: s.path, bytes: 0, reason: s.reason });
+        journal.add({ at: Date.now(), mode: 'recycle', action: 'skipped', path: s.path, bytes: 0, reason: s.reason });
       }
       for (const f of r.failed) {
-        journal.add({ at: Date.now(), mode, action: 'failed', path: f.path, bytes: 0, reason: f.reason });
+        journal.add({ at: Date.now(), mode: 'recycle', action: 'failed', path: f.path, bytes: 0, reason: f.reason });
       }
-      journal.add({ at: Date.now(), mode, action: 'deleted', path: t.path, bytes: r.bytesFreed });
+      journal.add({ at: Date.now(), mode: 'recycle', action: 'deleted', path: t.path, bytes: r.bytesFreed });
 
       rowsOut.push({
         label: t.label,
@@ -230,7 +229,7 @@ export const App: React.FC<AppProps> = ({ onScan, mode }) => {
     }
 
     setScreen('done');
-  }, [selectedClusters, mode]);
+  }, [selectedClusters]);
 
   // --- klavye ---
   useInput((input, key) => {
@@ -357,8 +356,8 @@ export const App: React.FC<AppProps> = ({ onScan, mode }) => {
         </Box>
         <Box marginTop={1} paddingLeft={2}>
           <Text color={color.bold}>  Toplam: {formatBytes(selectedBytes)}</Text>
-          <Text color={mode === 'purge' ? color.red : color.cyan}>
-            {'  (' + (mode === 'purge' ? 'KALICI SILME - geri alinamaz' : 'geri donusum kutusuna') + ')'}
+          <Text color={color.cyan}>
+            {'  (aracin kasasina - geri alinabilir)'}
           </Text>
         </Box>
         <Box marginTop={2} paddingLeft={2}>

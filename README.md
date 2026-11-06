@@ -66,8 +66,9 @@ Aradığı şey tek bir sorunun kanıtlı cevabıdır: **"Bu klasör ne, silsem 
    **ne olduğu, silinirse ne olacağı ve gerekçesiyle** listeler. Ölçüm büyük
    klasörlerde birkaç dakika sürebilir; `Ctrl+C` ile durdurabilirsin.
 5. Kasaya taşımak istediklerini seç → `residue clean` → planı oku →
-   orta/yüksek riskte `TASI` yaz → onayla. Kalıcı silme (`--purge`) için
-   `SIL` istenir.
+   orta/yüksek riskte `TASI` yaz → onayla. Kalıcı silme yalnız kasa
+   öğelerinde (`residue vault purge --id <kasa-id>`) ve `BOŞALT`
+   onayıyla yapılır.
 6. Terminal yerine tarayıcıyı tercih edersen: `node bin/residue.mjs ui --web`.
 
 Varsayılan mod **aracın kendi kasası**dır; yanlış karar verirsen geri

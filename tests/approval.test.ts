@@ -52,7 +52,7 @@ test('zamanlanmis plan kurali PLANLA ister', () => {
   assert.equal(ApprovalRules.matches('schedule', 'TEMIZLE'), false);
 });
 
-test('plan ifadesi MODA bagli: recycle=TASI, purge=SIL', () => {
+test('plan ifadesi TASI; dogrudan yol kalici silme reddedilir', () => {
   const svc = new DeleteService(() => {});
   const safe = scan([cluster({ key: 'safe' })]);
 
@@ -61,9 +61,7 @@ test('plan ifadesi MODA bagli: recycle=TASI, purge=SIL', () => {
   assert.equal(recycle.phrase, 'TASI');
   assert.equal(recycle.requiresPhrase, false);
 
-  const purge = svc.createPlan(safe, ['safe'], 'purge');
-  assert.equal(purge.approvalKind, 'delete');
-  assert.equal(purge.phrase, 'SIL');
+  assert.throws(() => svc.createPlan(safe, ['safe'], 'purge'), /kaldirildi/);
 });
 
 test('orta risk: kasa planinda SIL kabul edilmez, TASI beklenir', () => {

@@ -89,60 +89,26 @@ test('ERR-02: kasa tasima hatasi raporlanir, yarim basari sayilmaz', async () =>
   assert.equal(existsSync(path), true);
 });
 
-test('kalici silme basarili', async () => {
-  const path = await targetDir('purge-ok', { 'a.txt': '12345' });
-  const res = await deleteTarget(whole(path, 5), 'purge');
-  assert.equal(res.removed, 1);
-  assert.equal(res.bytesFreed, 5);
-  assert.equal(existsSync(path), false);
-});
-
-test('ERR-02: kalici silme hatasi failed listesine yazilir', async () => {
-  const path = await targetDir('purge-fail', { 'a.txt': 'x' });
-  const hooks: DeleteHooks = {
-    remove: async () => {
-      const err = new Error('kilitli') as NodeJS.ErrnoException;
-      err.code = 'EBUSY';
-      throw err;
-    },
-  };
-  const res = await deleteTarget(whole(path), 'purge', Date.now(), hooks);
-  assert.equal(res.removed, 0);
-  assert.equal(res.bytesFreed, 0);
-  assert.match(res.failed[0]?.reason ?? '', /EBUSY/);
-  assert.equal(existsSync(path), true);
+test('3.0: kalici silme yolu kaldirildi; hedef yerinde kalir', async () => {
+  const path = await targetDir('purge-rejected', { 'a.txt': 'x' });
+  await assert.rejects(() => deleteTarget(whole(path, 5), 'purge'), /kaldirildi/);
+  assert.equal(existsSync(join(path, 'a.txt')), true);
 });
 
 test("older: yas filtresi yeni dosyayi korur, kilitli dosya skipped olur", async () => {
   const path = await targetDir('older-mixed');
   const oldFile = join(path, 'old.txt');
   const newFile = join(path, 'new.txt');
-  const locked = join(path, 'locked.txt');
   await writeFile(oldFile, 'o', 'utf8');
   await writeFile(newFile, 'n', 'utf8');
-  await writeFile(locked, 'l', 'utf8');
   await age(oldFile, 3);
-  await age(locked, 3);
 
-  const seen: string[] = [];
-  const hooks: DeleteHooks = {
-    remove: async (p, opts) => {
-      seen.push(p);
-      if (p === locked) {
-        const err = new Error('dosya kilitli') as NodeJS.ErrnoException;
-        err.code = 'EPERM';
-        throw err;
-      }
-      await rm(p, opts);
-    },
-  };
-  const res = await deleteTarget(older(path), 'purge', Date.now(), hooks);
+  const res = await deleteTarget(older(path), 'recycle');
   assert.equal(res.removed, 1);
-  assert.equal(res.skipped.length, 2);
+  assert.equal(res.skipped.length, 1);
   assert.ok(res.skipped.some((s) => /cok yeni/.test(s.reason)));
-  assert.ok(res.skipped.some((s) => /dosya kilitli/.test(s.reason)));
-  assert.deepEqual(seen.sort(), [locked, oldFile].sort());
   assert.equal(existsSync(newFile), true);
+  assert.equal(existsSync(oldFile), false);
 });
 
 test('ERR-05: older kasa partisi kurulamazsa failed ve tasima yok', async () => {

@@ -120,16 +120,17 @@
 
 - **Windows Geri Dönüşüm Kutusu kullanılmaz**; kasa kullanılır.
 - **Tek veri dizini: `%LOCALAPPDATA%\residue`.**
-- **`clean --purge`** geriye uyumluluk için hâlâ var (aşağıdaki çelişki).
+- **`clean --purge` 3.0'da kaldırıldı**; kalıcı silme yalnız kasa öğelerinde
+  (`vault purge --id`) ve `BOŞALT` onayıyla yapılır.
 - **Web arayüzü yok**; `residue api` yalnız HTTP/SSE API sunar.
 - **Windows Görev Zamanlayıcı yok**; planlar yalnız süreç açıkken çalışır.
 
 ## 4. Çelişkiler / açık kararlar
 
-1. **"Kalıcı silme yalnız kasadan" vs mevcut `clean --purge`.**
-   Mevcut `--purge` ve `POST /api/plan {mode:'purge'}` taranan yolu doğrudan
-   siler. Geriye uyumluluk için kaldırılmadı; öneri: 3.0'da `purge`
-   yalnızca `vaultItemId` ile çalışsın, doğrudan yol modu kaldırılsın.
+1. **"Kalıcı silme yalnız kasadan" — çözüldü (3.0).**
+   `--purge` ve `POST /api/plan {mode:'purge'}` artık reddedilir (400);
+   doğrudan yol silme kodu kaldırıldı. Kalıcı silme yalnız kasa öğesiyle
+   (`vaultItemId`) çalışır.
 2. **Kasa yerleşimi.** Rapor `vault/items/<id>/{payload,meta.json}` diyor;
    mevcut partiler `vault/<batch>/items/...` altında. Yeni öğeler
    `vault/<batch>/items/<id>/payload` + `meta.json` olarak yazılır; eski
@@ -163,7 +164,8 @@
 
 1. Web arayüzü T44: yeni motorları (env/project/graph/schedule/vault)
    ekranlara bağla; sanal liste + SSE.
-2. `purge` yol modunu kaldır; kasa öğe kimliği zorunlu hale getir.
+2. ~~`purge` yol modunu kaldır; kasa öğe kimliği zorunlu hale getir.~~
+   (3.0'da tamamlandı.)
 3. Disk kümelerini ve proje artifact'larını bağımlılık grafına bağla.
 4. Yol+mtime bazlı boyut önbelleği ve worker thread'ler.
 5. Yüksek risk override + denetim kaydı.

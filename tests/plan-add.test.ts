@@ -123,6 +123,14 @@ test('ekleme plan kimligini korur; TTL yenilenir; toplamlar yeniden hesaplanir',
   assert.equal(created.requiresPhrase, false);
   assert.equal(created.requiresHighAck, false);
 
+  const purgeRes = await fetch(`${base}/api/plan`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-residue-token': token },
+    body: JSON.stringify({ keys: ['panel-a'], mode: 'purge' }),
+  });
+  assert.equal(purgeRes.status, 400);
+  assert.match(((await purgeRes.json()) as { error: string }).error, /kaldirildi/);
+
   const added = await post(
     '/api/plan/add',
     { planId, keys: ['panel-b'] },

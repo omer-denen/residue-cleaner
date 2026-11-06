@@ -173,7 +173,10 @@ try {
       return { status: 'ok', detail: 'Geri donusum kutusuna gonderiliyor (geri alinabilir)' };
     }
     await rm(longPath(tmp), { force: true }).catch(() => {});
-    return { status: 'warn', detail: `Geri donusum kutusu kullanilamiyor: ${stdout.trim().slice(0, 50)} — --purge kullanin` };
+    return {
+      status: 'warn',
+      detail: `Geri donusum kutusu kullanilamiyor: ${stdout.trim().slice(0, 50)} — Residue kendi kasasini kullanir; geri alma kasadan yapilir`,
+    };
   } catch (err) {
     return { status: 'warn', detail: `PowerShell erisimi yok: ${String(err).slice(0, 50)}` };
   }

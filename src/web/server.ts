@@ -10,7 +10,7 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { extname, dirname, join, resolve, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { closeRecycle } from '../actions/delete.ts';
+import { PURGE_REMOVED_MESSAGE, closeRecycle } from '../actions/delete.ts';
 import {
   findVaultEntry,
   listVaultEntries,
@@ -1470,16 +1470,22 @@ async function handleCreatePlan(
     }
   }
 
+  // 3.0: dogrudan yol kalici silme kaldirildi. Kalici silme yalniz kasa
+  // ogeleri uzerinden yapilir; API bu modu kabul etmez.
+  if (body.mode === 'purge') {
+    sendJson(res, 400, { error: PURGE_REMOVED_MESSAGE });
+    return;
+  }
+
   const scan = body.scanId ? ctx.scan.get(body.scanId)?.result : ctx.scan.last()?.scan;
   const keys = Array.isArray(body.keys)
     ? body.keys.filter((k): k is string => typeof k === 'string' && k.length > 0)
     : [];
-  const mode = advanced ? 'recycle' : body.mode === 'purge' ? 'purge' : 'recycle';
   // W2-c: istege bagli plan adi; verilmezse bos string (ayni davranis).
   const plan = ctx.remove.createPlan(
     scan ?? null,
     keys,
-    mode,
+    'recycle',
     typeof body.name === 'string' ? body.name : undefined,
     advanced,
   );

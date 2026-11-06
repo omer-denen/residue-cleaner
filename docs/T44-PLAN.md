@@ -154,7 +154,7 @@ bağlıdır.
 
 | ID | İş | Durum |
 |---|---|---|
-| B12 | `clean --purge` yol modunu kaldır; yalnız `vaultItemId` | Planlı (3.0) |
+| B12 | `clean --purge` yol modunu kaldır; yalnız `vaultItemId` | ✅ T95 (06.11.2026) |
 | B13 | Disk kümeleri + proje artefaktlarını grafa bağla | Planlı |
 | B14 | Yol+mtime boyut önbelleği + worker thread | Planlı |
 | B15 | Yüksek risk override + denetim UI | Planlı (T44) |
