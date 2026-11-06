@@ -70,6 +70,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.1/) temellidir.
 - **Kasa geri yükleme çakışması.** “Klasör dolu” yerine hedefin durumu
   açıklanıyor: sonradan oluşmuş/güncellenmiş içerik, daha eski içerik, boş
   klasör veya bilinmiyor. Kopya çakışmada ayrı adla geri yüklenir.
+- **Kasa boşaltma bildirimi.** Orijinal konumda daha yeni içerik varsa eski
+  kopyanın geri yüklenmediği ve kasadaki kopyanın kalıcı silindiği açıkça
+  söyleniyor. Payload'u zaten kaybolmuş kayıtlarda yalnız kayıt temizlenir;
+  orijinal içeriğin korunduğu bildirilir.
 
 ## [2.2.0] - 2026-10-21
 

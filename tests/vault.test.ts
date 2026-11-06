@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { walk } from '../src/core/walker.ts';
@@ -83,6 +83,50 @@ test('secili oge bosaltma digerlerine dokunmaz', async () => {
   assert.equal(r.ok, true);
   assert.equal(r.items, 1);
   assert.equal(await vault.findVaultEntry(eb.id) !== null, true);
+});
+
+test('bosaltma: orijinalde daha yeni icerik varsa bildiri uretir', async () => {
+  const src = await makeSource('purge-newer');
+  const w = await walk({ root: src, largeThreshold: Infinity, maxLarge: 0 });
+  const batch = await vault.newVaultBatch();
+  const entry = await vault.moveIntoVault(batch, src, w.bytes, w.files);
+
+  // Orijinal konumda sonradan olusmus (daha yeni) icerik.
+  await mkdir(src, { recursive: true });
+  const newer = join(src, 'new.txt');
+  await writeFile(newer, 'new');
+  const newerAt = new Date(entry.at + 60_000);
+  await utimes(newer, newerAt, newerAt);
+
+  const r = await vault.purgeVaultItems([entry.id]);
+  assert.equal(r.ok, true);
+  assert.equal(r.items, 1);
+  assert.equal(r.pruned, 0);
+  assert.equal(r.notices.length, 1);
+  assert.equal(r.notices[0]!.id, entry.id);
+  assert.equal(r.notices[0]!.targetState, 'newer');
+  assert.equal(r.notices[0]!.currentNewestAt, entry.at + 60_000);
+  assert.equal(await vault.findVaultEntry(entry.id), null);
+});
+
+test('bosaltma: payload yoksa yalniz kayit temizlenir, orijinal korunur', async () => {
+  const src = await makeSource('purge-phantom');
+  const w = await walk({ root: src, largeThreshold: Infinity, maxLarge: 0 });
+  const batch = await vault.newVaultBatch();
+  const entry = await vault.moveIntoVault(batch, src, w.bytes, w.files);
+
+  // Payload zaten yok (ornek: yarim kalmis geri yukleme). Orijinal yeniden var.
+  await mkdir(src, { recursive: true });
+  await writeFile(join(src, 'a.txt'), 'a'.repeat(100));
+  await rm(entry.storedPath, { recursive: true, force: true });
+
+  const r = await vault.purgeVaultItems([entry.id]);
+  assert.equal(r.ok, true);
+  assert.equal(r.items, 0);
+  assert.equal(r.pruned, 1);
+  assert.equal(r.prunedEntries[0]!.id, entry.id);
+  assert.equal(await readFile(join(src, 'a.txt'), 'utf8'), 'a'.repeat(100));
+  assert.equal(await vault.findVaultEntry(entry.id), null);
 });
 
 test('purgeVault CLI yedek klasorlerini korur', async () => {

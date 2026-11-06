@@ -40,3 +40,28 @@ test('kasa hedef durumu: newer mesaji tarih degiskenini yerlestirir', () => {
   assert.match(text, /5 Kas 2026 10:00/);
   assert.doesNotMatch(text, /\{at\}/);
 });
+
+test('kasa bosaltma: daha yeni icerik nedeniyle eski kopya silindi bildirimi', () => {
+  const tr = translate('tr', 'vault.purgeNewer');
+  const en = translate('en', 'vault.purgeNewer');
+  assert.notEqual(tr, 'vault.purgeNewer');
+  assert.notEqual(en, 'vault.purgeNewer');
+  assert.notEqual(tr, en);
+  assert.match(tr, /daha yeni/);
+  assert.match(tr, /kalıcı olarak silindi/);
+  assert.match(en, /newer/);
+  assert.match(en, /permanently deleted/);
+  assert.doesNotMatch(tr, /dolu/i);
+});
+
+test('kasa bosaltma: bos kayit bildirimi veri silinmedigini soyler', () => {
+  const tr = translate('tr', 'vault.purgePruned');
+  const en = translate('en', 'vault.purgePruned');
+  assert.notEqual(tr, 'vault.purgePruned');
+  assert.notEqual(en, 'vault.purgePruned');
+  assert.notEqual(tr, en);
+  assert.match(tr, /kayıt temizlendi/i);
+  assert.match(tr, /korundu/i);
+  assert.match(en, /record was cleared/i);
+  assert.match(en, /kept/i);
+});

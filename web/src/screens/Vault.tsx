@@ -253,9 +253,18 @@ export function Vault({ lang, onChanged }: Props) {
     setNotice(null);
     try {
       const result = await api.purge([...selected], phrase);
-      setNotice(
-        `${t('vault.purged')}: ${formatBytes(result.bytes)} · ${result.items ?? selected.size}`,
-      );
+      const deleted = result.items ?? selected.size;
+      const messages: string[] = [];
+      if (deleted > 0) {
+        messages.push(`${t('vault.purged')}: ${formatBytes(result.bytes)} · ${deleted}`);
+      }
+      if (result.notices?.some((n) => n.targetState === 'newer')) {
+        messages.push(t('vault.purgeNewer'));
+      }
+      if ((result.pruned ?? 0) > 0) {
+        messages.push(t('vault.purgePruned'));
+      }
+      setNotice(messages.join(' '));
       setSelected(new Set());
       setPhrase('');
       await load();

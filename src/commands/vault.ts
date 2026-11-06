@@ -116,6 +116,17 @@ export async function runVault(args: string[]): Promise<void> {
       `\n  ${r.ok ? C.green : C.red}${r.ok ? 'Kalici silindi' : 'Kismi basarisiz'}${C.reset} — ` +
         `${r.items} oge, ${formatBytes(r.bytes)}, ${r.failed} hata\n`,
     );
+    for (const n of r.notices) {
+      console.log(
+        `  ${C.yellow}!${C.reset} ${prettyPath(n.originalPath)}: orijinal konumda daha yeni icerik var; ` +
+          'kasadaki eski kopya kalici olarak silindi.',
+      );
+    }
+    for (const p of r.prunedEntries) {
+      console.log(
+        `  ${C.cyan}!${C.reset} ${prettyPath(p.originalPath)}: ${p.reason}. Veri silinmedi.`,
+      );
+    }
     for (const e of r.errors) console.log(`  ${C.red}!${C.reset} ${e.id}: ${e.reason}`);
     return;
   }

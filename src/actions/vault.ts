@@ -91,6 +91,22 @@ export interface PurgeItemsResult {
   bytes: number;
   failed: number;
   errors: Array<{ id: string; reason: string }>;
+  /**
+   * Kalici silinen ogelerde orijinal konumun durumu. `newer` ise kullaniciya
+   * "daha yeni icerik var" bildirimi gosterilir; eski kopya yine silinir.
+   */
+  notices: Array<{
+    id: string;
+    originalPath: string;
+    targetState: RestoreTargetState;
+    currentNewestAt?: number;
+  }>;
+  /**
+   * Payload'i zaten kaybolmus kayitlar. Bunlar silinmez (silinecek veri yok);
+   * yalnizca manifest/index temizligi yapilir. Orijinal yol korunur.
+   */
+  pruned: number;
+  prunedEntries: Array<{ id: string; originalPath: string; reason: string }>;
 }
 
 function sha(text: string, length = 12): string {
@@ -739,7 +755,16 @@ export async function restoreAllVault(
  */
 export async function purgeVaultItems(ids: string[]): Promise<PurgeItemsResult> {
   const wanted = new Set(ids.filter((x) => typeof x === 'string' && x.length > 0));
-  const result: PurgeItemsResult = { ok: true, items: 0, bytes: 0, failed: 0, errors: [] };
+  const result: PurgeItemsResult = {
+    ok: true,
+    items: 0,
+    bytes: 0,
+    failed: 0,
+    errors: [],
+    notices: [],
+    pruned: 0,
+    prunedEntries: [],
+  };
   if (wanted.size === 0) return result;
 
   const entries = await listVaultEntries();
@@ -760,6 +785,17 @@ export async function purgeVaultItems(ids: string[]): Promise<PurgeItemsResult> 
       const w = st.isDirectory()
         ? await walk({ root: entry.storedPath, largeThreshold: Infinity, maxLarge: 0 })
         : { bytes: Number(st.size) };
+
+      // Silmeden ONCE orijinal konumu olc: kullaniciya "neden eski kopya
+      // silindi" bilgisini dogru vermek icin (ornek: daha yeni icerik var).
+      const originalExists = await pathExists(entry.originalPath);
+      const observed = originalExists ? await observeTarget(entry.originalPath) : null;
+      const targetState: RestoreTargetState = !originalExists
+        ? 'absent'
+        : observed
+          ? RestoreTarget.classify(observed, entry.at)
+          : 'unknown';
+
       // Once manifest: kayit artik listelenmez.
       await removeVaultEntry(entry);
       await rm(
@@ -768,7 +804,33 @@ export async function purgeVaultItems(ids: string[]): Promise<PurgeItemsResult> 
       );
       result.items++;
       result.bytes += w.bytes;
+      if (targetState === 'newer') {
+        result.notices.push({
+          id: entry.id,
+          originalPath: entry.originalPath,
+          targetState,
+          ...(observed && observed.newestAt > 0 ? { currentNewestAt: observed.newestAt } : {}),
+        });
+      }
     } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        // Payload zaten yok: silinecek veri yok. Orijinal korunuyorsa yalniz
+        // kaydi temizle; "bos kayit" olarak raporla, basarisiz sayma.
+        if (await pathExists(entry.originalPath)) {
+          try {
+            await removeVaultEntry(entry);
+            result.pruned++;
+            result.prunedEntries.push({
+              id: entry.id,
+              originalPath: entry.originalPath,
+              reason: 'kasa payload yok; yalniz kayit temizlendi',
+            });
+            continue;
+          } catch {
+            /* temizlik de basarisiz: asagidaki hataya dus */
+          }
+        }
+      }
       result.failed++;
       result.errors.push({ id: entry.id, reason: (err as Error).message });
     }
@@ -780,6 +842,8 @@ export async function purgeVaultItems(ids: string[]): Promise<PurgeItemsResult> 
     items: result.items,
     bytes: result.bytes,
     failed: result.failed,
+    pruned: result.pruned,
+    newerNotices: result.notices.filter((n) => n.targetState === 'newer').length,
   });
   return result;
 }

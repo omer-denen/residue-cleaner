@@ -1172,6 +1172,10 @@ async function handleRequest(
         bytes: r.bytes,
         failed: r.failed,
         items: r.items,
+        ...(r.notices.length > 0 ? { notices: r.notices } : {}),
+        ...(r.pruned > 0
+          ? { pruned: r.pruned, prunedEntries: r.prunedEntries }
+          : {}),
       };
       sendJson(res, 200, out);
       return;

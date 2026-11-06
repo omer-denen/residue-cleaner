@@ -503,12 +503,25 @@ export interface VaultPurgeRequest {
   ids?: string[];
 }
 
+export interface VaultPurgeNotice {
+  id: string;
+  originalPath: string;
+  /** Silme aninda orijinal konumun durumu (ornek: daha yeni icerik). */
+  targetState: 'absent' | 'empty' | 'newer' | 'older' | 'unknown';
+  currentNewestAt?: number;
+}
+
 export interface VaultPurgeResponse {
   ok: boolean;
   batches: number;
   bytes: number;
   failed: number;
   items?: number;
+  /** Kalici silinen ogelerde dikkat ceken hedef durumlari. */
+  notices?: VaultPurgeNotice[];
+  /** Payload'i zaten yok olan, yalniz kaydi temizlenen ogeler. */
+  pruned?: number;
+  prunedEntries?: Array<{ id: string; originalPath: string; reason: string }>;
 }
 
 // ---------------------------------------------------------------------------

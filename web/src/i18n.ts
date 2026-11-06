@@ -989,6 +989,10 @@ const tr = {
   'vault.restoring': 'Geri yükleniyor…',
   'vault.restoreFailed': 'Geri yükleme başarısız',
   'vault.purged': 'Kalıcı silindi',
+  'vault.purgeNewer':
+    'Orijinal konumdaki klasör içeriği daha yeni olduğu için eski kopya geri yüklenmedi; kasadaki kopya kalıcı olarak silindi.',
+  'vault.purgePruned':
+    'Kasa kopyası zaten yoktu; yalnızca kayıt temizlendi, orijinal içerik korundu.',
   'vault.error': 'İşlem başarısız',
   'vault.original': 'Orijinal yol',
   'vault.size': 'Boyut',
@@ -2096,6 +2100,10 @@ const en: Record<keyof typeof tr, string> = {
   'vault.restoring': 'Restoring…',
   'vault.restoreFailed': 'Restore failed',
   'vault.purged': 'Permanently deleted',
+  'vault.purgeNewer':
+    'The folder at the original location contains newer content, so the old copy was not restored; the vaulted copy was permanently deleted.',
+  'vault.purgePruned':
+    'The vaulted copy was already missing; only its record was cleared and the original content was kept.',
   'vault.error': 'Operation failed',
   'vault.original': 'Original path',
   'vault.size': 'Size',
