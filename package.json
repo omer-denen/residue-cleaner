@@ -49,8 +49,8 @@
     "LICENSE"
   ],
   "bin": {
-    "residue": "./bin/residue.mjs",
-    "residue-cleaner": "./bin/residue.mjs"
+    "residue": "bin/residue.mjs",
+    "residue-cleaner": "bin/residue.mjs"
   },
   "scripts": {
     "scan": "tsx src/cli.ts scan",
