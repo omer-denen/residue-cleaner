@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ExecuteEvent, PlanRecordView, PlanResponse } from '../../../src/core/contract.ts';
-import { ApprovalRules } from '../../../src/core/approval.ts';
+import { ApprovalRules, HighRiskOverride } from '../../../src/core/approval.ts';
 import { api, ApiError } from '../api.ts';
 import { openEvents } from '../sse.ts';
 import { translate, translateUpper, type Lang, type MessageKey } from '../i18n.ts';
@@ -58,6 +58,8 @@ export function PlanScreen({
 
   const [phrase, setPhrase] = useState('');
   const [ack, setAck] = useState(false);
+  // B15: yuksek riskli her kumenin adi yazilir (anahtar -> girilen metin).
+  const [names, setNames] = useState<Record<string, string>>({});
   const [job, setJob] = useState<JobState | null>(null);
   const [result, setResult] = useState<Extract<ExecuteEvent, { type: 'done' }> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -228,6 +230,7 @@ export function PlanScreen({
         plan.planId,
         phrase.trim().length > 0 ? phrase : undefined,
         ack,
+        names,
       );
       setJob({ id: jobId, total: plan.plan.targets.length, done: 0, current: '' });
       closeStream.current?.();
@@ -264,7 +267,10 @@ export function PlanScreen({
 
   const phraseOk = !plan.requiresPhrase || ApprovalRules.matches(plan.approvalKind, phrase);
   const ackOk = !plan.requiresHighAck || ack;
-  const canExecute = !job && !result && phraseOk && ackOk;
+  // B15: ad yazma kurali motorda; arayuz yalniz sonucu kullanir.
+  const missingNames = HighRiskOverride.missing(plan.plan.clusters, names);
+  const namesOk = missingNames.length === 0;
+  const canExecute = !job && !result && phraseOk && ackOk && namesOk;
 
   const removeCluster = async (key: string): Promise<void> => {
     const remaining = plan.plan.clusters.filter((c) => c.key !== key).map((c) => c.key);
@@ -370,6 +376,38 @@ export function PlanScreen({
               autoComplete="off"
             />
           </label>
+        )}
+        {plan.override.items.length > 0 && (
+          <div className="override-wall" role="group" aria-labelledby="plan-override-title">
+            <strong id="plan-override-title">{t('plan.override.title')}</strong>
+            <p>{t('plan.override.hint')}</p>
+            {plan.override.items.map((item) => {
+              const value = names[item.key] ?? '';
+              const ok = HighRiskOverride.matches(item.key, value);
+              return (
+                <label className="approval-row" key={item.key}>
+                  <span>{t('plan.override.type', { key: item.key })}</span>
+                  <input
+                    className="control mono"
+                    value={value}
+                    onChange={(e) =>
+                      setNames((prev) => ({ ...prev, [item.key]: e.target.value }))
+                    }
+                    placeholder={item.key}
+                    aria-label={item.key}
+                    aria-invalid={value.length > 0 && !ok}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </label>
+              );
+            })}
+            {missingNames.length > 0 && (
+              <p className="override-missing" role="status">
+                {t('plan.override.missing', { list: missingNames.join(', ') })}
+              </p>
+            )}
+          </div>
         )}
         {plan.requiresHighAck && (
           <label className="approval-row checkbox">

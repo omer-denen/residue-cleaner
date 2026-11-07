@@ -81,6 +81,23 @@ export interface PlanView {
   totalBytes: number;
 }
 
+/**
+ * B15 — Yuksek risk override gorunumu (motor kurar).
+ *
+ * `items` bos degilse kullanici HER satirin adini yazmak zorundadir;
+ * arayuz yalniz cizer, karsilastirma `HighRiskOverride` sinifindadir.
+ */
+export interface PlanOverrideItem {
+  key: string;
+  title: string;
+  targets: number;
+}
+
+export interface PlanOverrideView {
+  required: boolean;
+  items: PlanOverrideItem[];
+}
+
 // ---------------------------------------------------------------------------
 // Sag panel plan gorunumu (plan paneli)
 // ---------------------------------------------------------------------------
@@ -663,6 +680,11 @@ export interface PlanResponse {
   phrase: string;
   /** Yuksek risk varsa ayrica acik isaretleme zorunlu */
   requiresHighAck: boolean;
+  /**
+   * B15: yuksek riskli kumelerin adlari yazilmadan plan uygulanamaz.
+   * `required` false ise `items` bos; arayuz `missing` sonucunu kullanir.
+   */
+  override: PlanOverrideView;
   expiresAt: number;
   /**
    * W2-g: plan UYGULANDI mi. `createPlan` (checkbox) ile kurulan plan
@@ -709,6 +731,8 @@ export interface ExecuteRequest {
   planId: string;
   phrase?: string;
   acknowledgeHigh?: boolean;
+  /** B15: kume anahtari -> yazilan ad (yuksek riskli her kume icin). */
+  overrideNames?: Record<string, string>;
 }
 
 export interface ExecuteStartResponse {

@@ -6,7 +6,7 @@ import {
   type DeletePlan,
   type DeleteResult,
 } from '../actions/delete.ts';
-import { ApprovalRules } from '../core/approval.ts';
+import { ApprovalRules, HighRiskOverride } from '../core/approval.ts';
 import { PlanPanel, planTargetId } from '../core/plan-panel.ts';
 import { newId } from './ids.ts';
 import { ServiceError, describeError } from './errors.ts';
@@ -160,6 +160,12 @@ export class DeleteService {
       approvalKind,
       phrase: ApprovalRules.phrase(approvalKind),
       requiresHighAck: stored.requiresHighAck,
+      // B15: ad yazma listesi motordan gelir; gelismis modda yuksek riskli
+      // kume yoksa liste bostur (ifade duvari ayrica gecerli).
+      override: {
+        required: HighRiskOverride.required(stored.plan.clusters),
+        items: HighRiskOverride.items(stored.plan.clusters),
+      },
       expiresAt: stored.expiresAt,
       armed: stored.armed,
       advanced: stored.advanced,
@@ -458,7 +464,12 @@ export class DeleteService {
     return { ok: true };
   }
 
-  execute(planId: string, phrase: string | undefined, acknowledgeHigh: boolean): ExecuteStartResponse {
+  execute(
+    planId: string,
+    phrase: string | undefined,
+    acknowledgeHigh: boolean,
+    overrideNames?: Record<string, string>,
+  ): ExecuteStartResponse {
     const stored = this.plans.get(planId);
     if (!stored) throw new ServiceError(404, 'Plan bulunamadi veya zaten kullanildi');
     if (isExpired(stored)) {
@@ -472,16 +483,33 @@ export class DeleteService {
         `Onay metni hatali ("${ApprovalRules.phrase(approvalKind)}" bekleniyordu)`,
       );
     }
+    // B15: onay kutusu TEK BASINA yetmez — yuksek riskli her kumenin adi
+    // yazilmis olmali. Ayni kural arayuzde de calisir (tek kaynak:
+    // HighRiskOverride); sunucu istemciye guvenmez.
+    const missingNames = HighRiskOverride.required(stored.plan.clusters)
+      ? HighRiskOverride.missing(stored.plan.clusters, overrideNames)
+      : [];
     if (stored.requiresHighAck && acknowledgeHigh !== true) {
       throw new ServiceError(400, 'Yuksek risk onayi eksik');
     }
+    if (missingNames.length > 0) {
+      throw new ServiceError(
+        400,
+        `Yuksek risk onayi eksik: ${missingNames.join(', ')} adi yazilmali`,
+      );
+    }
     if (stored.requiresHighAck) {
-      // Override denetimi: hangi plan, hangi yuksek riskli kumeler.
+      // Override denetimi: hangi plan, hangi yuksek riskli kumeler, hangi
+      // adlar yazildi. Denetim kaydinin `reason` alani Kasa > Denetim
+      // ekraninda gorunur.
+      const high = HighRiskOverride.items(stored.plan.clusters);
       void audit('delete.high-ack', {
         planId: stored.planId,
-        clusters: stored.plan.clusters
-          .filter((c) => c.risk === 'high')
-          .map((c) => ({ key: c.key, title: c.title, targets: c.targets.length })),
+        planName: stored.name || undefined,
+        acknowledged: true,
+        reason: high.length > 0 ? `yuksek risk onayi: ${high.map((c) => c.key).join(', ')}` : 'yuksek risk onayi',
+        clusters: high.map((c) => ({ key: c.key, title: c.title, targets: c.targets })),
+        names: high.map((c) => c.key),
       });
     }
 

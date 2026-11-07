@@ -5098,6 +5098,36 @@ kbd {
   color: var(--danger);
 }
 
+/* B15: yuksek risk ad-yazma duvari (turuncu). */
+.override-wall {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--warn) 55%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel));
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.override-wall strong {
+  display: block;
+}
+
+.override-wall p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+
+.override-wall .override-missing {
+  color: var(--warn);
+}
+
+.override-wall .approval-row .control {
+  max-width: 240px;
+}
+
 .badge.advanced {
   color: var(--danger);
   border-color: color-mix(in srgb, var(--danger) 45%, var(--line));

@@ -351,8 +351,14 @@ export const api = {
     planId: string,
     phrase: string | undefined,
     acknowledgeHigh: boolean,
+    overrideNames?: Record<string, string>,
   ): Promise<ExecuteStartResponse> =>
-    post<ExecuteStartResponse>('/api/execute', { planId, phrase, acknowledgeHigh }),
+    post<ExecuteStartResponse>('/api/execute', {
+      planId,
+      phrase,
+      acknowledgeHigh,
+      overrideNames,
+    }),
 
   vault: (): Promise<VaultListResponse> => request<VaultListResponse>('/api/vault'),
 

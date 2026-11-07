@@ -978,6 +978,7 @@ async function handleRequest(
       body.planId ?? '',
       body.phrase,
       body.acknowledgeHigh === true,
+      stringMap(body.overrideNames),
     );
     // T28/24s: silme basladi -> disk degisecek; son tarama artik guncel
     // sayilmaz. Plan gecersizse execute yukarida hata verir.
@@ -1726,6 +1727,19 @@ function sanitizeEnvs(envs: unknown): Env[] | null {
 function sanitizeProfile(profile: unknown): string | undefined {
   if (typeof profile !== 'string' || !profile) return undefined;
   return profile in BUILTIN_PROFILES ? profile : undefined;
+}
+
+/**
+ * B15: `overrideNames` yalniz anahtar -> metin eslemesidir; dizi/sayi gibi
+ * degerler sessizce atilir (istemci bicim hatasi sunucuyu kilitlemez).
+ */
+function stringMap(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v === 'string' && k.length > 0 && k.length <= 128) out[k] = v.slice(0, 200);
+  }
+  return out;
 }
 
 function isSafeName(name: string): boolean {

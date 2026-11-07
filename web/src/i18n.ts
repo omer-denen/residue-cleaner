@@ -935,6 +935,11 @@ const tr = {
   'plan.phraseHint': 'Devam etmek için {phrase} yazın.',
   'plan.phrase': 'Onay ifadesi',
   'plan.highAck': 'Yüksek riskli hedefleri anladım',
+  'plan.override.title': 'Yüksek risk onayı',
+  'plan.override.hint':
+    'Onay kutusu tek başına yetmez: her yüksek riskli kümenin adını yazın. Ad, satırdaki anahtardır (büyük/küçük harf farkı yok).',
+  'plan.override.type': '{key} adını yazın',
+  'plan.override.missing': 'Eksik veya yanlış: {list}',
   'plan.advanced.title': 'Gelişmiş mod',
   'plan.advanced.body':
     'Bu plan gelişmiş modla kuruldu: normalde silinmeyen öğeler (rapor/keep) de kasaya taşınır. Korunan alanlar yine silinemez.',
@@ -2056,6 +2061,11 @@ const en: Record<keyof typeof tr, string> = {
   'plan.phraseHint': 'Type {phrase} to continue.',
   'plan.phrase': 'Approval phrase',
   'plan.highAck': 'I understand the high-risk targets',
+  'plan.override.title': 'High-risk confirmation',
+  'plan.override.hint':
+    'The checkbox alone is not enough: type the name of every high-risk cluster. The name is the key shown on the row (case-insensitive).',
+  'plan.override.type': 'Type {key}',
+  'plan.override.missing': 'Missing or incorrect: {list}',
   'plan.advanced.title': 'Advanced mode',
   'plan.advanced.body':
     'This plan was created in advanced mode: items normally not deletable (report/keep) are also moved to the vault. Protected areas remain undeletable.',
