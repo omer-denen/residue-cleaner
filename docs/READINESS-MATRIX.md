@@ -62,6 +62,9 @@ Kapsam (729 test): satir **%86.29**, dal **%80.15**, fonksiyon **%80.32**; beta 
 > icin bolum 8'e bakin. PROFILE-06, WEB-15/17 ve reduced motion dogrulandi.
 > **PROFILE-07 (06.11.2026):** AX agaci + klavye/odak turu tamam; NVDA/Narrator
 > ses ciktisi yerine UIA/AX agaci kaniti kullanildi.
+> **Karar (07.11.2026):** NVDA/Narrator ses kaniti **gerekli degil** (kullanici
+> karari). Erisilebilirlik kaniti AX agaci + klavye turu + WEB-11 E2E
+> kontroludur; ekran okuyucu kurulumu istenmiyor.
 
 ---
 
@@ -117,11 +120,13 @@ Kalan açıklar beta maddeleridir: web E2E, PROFIL.
    tetiklemiyor.
 7. Klavye-only tur + ekran okuyucu + `prefers-reduced-motion` üç profilde.
 
-**Beta durumu:** ✅ **koşullu** — 06.11.2026. Puan **85.00** (eşik 85) ve kapsam
+**Beta durumu:** ✅ — 07.11.2026. Puan **85.00** (eşik 85) ve kapsam
 eşikleri sağlandı; ERR-01/02/06/07/08, SAFE-02/08, SEC-02/03/07, PROFILE-06 ve
-LOAD-01..04 otomatik kanıtlandı. **Açık kanıt boşlukları:** WEB-02..08/10/11/13/14/16
-elle (ego-browser) doğrulandı, otomatik tarayıcı E2E yok; PROFILE-07 için gerçek
-NVDA/Narrator ses çıktısı alınmadı (AX ağacı + klavye kanıtı var).
+LOAD-01..04 otomatik kanıtlandı. **E2E (07.11.2026):** WEB-02..08/10/11/13/14/16
+otomatik tarayıcı senaryolarıyla koşuyor (`npm run e2e`, 12 senaryo,
+**123/123 kontrol temiz**; `docs/E2E.md`). **PROFILE-07:** NVDA/Narrator ses
+çıktısı kullanıcı kararıyla **gerekli değil**; kanıt AX ağacı + klavye/odak
+turu + WEB-11 DOM kontrolü.
 
 ---
 
@@ -361,8 +366,10 @@ güncellenmez.
 | T95 purge kaldırma | `tests/delete-errors.test.ts` (red + dosya yerinde), `tests/approval.test.ts` (400), `tests/plan-add.test.ts` (API 400), `tests/cli-e2e.test.ts` (`--purge` exit 1) |
 | Kapsam | 750 test (06.11.2026); satir 86.29 / dal 80.15 / fonksiyon 80.32 (03.11.2026 olcumu) |
 
-**Acik kalan:** PROFILE-07 icin gercek NVDA/Narrator ses ciktisi alinmadi;
-kanit AX agaci + klavye/odak turudur. Otomatik tarayici E2E'si yok.
+**Acik kalan:** yok. PROFILE-07 icin NVDA/Narrator ses kaniti kullanici
+karariyla (07.11.2026) gerekli degil; kanit AX agaci + klavye/odak turudur.
+Otomatik tarayici E2E'si 07.11.2026'da eklendi: `npm run e2e`, 12 senaryo /
+**123/123 kontrol** (WEB-02..08/10/11/13/14/16; `docs/E2E.md`).
 WEB-15/WEB-17 ve reduced motion tarayici kaniti 05.11.2026'da alindi;
 T95 dogrudan yol kalici silme 06.11.2026'da kaldirildi. Test sayisi
-**750/750**.
+**824/824**.

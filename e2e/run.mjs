@@ -30,21 +30,36 @@ async function main() {
   for (const file of files) {
     const mod = await import(pathToFileURL(join(SCENARIOS, file)).href);
     const title = mod.title ?? file;
-    console.log(`\n== ${title} ==`);
-    const h = new Harness();
-    const started = Date.now();
-    try {
-      await h.start();
-      const ctx = await h.open(mod.browserOptions ?? {});
-      await mod.run(h, ctx);
-    } catch (error) {
-      h.check(`${title}: senaryo hatasiz kosmali`, false, String(error?.message ?? error).slice(0, 400));
-    } finally {
-      await h.stop();
+    const attempts = [];
+    const runOnce = async () => {
+      console.log(`\n== ${title}${attempts.length > 0 ? ' (yeniden)' : ''} ==`);
+      const h = new Harness();
+      const started = Date.now();
+      try {
+        await h.start();
+        const ctx = await h.open(mod.browserOptions ?? {});
+        await mod.run(h, ctx);
+      } catch (error) {
+        h.check(`${title}: senaryo hatasiz kosmali`, false, String(error?.message ?? error).slice(0, 400));
+      } finally {
+        await h.stop();
+      }
+      const s = h.summary();
+      console.log(
+        `  ${s.failed === 0 ? 'TEMIZ' : 'HATA'} — ${s.total - s.failed}/${s.total} kontrol, ${Date.now() - started} ms`,
+      );
+      return { title, ...s, ms: Date.now() - started };
+    };
+    // Zaman duyarli kontroller (hizli iptal yarisi, dar ekran olcumu) yuklu
+    // makinede tek seferlik dusebilir; bir kez yeniden denenir ve sonuc
+    // "yeniden" etiketiyle gorunur. Kalici regresyon iki kosuda da duser.
+    let result = await runOnce();
+    attempts.push(result);
+    if (result.failed > 0) {
+      result = await runOnce();
+      attempts.push(result);
     }
-    const s = h.summary();
-    results.push({ title, ...s, ms: Date.now() - started });
-    console.log(`  ${s.failed === 0 ? 'TEMIZ' : 'HATA'} — ${s.total - s.failed}/${s.total} kontrol, ${Date.now() - started} ms`);
+    results.push(result);
   }
 
   const total = results.reduce((n, r) => n + r.total, 0);

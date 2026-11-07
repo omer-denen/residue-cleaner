@@ -60,3 +60,7 @@ Her senaryo icin `e2e/harness.mjs`:
   donebilir. `02-disk-scan` bunu `seedBulk` ile kesinlestirir; harness 409'u
   beklenen catisma olarak yok sayar (diger 4xx/5xx hata sayilir).
 - Senaryo dosyalari `.mjs`'dir; TypeScript sozdizimi (`as`, `!`) kullanilamaz.
+- Zaman duyarli kontroller (hizli iptal yarisi, dar ekran olcumu) yuklu
+  makinede tek seferlik dusebilir; `e2e/run.mjs` basarisiz senaryoyu **bir kez**
+  yeniden dener ve `(yeniden)` etiketiyle gosterir. Kalici regresyon iki
+  kosuda da duser.

@@ -3,6 +3,40 @@
 Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kullanır.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.1/) temellidir.
 
+## [0.3.0-beta.1] - 2026-11-07
+
+### Eklendi
+
+- **Graf artık disk ve projeleri de kapsıyor.** Aynı ekranda disk kümeleri,
+  proje kökleri, proje yapıtları (`node_modules`, `.venv`) ve küme sahipleri
+  görünüyor; sahip bağları yalnız gerçek kanıttan (manifest, log, ikili ürün
+  kimliği) üretiliyor. Proje kökü ve yapıtları rapor-only işaretli; proje
+  kaynağı hiçbir zaman silme hedefi değil.
+- **Yüksek riskli küme onayı.** Yüksek riskli bir küme plana girdiğinde onay
+  kutusu tek başına yetmiyor: her kümenin **adını** yazmak gerekiyor (büyük/
+  küçük harf farkı yok). Onay kaydı denetime yazılıyor.
+- **Planlı çalışmalarda PATH temizliği.** Kural artık "kasaya taşı" veya
+  "PATH temizliği" modunu seçebiliyor; PATH kuralı oluşturulurken yazılı
+  `TEMIZLE` onayı alınıyor, her çalışmada ortam yedeği alınıyor ve denetim
+  kaydı yazılıyor. PATH değişikliği yalnız bu onayla uygulanır.
+- **Tarama geçmişinde "tamamlanmadı" kaydı.** İptal edilen veya hata ile
+  biten tarama artık "tamamlandı" gibi görünmüyor: geçmişte sonuç türü,
+  bulunan küme ve ilerleme (`5/11 hedef`) gösteriliyor.
+
+### Değişti
+
+- **Kanıt toplama daha az dosya sistemi çağrısı yapıyor.** Klasör kanıtı tek
+  geçişte okunuyor; taze ağaçta tarama belirgin biçimde hızlandı, karar
+  kanıtı aynı kaldı.
+- Sürüm `0.3.0-beta.1`; paket npm'de `beta` etiketiyle yayınlanır, `latest`
+  kararlı sürümde kalır.
+
+### Düzeltildi
+
+- **`state.json` koruması.** `npm run init-state` ve `residue status --init`
+  artık dolu bir `state.json` dosyasının üzerine sessizce yazmıyor; sıfırlamak
+  için `--force` gerekiyor ve önce yedek alınıyor.
+
 ## [0.3.0-beta.0] - 2026-11-06
 
 ### Eklendi
