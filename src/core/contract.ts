@@ -209,14 +209,43 @@ export interface ScanHistoryEntry {
   deletableBytes: number;
   /** Farkli hedef yolu sayisi (silme hedefi toplami). */
   targets: number;
+  /**
+   * Tarama nasil bitti. Yoksa `done` sayilir (B20 oncesi kayitlar).
+   * `cancelled`/`error` kayitlarinda sayilar KISMIDIR.
+   */
+  outcome?: ScanOutcome;
+  /** Yalniz tamamlanmayan kayitta: iptal/hata anindaki ilerleme. */
+  progress?: { done: number; total: number };
+}
+
+/** Tarama sonucu: tamamlandi / kullanici iptal etti / hata. */
+export type ScanOutcome = 'done' | 'cancelled' | 'error';
+
+/**
+ * Gecmis listesinin GORUNUM satiri. Siniflandirma motorun isidir
+ * (`ScanHistory.rows`); arayuz yalniz `complete` alanina gore etiket secer.
+ */
+export interface ScanHistoryRow {
+  id: string;
+  at: number;
+  outcome: ScanOutcome;
+  /** false -> "tamamlanmadi" (iptal/hata); cluster/bayt sayilari kismidir. */
+  complete: boolean;
+  clusters: number;
+  bytes: number;
+  /** Tamamlanmayan kayitta kaldigi ilerleme; tamamlananda 0/0. */
+  done: number;
+  total: number;
 }
 
 export interface ScanHistoryResponse {
   entries: ScanHistoryEntry[];
+  /** Gorunum satirlari (motor karari: tamamlandi/tamamlanmadi). */
+  rows: ScanHistoryRow[];
   /** En fazla kac kayit tutuldugu (arayuz "en yeni N" notu icin). */
   limit: number;
-  /** Motor ozeti: kayit sayisi + en yeni/en eski zaman. */
-  summary: { count: number; lastAt: number; firstAt: number };
+  /** Motor ozeti: kayit sayisi + en yeni/en eski zaman + tamamlanmayan. */
+  summary: { count: number; lastAt: number; firstAt: number; incomplete: number };
 }
 
 export interface ScanVerifyResponse {

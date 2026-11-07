@@ -526,20 +526,36 @@ export function Disk({
           </div>
         </header>
 
-        {history && history.entries.length > 0 && (
+        {history && history.rows.length > 0 && (
           <section className="scan-history" aria-label={t('disk.history.title')}>
             <h2>{t('disk.history.title')}</h2>
             <ul>
-              {history.entries.slice(0, 5).map((e) => (
-                <li key={e.id}>
-                  <span className="mono">{formatTimestamp(e.at, lang)}</span>
-                  <span className="dim mono">
-                    {t('disk.history.row', { clusters: e.clusters, size: formatBytes(e.bytes) })}
-                  </span>
+              {history.rows.slice(0, 5).map((row) => (
+                <li key={row.id} className={row.complete ? undefined : 'incomplete'}>
+                  <span className="mono">{formatTimestamp(row.at, lang)}</span>
+                  {row.complete ? (
+                    <span className="dim mono">
+                      {t('disk.history.row', {
+                        clusters: row.clusters,
+                        size: formatBytes(row.bytes),
+                      })}
+                    </span>
+                  ) : (
+                    <span className="mono history-incomplete">
+                      <span className="history-outcome">{t('disk.history.incomplete')}</span>
+                      <span className="dim">
+                        {t('disk.history.partial', {
+                          clusters: row.clusters,
+                          done: row.done,
+                          total: row.total,
+                        })}
+                      </span>
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
-            {history.entries.length >= history.limit && (
+            {history.rows.length >= history.limit && (
               <p className="dim">{t('disk.history.truncated', { limit: history.limit })}</p>
             )}
           </section>

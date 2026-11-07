@@ -28,6 +28,7 @@ import type {
   SettingsResponse,
   UserProfile,
 } from '../core/contract.ts';
+import type { ScanOutcome } from '../core/contract.ts';
 import { scanStatusView } from '../core/scan-status-view.ts';
 
 export const SCAN_EVENT_BUFFER = 2000;
@@ -358,7 +359,43 @@ export class ScanService {
     this.emit(job.id, event, id);
   }
 
+  /**
+   * Tarama gecmisine ozet yazar (B20). `outcome` 'done' degilse sayilar
+   * KISMIDIR ve `progress` o anki ilerlemeyi tasir. Yazim hatasi taramayi
+   * bozmaz.
+   */
+  private async recordScanHistory(
+    clusters: readonly Cluster[],
+    at: number,
+    outcome: ScanOutcome,
+    persistent: boolean,
+    progress?: { done: number; total: number },
+  ): Promise<void> {
+    if (!this.persistScan || !persistent) return;
+    try {
+      const files = clusters.reduce(
+        (a, c) => a + c.parts.reduce((b, p) => b + (p.files ?? 0), 0),
+        0,
+      );
+      const bytes = clusters.reduce((a, c) => a + (c.totalBytes ?? 0), 0);
+      const deletableBytes = clusters.reduce((a, c) => a + (c.reclaimableBytes ?? 0), 0);
+      const targets = clusters.reduce((a, c) => a + (c.deleteTargets?.length ?? 0), 0);
+      const id = `sc-${at}-${Math.random().toString(36).slice(2, 8)}`;
+      const entry = ScanHistory.summarize(
+        { finishedAt: at, clusters: clusters.length, files, bytes, deletableBytes, targets },
+        id,
+        outcome,
+        progress,
+      );
+      await appendScanHistory(entry);
+    } catch {
+      /* gecmis yazilamadi; tarama yine de gecerli */
+    }
+  }
+
   private async runJob(job: ScanJob, controller: AbortController, args: ScanArgs): Promise<void> {
+    // Proje ici (--root) tarama SISTEM gecmisine/onbellegine yazilmaz (T10/T27).
+    const persistent = !args.root && !(args.roots && args.roots.length > 0);
     try {
       const result = await runScan({
         envs: args.envs,
@@ -411,6 +448,14 @@ export class ScanService {
           ilerleme: `${job.progress.done}/${job.progress.total}`,
           kume: result.clusters.length,
         });
+        // B20: iptal edilen tarama gecmiste "tamamlanmadi" olarak gorunur.
+        await this.recordScanHistory(
+          result.clusters,
+          Date.now(),
+          'cancelled',
+          persistent,
+          job.progress,
+        );
         this.pushEvent(job, { type: 'cancelled' });
         return;
       }
@@ -422,9 +467,9 @@ export class ScanService {
       // ne son tarama olarak saklanir ne de 24 saatlik diske yazilir.
       // Aksi halde 27 kumelik kismi bir proje taramasi "son tam
       // tarama" gibi gorunurdu.
-      if (!args.root && !(args.roots && args.roots.length > 0)) {
-        // Damga `result.finishedAt` olmalı: `Date.now()` kayıt anını verir ve
-        // diskten okunduğunda (`scan-cache.ts` -> finishedAt) farkli deger
+      if (persistent) {
+        // Damga `result.finishedAt` olmali: `Date.now()` kayit anini verir ve
+        // diskten okundugunda (`scan-cache.ts` -> finishedAt) farkli deger
         // ortaya cikar. Ayni veriden ayni zaman damgasi: "dirty" karari
         // yeniden baslatmada degismesin.
         this.lastScan = { scan: result, at: result.finishedAt };
@@ -432,46 +477,20 @@ export class ScanService {
         // Testler kismi taramalari onbellege yazmasin (persistScan: false).
         if (this.persistScan) await saveScanCache(result);
         if (this.persistScan) {
-          try {
-            const files = result.clusters.reduce(
-              (a, c) => a + c.parts.reduce((b, p) => b + (p.files ?? 0), 0),
-              0,
-            );
-            const bytes = result.clusters.reduce((a, c) => a + (c.totalBytes ?? 0), 0);
-            const deletableBytes = result.clusters.reduce(
-              (a, c) => a + (c.reclaimableBytes ?? 0),
-              0,
-            );
-            const targets = result.clusters.reduce(
-              (a, c) => a + (c.deleteTargets?.length ?? 0),
-              0,
-            );
-            const id = `sc-${result.finishedAt}-${Math.random().toString(36).slice(2, 8)}`;
-            const entry = ScanHistory.summarize(
-              {
-                finishedAt: result.finishedAt,
-                clusters: result.clusters.length,
-                files,
-                bytes,
-                deletableBytes,
-                targets,
-              },
-              id,
-            );
-            await appendScanHistory(entry);
-          } catch {
-            /* gecmis yazilamadi; tarama yine de gecerli */
-          }
+          await this.recordScanHistory(result.clusters, result.finishedAt, 'done', persistent);
         }
       }
       this.pushEvent(job, { type: 'done', result });
     } catch (err) {
       if (controller.signal.aborted) {
         job.status = 'cancelled';
+        // B20: yarida kesilen tarama da gecmise "tamamlanmadi" olarak yazilir.
+        await this.recordScanHistory(job.found, Date.now(), 'cancelled', persistent, job.progress);
         this.pushEvent(job, { type: 'cancelled' });
       } else {
         job.status = 'error';
         job.error = describeError(err);
+        await this.recordScanHistory(job.found, Date.now(), 'error', persistent, job.progress);
         this.pushEvent(job, { type: 'error', message: job.error });
       }
     } finally {

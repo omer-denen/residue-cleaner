@@ -1285,6 +1285,7 @@ async function handleRequest(
     const entries = ScanHistory.list(await loadScanHistory());
     const body: ScanHistoryResponse = {
       entries,
+      rows: ScanHistory.rows(entries),
       limit: SCAN_HISTORY_LIMIT,
       summary: ScanHistory.summary(entries),
     };

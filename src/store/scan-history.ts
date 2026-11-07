@@ -24,7 +24,7 @@ export async function loadScanHistory(): Promise<ScanHistoryEntry[]> {
       const o = e as Record<string, unknown>;
       if (typeof o.id !== 'string') continue;
       if (typeof o.at !== 'number') continue;
-      out.push({
+      const entry: ScanHistoryEntry = {
         id: o.id,
         at: o.at,
         clusters: typeof o.clusters === 'number' ? o.clusters : 0,
@@ -32,7 +32,16 @@ export async function loadScanHistory(): Promise<ScanHistoryEntry[]> {
         bytes: typeof o.bytes === 'number' ? o.bytes : 0,
         deletableBytes: typeof o.deletableBytes === 'number' ? o.deletableBytes : 0,
         targets: typeof o.targets === 'number' ? o.targets : 0,
-      });
+      };
+      // B20: eski kayitlarda `outcome` yoktur; motor `done` sayar.
+      if (o.outcome === 'cancelled' || o.outcome === 'error' || o.outcome === 'done') {
+        entry.outcome = o.outcome;
+      }
+      const pr = o.progress as { done?: unknown; total?: unknown } | undefined;
+      if (pr && typeof pr.done === 'number' && typeof pr.total === 'number') {
+        entry.progress = { done: pr.done, total: pr.total };
+      }
+      out.push(entry);
     }
     return out;
   } catch {

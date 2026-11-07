@@ -1,4 +1,4 @@
-import type { ScanHistoryEntry } from './contract.ts';
+import type { ScanHistoryEntry, ScanHistoryRow, ScanOutcome } from './contract.ts';
 
 export const SCAN_HISTORY_LIMIT = 50;
 
@@ -50,25 +50,67 @@ export class ScanHistory {
     return indexed.map((x) => x.e);
   }
 
-  /** Ozet: { count, lastAt, firstAt } — bos liste icin 0'lar. */
+  /** Ozet: { count, lastAt, firstAt, incomplete } — bos liste icin 0'lar. */
   static summary(
     entries: readonly ScanHistoryEntry[],
-  ): { count: number; lastAt: number; firstAt: number } {
-    if (entries.length === 0) return { count: 0, lastAt: 0, firstAt: 0 };
+  ): { count: number; lastAt: number; firstAt: number; incomplete: number } {
+    const incomplete = entries.filter((e) => !ScanHistory.isComplete(e)).length;
+    if (entries.length === 0) return { count: 0, lastAt: 0, firstAt: 0, incomplete: 0 };
     const valid = entries
       .map((e) => e.at)
       .filter((v): v is number => isFiniteNumber(v));
-    if (valid.length === 0) return { count: entries.length, lastAt: 0, firstAt: 0 };
+    if (valid.length === 0) return { count: entries.length, lastAt: 0, firstAt: 0, incomplete };
     return {
       count: entries.length,
       lastAt: Math.max(...valid),
       firstAt: Math.min(...valid),
+      incomplete,
     };
   }
 
+  /** Kaydin sonucu. Alan yoksa `done` (B20 oncesi kayitlar). */
+  static outcome(entry: ScanHistoryEntry): ScanOutcome {
+    const o = entry.outcome;
+    if (o === 'cancelled' || o === 'error') return o;
+    return 'done';
+  }
+
+  /** Yalniz tamamlanmis tarama "complete"; iptal/hata kismi veridir. */
+  static isComplete(entry: ScanHistoryEntry): boolean {
+    return ScanHistory.outcome(entry) === 'done';
+  }
+
+  /**
+   * Gorunum satirlari: arayuz "tamamlanmadi" etiketini bu karardan secer.
+   * Girdi sirasi korunur (cagiran `list()` ile siralar).
+   */
+  static rows(entries: readonly ScanHistoryEntry[]): ScanHistoryRow[] {
+    return entries.map((e) => {
+      const outcome = ScanHistory.outcome(e);
+      const complete = outcome === 'done';
+      const done = complete ? 0 : clampNonNeg(e.progress?.done ?? 0);
+      const total = complete ? 0 : clampNonNeg(e.progress?.total ?? 0);
+      return {
+        id: e.id,
+        at: e.at,
+        outcome,
+        complete,
+        clusters: clampNonNeg(e.clusters),
+        bytes: clampNonNeg(e.bytes),
+        done,
+        total,
+      };
+    });
+  }
+
   /** ScanResult benzeri veriden ozet uretir (kume/parca/hedef sayimlari). */
-  static summarize(facts: ScanSummaryFacts, id: string): ScanHistoryEntry {
-    return {
+  static summarize(
+    facts: ScanSummaryFacts,
+    id: string,
+    outcome: ScanOutcome = 'done',
+    progress?: { done: number; total: number },
+  ): ScanHistoryEntry {
+    const entry: ScanHistoryEntry = {
       id,
       at: facts.finishedAt,
       clusters: clampNonNeg(facts.clusters),
@@ -76,6 +118,14 @@ export class ScanHistory {
       bytes: clampNonNeg(facts.bytes),
       deletableBytes: clampNonNeg(facts.deletableBytes),
       targets: clampNonNeg(facts.targets),
+      outcome,
     };
+    if (outcome !== 'done') {
+      entry.progress = {
+        done: clampNonNeg(progress?.done ?? 0),
+        total: clampNonNeg(progress?.total ?? 0),
+      };
+    }
+    return entry;
   }
 }

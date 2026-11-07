@@ -5240,6 +5240,26 @@ kbd {
   color: var(--dim);
 }
 
+/* B20: tamamlanmamis (iptal/hata) tarama satiri — sayilar KISMI. */
+.scan-history li.incomplete {
+  flex-wrap: wrap;
+}
+.history-incomplete {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.history-outcome {
+  padding: 0 6px;
+  border: 1px solid var(--warn, #d9a441);
+  border-radius: var(--r-pill, 999px);
+  color: var(--warn, #d9a441);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 .rp-modules {
   position: relative;
   margin-left: auto;

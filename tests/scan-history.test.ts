@@ -45,7 +45,7 @@ test('scan-history: list puts invalid at last', () => {
 });
 
 test('scan-history: summary empty', () => {
-  assert.deepEqual(ScanHistory.summary([]), { count: 0, lastAt: 0, firstAt: 0 });
+  assert.deepEqual(ScanHistory.summary([]), { count: 0, lastAt: 0, firstAt: 0, incomplete: 0 });
 });
 
 test('scan-history: summary fills last/first', () => {
@@ -89,6 +89,7 @@ test('scan-history: summary tum tarihler gecersizse sifir doner', () => {
     count: 2,
     lastAt: 0,
     firstAt: 0,
+    incomplete: 0,
   });
 });
 
