@@ -787,8 +787,10 @@ async function handleRequest(
     const body = await readJson<Record<string, unknown>>(req);
     const input = body as unknown as Parameters<typeof ctx.schedules.create>[0];
     const phrase = typeof body.phrase === 'string' ? body.phrase : '';
-    // Otomatik plan kurali yazili PLANLA onayi ister (ikinci savunma hatti).
-    sendJson(res, 201, await ctx.schedules.create(input, { require: true, phrase }));
+    const envPhrase = typeof body.envPhrase === 'string' ? body.envPhrase : '';
+    // Otomatik plan kurali yazili PLANLA onayi ister; `env` kurali ayrica
+    // yazili TEMIZLE onayi ister (ikinci savunma hatti).
+    sendJson(res, 201, await ctx.schedules.create(input, { require: true, phrase, envPhrase }));
     return;
   }
 
@@ -797,8 +799,9 @@ async function handleRequest(
     const body = await readJson<Record<string, unknown>>(req);
     const input = body as unknown as Parameters<typeof ctx.schedules.update>[1];
     const phrase = typeof body.phrase === 'string' ? body.phrase : '';
+    const envPhrase = typeof body.envPhrase === 'string' ? body.envPhrase : '';
     // Kapsam/zaman/etkinlestirme degisikligi yazili PLANLA onayi ister.
-    sendJson(res, 200, await ctx.schedules.update(id, input, { phrase }));
+    sendJson(res, 200, await ctx.schedules.update(id, input, { phrase, envPhrase }));
     return;
   }
 

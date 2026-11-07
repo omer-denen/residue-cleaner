@@ -4,7 +4,10 @@ import type {
   PlanPreview,
   ScheduleCatchUpItem,
   ScheduleCreateRequest,
+  ScheduleEnvOptions,
+  ScheduleEnvScope,
   ScheduleFrequency,
+  ScheduleMode,
   ScheduleRun,
   ScheduleView,
 } from '../../../src/core/contract.ts';
@@ -45,10 +48,28 @@ function selectorSummary(rule: ScheduleView, t: (key: MessageKey, vars?: Record<
   return parts.join(' · ');
 }
 
+function envSummary(
+  options: ScheduleEnvOptions,
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string,
+): string {
+  const parts: string[] = [];
+  parts.push(`${t('schedules.env.scope')}: ${t(SCOPE_LABEL[options.scope])}`);
+  if (options.removeMissing) parts.push(t('schedules.env.removeMissing'));
+  if (options.removeDuplicates) parts.push(t('schedules.env.removeDuplicates'));
+  return parts.join(' · ');
+}
+
+const SCOPE_LABEL: Record<ScheduleEnvScope, MessageKey> = {
+  user: 'env.scope.user',
+  machine: 'env.scope.machine',
+  both: 'env.scope.both',
+};
+
 /**
- * PLANLAR — kurallar secici saklar; calisma yalniz kasaya tasir.
+ * PLANLAR — kurallar secici saklar; `vault` kasaya tasir, `env` PATH temizler.
  *
- * Kural olusturma yazili `PLANLA` onayi ister (sunucu da dogrular).
+ * Kural olusturma yazili `PLANLA` onayi ister (sunucu da dogrular); `env`
+ * kurali ayrica yazili `TEMIZLE` onayi ister ve her calismada yedek alinir.
  * Onizleme ve calisma MOTORDAN gelir; arayuz kendi secimini yapmaz.
  * Kacirilan calismalar otomatik calistirilmaz.
  */
@@ -67,6 +88,7 @@ export function Schedules({ lang }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState(() => translate(lang, 'schedules.defaultName'));
+  const [mode, setMode] = useState<ScheduleMode>('vault');
   const [frequency, setFrequency] = useState<ScheduleFrequency>('daily');
   const [hour, setHour] = useState(3);
   const [minute, setMinute] = useState(0);
@@ -79,6 +101,10 @@ export function Schedules({ lang }: Props) {
   const [compensateMissed, setCompensateMissed] = useState(true);
   const [enabled, setEnabled] = useState(true);
   const [phrase, setPhrase] = useState('');
+  const [envScope, setEnvScope] = useState<ScheduleEnvScope>('user');
+  const [envRemoveMissing, setEnvRemoveMissing] = useState(true);
+  const [envRemoveDuplicates, setEnvRemoveDuplicates] = useState(true);
+  const [envPhrase, setEnvPhrase] = useState('');
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [toggleId, setToggleId] = useState<string | null>(null);
@@ -116,6 +142,10 @@ export function Schedules({ lang }: Props) {
   }, [load]);
 
   const phraseOk = ApprovalRules.matches('schedule', phrase);
+  const envPhraseOk = ApprovalRules.matches('envClean', envPhrase);
+  const envValid = envRemoveMissing || envRemoveDuplicates;
+  const approvalOk =
+    phraseOk && (mode === 'vault' || (envPhraseOk && envValid));
 
   const toggleCategory = (category: CategoryKey): void => {
     setCategories((previous) => {
@@ -128,6 +158,7 @@ export function Schedules({ lang }: Props) {
 
   const formBody = (): ScheduleCreateRequest => ({
     name,
+    mode,
     frequency,
     hour,
     minute,
@@ -141,6 +172,16 @@ export function Schedules({ lang }: Props) {
       ...(minIdleDays > 0 ? { minIdleDays } : {}),
       maxItems,
     },
+    ...(mode === 'env'
+      ? {
+          env: {
+            scope: envScope,
+            removeMissing: envRemoveMissing,
+            removeDuplicates: envRemoveDuplicates,
+          },
+          envPhrase,
+        }
+      : {}),
     enabled,
     compensateMissed,
     phrase,
@@ -149,6 +190,7 @@ export function Schedules({ lang }: Props) {
   const resetForm = (): void => {
     setEditingId(null);
     setName(translate(lang, 'schedules.defaultName'));
+    setMode('vault');
     setFrequency('daily');
     setHour(3);
     setMinute(0);
@@ -161,11 +203,16 @@ export function Schedules({ lang }: Props) {
     setCompensateMissed(true);
     setEnabled(true);
     setPhrase('');
+    setEnvScope('user');
+    setEnvRemoveMissing(true);
+    setEnvRemoveDuplicates(true);
+    setEnvPhrase('');
   };
 
   const startEdit = (rule: ScheduleView): void => {
     setEditingId(rule.id);
     setName(rule.name);
+    setMode(rule.mode === 'env' ? 'env' : 'vault');
     setFrequency(rule.frequency);
     setHour(rule.hour);
     setMinute(rule.minute);
@@ -180,6 +227,10 @@ export function Schedules({ lang }: Props) {
     setCompensateMissed(rule.compensateMissed);
     setEnabled(rule.enabled);
     setPhrase('');
+    setEnvScope(rule.env?.scope ?? 'user');
+    setEnvRemoveMissing(rule.env?.removeMissing !== false);
+    setEnvRemoveDuplicates(rule.env?.removeDuplicates !== false);
+    setEnvPhrase('');
     setToggleId(null);
     requestAnimationFrame(() => {
       document.querySelector('.schedule-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -290,6 +341,17 @@ export function Schedules({ lang }: Props) {
                 />
               </label>
               <label className="control-label">
+                {t('schedules.mode')}
+                <select
+                  className="control"
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value === 'env' ? 'env' : 'vault')}
+                >
+                  <option value="vault">{t('schedules.mode.vault')}</option>
+                  <option value="env">{t('schedules.mode.env')}</option>
+                </select>
+              </label>
+              <label className="control-label">
                 {t('schedules.frequency')}
                 <select
                   className="control"
@@ -361,43 +423,89 @@ export function Schedules({ lang }: Props) {
                 </>
               )}
 
-              <label className="control-label">
-                {t('schedules.maxRisk')}
-                <select
-                  className="control"
-                  value={maxRisk}
-                  onChange={(e) => setMaxRisk(e.target.value === 'low' ? 'low' : 'safe')}
-                >
-                  <option value="safe">{t('risk.safe')}</option>
-                  <option value="low">{t('risk.low')}</option>
-                </select>
-              </label>
-              <label className="control-label">
-                {t('schedules.minIdle')}
-                <input
-                  className="control num"
-                  type="number"
-                  min={0}
-                  value={minIdleDays}
-                  onChange={(e) => setMinIdleDays(Math.max(0, Number(e.target.value) || 0))}
-                />
-              </label>
-              <label className="control-label">
-                {t('schedules.maxItems')}
-                <input
-                  className="control num"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={maxItems}
-                  onChange={(e) =>
-                    setMaxItems(Math.min(100, Math.max(1, Number(e.target.value) || 10)))
-                  }
-                />
-              </label>
+              {mode === 'vault' && (
+                <>
+                  <label className="control-label">
+                    {t('schedules.maxRisk')}
+                    <select
+                      className="control"
+                      value={maxRisk}
+                      onChange={(e) => setMaxRisk(e.target.value === 'low' ? 'low' : 'safe')}
+                    >
+                      <option value="safe">{t('risk.safe')}</option>
+                      <option value="low">{t('risk.low')}</option>
+                    </select>
+                  </label>
+                  <label className="control-label">
+                    {t('schedules.minIdle')}
+                    <input
+                      className="control num"
+                      type="number"
+                      min={0}
+                      value={minIdleDays}
+                      onChange={(e) => setMinIdleDays(Math.max(0, Number(e.target.value) || 0))}
+                    />
+                  </label>
+                  <label className="control-label">
+                    {t('schedules.maxItems')}
+                    <input
+                      className="control num"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={maxItems}
+                      onChange={(e) =>
+                        setMaxItems(Math.min(100, Math.max(1, Number(e.target.value) || 10)))
+                      }
+                    />
+                  </label>
+                </>
+              )}
             </div>
 
-            <div className="schedule-categories">
+            {mode === 'env' && (
+              <div className="schedule-form">
+                <label className="control-label">
+                  {t('schedules.env.scope')}
+                  <select
+                    className="control"
+                    value={envScope}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setEnvScope(next === 'machine' || next === 'both' ? next : 'user');
+                    }}
+                  >
+                    <option value="user">{t(SCOPE_LABEL.user)}</option>
+                    <option value="machine">{t(SCOPE_LABEL.machine)}</option>
+                    <option value="both">{t(SCOPE_LABEL.both)}</option>
+                  </select>
+                </label>
+                <label className="control-label">
+                  <input
+                    type="checkbox"
+                    checked={envRemoveMissing}
+                    onChange={(e) => setEnvRemoveMissing(e.target.checked)}
+                  />
+                  {t('schedules.env.removeMissing')}
+                </label>
+                <label className="control-label">
+                  <input
+                    type="checkbox"
+                    checked={envRemoveDuplicates}
+                    onChange={(e) => setEnvRemoveDuplicates(e.target.checked)}
+                  />
+                  {t('schedules.env.removeDuplicates')}
+                </label>
+              </div>
+            )}
+            {mode === 'env' && !envValid && (
+              <p className="dim" role="status">
+                {t('schedules.env.none')}
+              </p>
+            )}
+
+            {mode === 'vault' && (
+              <div className="schedule-categories">
               <span className="dim">{t('schedules.categories')}:</span>
               {Object.keys(CATEGORY_LABEL).map((key) => {
                 const category = key as CategoryKey;
@@ -412,7 +520,8 @@ export function Schedules({ lang }: Props) {
                   </button>
                 );
               })}
-            </div>
+              </div>
+            )}
 
             <div className="schedule-checks">
               <label className="control-label">
@@ -449,6 +558,21 @@ export function Schedules({ lang }: Props) {
                   autoComplete="off"
                 />
               </label>
+              {mode === 'env' && (
+                <label className="approval-row">
+                  <span>
+                    {t('schedules.env.phraseHint', { phrase: ApprovalRules.phrase('envClean') })}
+                  </span>
+                  <input
+                    className="control mono"
+                    value={envPhrase}
+                    onChange={(e) => setEnvPhrase(e.target.value)}
+                    placeholder={ApprovalRules.phrase('envClean')}
+                    aria-label={t('schedules.env.phrase')}
+                    autoComplete="off"
+                  />
+                </label>
+              )}
               {editingId && (
                 <button type="button" className="ghost" onClick={resetForm} disabled={creating}>
                   {t('schedules.cancelEdit')}
@@ -457,7 +581,7 @@ export function Schedules({ lang }: Props) {
               <button
                 type="button"
                 className="primary"
-                disabled={creating || !phraseOk || name.trim().length < 2}
+                disabled={creating || !approvalOk || name.trim().length < 2}
                 onClick={() => void submit()}
               >
                 {creating
@@ -524,7 +648,10 @@ export function Schedules({ lang }: Props) {
                     <div className="schedule-head">
                       <strong>{rule.name}</strong>
                       <span className="badge">{t(SCHEDULE_FREQ_LABEL[rule.frequency] ?? 'schedules.freq.daily')}</span>
-                      <span className="badge">{t('schedules.mode')}: {t('schedules.mode.vault')}</span>
+                      <span className="badge">
+                        {t('schedules.mode')}:{' '}
+                        {t(rule.mode === 'env' ? 'schedules.mode.env' : 'schedules.mode.vault')}
+                      </span>
                       {!rule.enabled && <span className="badge">{t('schedules.disabled')}</span>}
                       {rule.due && <span className="badge warn">{t('schedules.due')}</span>}
                       {rule.missed > 0 && (
@@ -542,7 +669,9 @@ export function Schedules({ lang }: Props) {
                         </strong>
                       </span>
                       <span className="dim">
-                        {selectorSummary(rule, t)}
+                        {rule.mode === 'env' && rule.env
+                          ? envSummary(rule.env, t)
+                          : selectorSummary(rule, t)}
                       </span>
                     </div>
 
@@ -555,7 +684,10 @@ export function Schedules({ lang }: Props) {
                               {t(SCHEDULE_STATUS_LABEL[rule.lastRun.status] ?? 'schedules.status.pending')}
                             </span>{' '}
                             <span className="mono">
-                              {formatBytes(rule.lastRun.bytes)} ·{' '}
+                              {rule.mode === 'env'
+                                ? `${t('schedules.env.changes')}: ${rule.lastRun.itemCount}`
+                                : formatBytes(rule.lastRun.bytes)}{' '}
+                              ·{' '}
                               {formatDateTime(
                                 rule.lastRun.startedAt ?? rule.lastRun.plannedAt,
                                 lang,
@@ -708,27 +840,49 @@ export function Schedules({ lang }: Props) {
           {preview && (
             <section className="panel">
               <h2>{tu('schedules.previewTitle')}</h2>
-              <p className="dim">
-                {preview.data.items.length} {t('schedules.previewItems')} ·{' '}
-                {t('schedules.previewTotal')}:{' '}
-                <strong className="mono">{formatBytes(preview.data.totalBytes)}</strong> ·{' '}
-                {preview.data.mode === 'vault' ? t('plan.mode.vault') : preview.data.mode}
-              </p>
-              <ul className="detail-list">
-                {preview.data.items.map((item) => (
-                  <li key={item.key}>
-                    <span className="mono">{item.title}</span>
-                    <span className="dim">
-                      {formatBytes(item.bytes)} · {t(CATEGORY_LABEL[item.category] ?? 'category.unknown')} ·{' '}
-                      {t(RISK_LABEL[item.risk] ?? 'risk.safe')}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              {preview.data.skipped.length > 0 && (
-                <p className="dim">
-                  {t('schedules.previewSkipped')}: {preview.data.skipped.length}
-                </p>
+              {preview.data.mode === 'env' ? (
+                <>
+                  <p className="dim">
+                    {t('schedules.env.changes')}: {preview.data.envChanges.length} ·{' '}
+                    {t('schedules.mode.env')}
+                  </p>
+                  <ul className="detail-list">
+                    {preview.data.envChanges.map((change) => (
+                      <li key={`${change.scope}:${change.name}`}>
+                        <span className="mono">{change.name}</span>
+                        <span className="dim">
+                          {t(SCOPE_LABEL[change.scope])} · {change.reason}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <>
+                  <p className="dim">
+                    {preview.data.items.length} {t('schedules.previewItems')} ·{' '}
+                    {t('schedules.previewTotal')}:{' '}
+                    <strong className="mono">{formatBytes(preview.data.totalBytes)}</strong> ·{' '}
+                    {t('plan.mode.vault')}
+                  </p>
+                  <ul className="detail-list">
+                    {preview.data.items.map((item) => (
+                      <li key={item.key}>
+                        <span className="mono">{item.title}</span>
+                        <span className="dim">
+                          {formatBytes(item.bytes)} ·{' '}
+                          {t(CATEGORY_LABEL[item.category] ?? 'category.unknown')} ·{' '}
+                          {t(RISK_LABEL[item.risk] ?? 'risk.safe')}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {preview.data.skipped.length > 0 && (
+                    <p className="dim">
+                      {t('schedules.previewSkipped')}: {preview.data.skipped.length}
+                    </p>
+                  )}
+                </>
               )}
             </section>
           )}
@@ -764,8 +918,9 @@ export function Schedules({ lang }: Props) {
                     </span>
                     <span className="dim">
                       {t(SCHEDULE_STATUS_LABEL[run.status] ?? 'schedules.status.pending')} ·{' '}
-                      {run.itemCount} {t('schedules.previewItems')} ·{' '}
-                      {formatBytes(run.bytes)}
+                      {run.envBackup ? t('schedules.env.changes') : t('schedules.previewItems')}:{' '}
+                      {run.itemCount} · {formatBytes(run.bytes)}
+                      {run.envBackup ? ` · ${t('schedules.env.backup')}: ${run.envBackup}` : ''}
                       {run.error ? ` · ${run.error}` : ''}
                     </span>
                   </li>

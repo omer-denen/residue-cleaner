@@ -1,16 +1,28 @@
 import { randomBytes } from 'node:crypto';
 import { ApprovalRules } from '../core/approval.ts';
 import {
+  envOptionsOf,
+  envPreview,
   dueNow,
   missedRuns,
   nextRunAt,
   previewRule,
   selectClusters,
   type PlanPreview,
+  type ScheduleEnvOptions,
+  type ScheduleEnvScope,
+  type ScheduleMode,
   type ScheduleRule,
   type ScheduleRun,
   type ScheduleSelector,
 } from '../core/plan-engine.ts';
+import {
+  analyzeEnvironment,
+  applyEnvPlan,
+  planPathCleanup,
+  readEnvironmentSnapshot,
+} from '../core/env-engine.ts';
+import { audit } from '../util/audit.ts';
 import type {
   ScheduleCreateRequest,
   ScheduleUpdateRequest,
@@ -34,8 +46,11 @@ import type { DeleteService, ExecuteJob } from './delete-service.ts';
  * Zamanlama servisi.
  *
  * Sinirlar (kesisen ilkeler):
- *  - Planli islem YALNIZCA kasaya tasir; `purge` yok.
- *  - Ortam degiskeni otomatik duzenlenmez.
+ *  - `vault` planli islem YALNIZCA kasaya tasir; `purge` yok.
+ *  - `env` planli islem PATH temizligi uygular: yazili `TEMIZLE` onayi
+ *    kural OLUSTURULURKEN alinir (`envApprovedAt`), her calismada ortam
+ *    YEDEKLENIR ve `env.scheduled` denetim kaydi yazilir. Onay kaydi
+ *    olmayan kural calismaz.
  *  - Sunucu kapaliyken calismaz; kacirilan calisma "oneri" olarak doner.
  *  - Ayni anda tek plan calisir (dosya kilidi).
  */
@@ -72,7 +87,7 @@ export class ScheduleService {
 
   async create(
     input: ScheduleCreateRequest,
-    approval?: { phrase?: string; require?: boolean },
+    approval?: { phrase?: string; envPhrase?: string; require?: boolean },
   ): Promise<ScheduleView> {
     if (approval?.require && !ApprovalRules.matches('schedule', approval.phrase)) {
       throw new ServiceError(
@@ -82,6 +97,16 @@ export class ScheduleService {
     }
     const now = Date.now();
     const rule = this.build(input, now);
+    // `env` kurali ikinci duvar: yazili TEMIZLE. Onay ani kayda gecer.
+    if (rule.mode === 'env') {
+      if (!ApprovalRules.matches('envClean', approval?.envPhrase)) {
+        throw new ServiceError(
+          400,
+          `Ortam degisikligi icin yazili onay gerekli (${ApprovalRules.phrase('envClean')})`,
+        );
+      }
+      rule.envApprovedAt = now;
+    }
     await upsertRule(rule);
     return this.view(rule, await loadScheduleStore(), now);
   }
@@ -93,7 +118,7 @@ export class ScheduleService {
   async update(
     id: string,
     input: ScheduleUpdateRequest,
-    approval?: { phrase?: string },
+    approval?: { phrase?: string; envPhrase?: string },
   ): Promise<ScheduleView> {
     const store = await loadScheduleStore();
     const base = store.rules.find((r) => r.id === id);
@@ -122,12 +147,26 @@ export class ScheduleService {
         ? { runAt: input.runAt ?? base.runAt }
         : {}),
       selector: input.selector ?? base.selector,
+      mode: input.mode ?? base.mode,
+      ...(input.env !== undefined || base.env !== undefined
+        ? { env: input.env ?? base.env }
+        : {}),
       enabled: input.enabled ?? base.enabled,
       compensateMissed: input.compensateMissed ?? base.compensateMissed,
     };
 
     const now = Date.now();
     const rule = this.build(merged, now, base);
+    // `env` kuralinda kapsam/etkinlestirme degisikligi TEMIZLE onayini da ister.
+    if (rule.mode === 'env' && (enabling || touchesRule)) {
+      if (!ApprovalRules.matches('envClean', approval?.envPhrase)) {
+        throw new ServiceError(
+          400,
+          `Ortam degisikligi icin yazili onay gerekli (${ApprovalRules.phrase('envClean')})`,
+        );
+      }
+      rule.envApprovedAt = now;
+    }
     await upsertRule(rule);
     return this.view(rule, await loadScheduleStore(), now);
   }
@@ -162,13 +201,15 @@ export class ScheduleService {
         ? { maxItems: Math.min(100, Math.max(1, Math.floor(input.selector.maxItems))) }
         : { maxItems: 10 }),
     };
-    // Planli islem yazili onay isteyen riskleri otomatik silemez.
-    if (selector.maxRisk === 'medium' || selector.maxRisk === 'high') {
+    const mode: ScheduleMode = input.mode === 'env' ? 'env' : 'vault';
+    // Planli islem yazili onay isteyen riskleri otomatik silemez (yalniz vault).
+    if (mode === 'vault' && (selector.maxRisk === 'medium' || selector.maxRisk === 'high')) {
       throw new ServiceError(
         400,
         'Planli islem en fazla "low" risk kapsayabilir; orta/yuksek risk elle onay ister',
       );
     }
+    const env = mode === 'env' ? this.buildEnv(input.env) : undefined;
 
     return {
       id: base?.id ?? newId(),
@@ -186,11 +227,31 @@ export class ScheduleService {
           }
         : {}),
       selector,
-      mode: 'vault',
+      mode,
+      ...(env ? { env } : {}),
+      ...(mode === 'env' && typeof base?.envApprovedAt === 'number'
+        ? { envApprovedAt: base.envApprovedAt }
+        : {}),
       enabled: input.enabled !== false,
       createdAt: base?.createdAt ?? now,
       compensateMissed: input.compensateMissed !== false,
     };
+  }
+
+  /** `env` seceneklerini dogrular; verilmeyen alan varsayilan alir. */
+  private buildEnv(input: ScheduleEnvOptions | undefined): ScheduleEnvOptions {
+    const scopeRaw = input?.scope;
+    const scope: ScheduleEnvScope =
+      scopeRaw === 'machine' || scopeRaw === 'both' || scopeRaw === 'user' ? scopeRaw : 'user';
+    const removeMissing = input?.removeMissing !== false;
+    const removeDuplicates = input?.removeDuplicates !== false;
+    if (!removeMissing && !removeDuplicates) {
+      throw new ServiceError(
+        400,
+        'Ortam plani en az bir temizlik kurali secmeli (olmayan dizin veya tekrar)',
+      );
+    }
+    return { scope, removeMissing, removeDuplicates };
   }
 
   async remove(id: string): Promise<void> {
@@ -219,17 +280,28 @@ export class ScheduleService {
   }
 
   async preview(id: string): Promise<PlanPreview> {
-    await this.scan.ensureCacheLoaded();
     const store = await loadScheduleStore();
     const rule = store.rules.find((r) => r.id === id);
     if (!rule) throw new ServiceError(404, 'Plan bulunamadi');
+    if (rule.mode === 'env') {
+      if (process.platform !== 'win32') {
+        throw new ServiceError(400, 'Ortam temizligi yalnizca Windows kayit defterinde calisir');
+      }
+      const analysis = analyzeEnvironment(await readEnvironmentSnapshot());
+      const plan = planPathCleanup(analysis, envOptionsOf(rule));
+      return envPreview(
+        rule,
+        plan.changes.map((c) => ({ scope: c.scope, name: c.name, reason: c.reason })),
+      );
+    }
+    await this.scan.ensureCacheLoaded();
     const last = this.scan.last();
     if (!last) throw new ServiceError(400, 'Once tarama yapilmali');
     return previewRule(rule, last.scan.clusters);
   }
 
   /**
-   * Plani hemen calistirir. Yalnizca "recycle" (kasa) modu kullanilir.
+   * Plani hemen calistirir. `vault` kasa tasima, `env` PATH temizligi.
    * Donen `run`, tamamlanana kadar beklenir.
    */
   async run(id: string, opts: { maxWaitMs?: number } = {}): Promise<ScheduleRun> {
@@ -254,6 +326,10 @@ export class ScheduleService {
 
     try {
       await addRun(run);
+      if (rule.mode === 'env') {
+        await this.runEnv(rule, run);
+        return run;
+      }
       await this.scan.ensureCacheLoaded();
       const last = this.scan.last();
       if (!last) {
@@ -315,6 +391,74 @@ export class ScheduleService {
       throw err;
     } finally {
       await releaseRunLock(owner);
+    }
+  }
+
+  /**
+   * `env` kuralinin calismasi: PATH temizligini hesaplar, YEDEKLER, uygular.
+   *
+   * Onay kural olusturulurken alinmistir (`envApprovedAt`); kayit yoksa
+   * calisma reddedilir. `applyEnvPlan` yazili ifade ister: burada kanonik
+   * ifade gecilir cunku onay kaydi ve denetim izi kalici olarak tutulur.
+   */
+  private async runEnv(rule: ScheduleRule, run: ScheduleRun): Promise<void> {
+    const finish = async (status: ScheduleRun['status'], error?: string): Promise<void> => {
+      run.status = status;
+      if (error) run.error = error;
+      run.startedAt = run.startedAt ?? Date.now();
+      run.finishedAt = Date.now();
+      rule.lastRunAt = Date.now();
+      await upsertRule(rule);
+      await updateRun(run);
+    };
+
+    if (process.platform !== 'win32') {
+      await finish('failed', 'Ortam temizligi yalnizca Windows kayit defterinde calisir');
+      return;
+    }
+    if (typeof rule.envApprovedAt !== 'number') {
+      await finish(
+        'failed',
+        'Yazili TEMIZLE onayi kaydi yok; kurali yeniden kaydedin (onaysiz otomasyon calismaz)',
+      );
+      return;
+    }
+
+    try {
+      const options = envOptionsOf(rule);
+      const analysis = analyzeEnvironment(await readEnvironmentSnapshot());
+      const plan = planPathCleanup(analysis, options);
+      run.startedAt = Date.now();
+      await updateRun(run);
+      if (plan.empty) {
+        await finish('done');
+        return;
+      }
+      const result = await applyEnvPlan(plan, {
+        phrase: ApprovalRules.phrase('envClean'),
+        reason: `planli temizlik: ${rule.name}`,
+      });
+      run.itemCount = result.applied;
+      run.envBackup = result.backupFile ?? undefined;
+      const changes = plan.changes.map((c) => ({ scope: c.scope, name: c.name, reason: c.reason }));
+      void audit('env.scheduled', {
+        ruleId: rule.id,
+        ruleName: rule.name,
+        approvedAt: rule.envApprovedAt,
+        scope: options.scope,
+        applied: result.applied,
+        failed: result.failed,
+        backup: result.backupFile,
+        changes,
+      });
+      await finish(
+        result.ok ? 'done' : 'failed',
+        result.ok
+          ? undefined
+          : result.errors.map((e) => `${e.scope}:${e.name} — ${e.reason}`).join('; '),
+      );
+    } catch (err) {
+      await finish('failed', err instanceof Error ? err.message : String(err));
     }
   }
 

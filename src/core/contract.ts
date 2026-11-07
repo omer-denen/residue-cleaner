@@ -20,7 +20,9 @@ import type {
 } from './dependency-graph.ts';
 import type { EnvFinding, EnvFindingKind, EnvPlan } from './env-engine.ts';
 import type {
+  ScheduleEnvOptions,
   ScheduleFrequency,
+  ScheduleMode,
   ScheduleRule,
   ScheduleRun,
   ScheduleSelector,
@@ -844,8 +846,12 @@ export type {
   ProjectRecipe,
 } from './project-deps.ts';
 export type {
+  EnvChangePreview,
   PlanPreview,
+  ScheduleEnvOptions,
+  ScheduleEnvScope,
   ScheduleFrequency,
+  ScheduleMode,
   ScheduleRule,
   ScheduleRun,
   ScheduleSelector,
@@ -853,7 +859,7 @@ export type {
 export type { PlanRecord, PlanRecordStatus, PlanRecordSource } from './plan-records.ts';
 
 // ---------------------------------------------------------------------------
-// Planlar / zamanlama (M4) — yalniz KASAYA tasir
+// Planlar / zamanlama (M4) — `vault` kasaya tasir; `env` PATH temizler
 // ---------------------------------------------------------------------------
 
 export interface ScheduleView extends ScheduleRule {
@@ -871,10 +877,16 @@ export interface ScheduleCreateRequest {
   weekday?: number;
   runAt?: number;
   selector?: ScheduleSelector;
+  /** `vault` (varsayilan) veya `env` (PATH temizligi). */
+  mode?: ScheduleMode;
+  /** Yalniz `mode: 'env'` icin. */
+  env?: ScheduleEnvOptions;
   enabled?: boolean;
   compensateMissed?: boolean;
   /** API icin yazili onay (ApprovalRules.schedule = PLANLA). */
   phrase?: string;
+  /** `env` kuralinda ikinci duvar: yazili TEMIZLE (ApprovalRules.envClean). */
+  envPhrase?: string;
 }
 
 /** Kismi guncelleme: yalniz verilen alanlar degisir. */

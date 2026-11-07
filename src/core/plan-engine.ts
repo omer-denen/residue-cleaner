@@ -13,6 +13,45 @@ import type { Cluster, Risk } from './types.ts';
 export type ScheduleFrequency = 'once' | 'daily' | 'weekly';
 export type ScheduledStatus = 'pending' | 'running' | 'done' | 'missed' | 'failed' | 'cancelled';
 
+/**
+ * Planli islem turu.
+ *
+ * - `vault`: secilen kumeleri KASAYA tasir (kalici silme yok).
+ * - `env`: PATH temizligi uygular; kural olusturulurken yazili `TEMIZLE`
+ *   onayi alinir, her calismada ortam YEDEKLENIR ve denetim kaydi yazilir.
+ *
+ * Konsolidasyon (coklu kurulumu birlestirme) henuz plan turu DEGILDIR.
+ */
+export type ScheduleMode = 'vault' | 'env';
+
+/** Ortam kapsami: kullanici (HKCU), makine (HKLM) veya ikisi. */
+export type ScheduleEnvScope = 'user' | 'machine' | 'both';
+
+export interface ScheduleEnvOptions {
+  scope: ScheduleEnvScope;
+  /** Diskte olmayan PATH girdilerini kaldir. */
+  removeMissing: boolean;
+  /** Baska bir girdinin tekrari olan PATH girdilerini kaldir. */
+  removeDuplicates: boolean;
+}
+
+export const DEFAULT_ENV_OPTIONS: ScheduleEnvOptions = {
+  scope: 'user',
+  removeMissing: true,
+  removeDuplicates: true,
+};
+
+/** Kuraldaki ortam seceneklerini guvenli varsayilanlarla dondurur. */
+export function envOptionsOf(rule: Pick<ScheduleRule, 'env'>): ScheduleEnvOptions {
+  const scope = rule.env?.scope;
+  return {
+    scope: scope === 'machine' || scope === 'both' ? scope : 'user',
+    removeMissing: rule.env?.removeMissing !== false,
+    removeDuplicates: rule.env?.removeDuplicates !== false,
+  };
+}
+
+
 export interface ScheduleSelector {
   /** Belirli kume anahtarlari (bos = kategori/risk secimi). */
   keys?: string[];
@@ -38,7 +77,14 @@ export interface ScheduleRule {
   /** once icin mutlak zaman (ms). */
   runAt?: number;
   selector: ScheduleSelector;
-  mode: 'vault';
+  mode: ScheduleMode;
+  /** Yalniz `mode: 'env'` icin; yoksa varsayilanlar kullanilir. */
+  env?: ScheduleEnvOptions;
+  /**
+   * `env` kuralinda yazili `TEMIZLE` onayinin verildigi an. Kayit yoksa
+   * calisma ANINDA reddedilir (onaysiz otomasyon yok).
+   */
+  envApprovedAt?: number;
   enabled: boolean;
   createdAt: number;
   lastRunAt?: number;
@@ -59,6 +105,8 @@ export interface ScheduleRun {
   itemCount: number;
   bytes: number;
   journalPath?: string;
+  /** `env` calismasinda yazilan ortam yedegi dosyasi. */
+  envBackup?: string;
   error?: string;
 }
 
@@ -169,13 +217,19 @@ export function selectClusters(rule: ScheduleRule, clusters: Cluster[]): Cluster
   return out.slice(0, Math.max(1, max));
 }
 
+export interface EnvChangePreview {
+  scope: 'user' | 'machine';
+  name: string;
+  reason: string;
+}
+
 export interface PlanPreview {
   ruleId: string;
   items: Array<{ key: string; title: string; bytes: number; category: CategoryKey; risk: Risk }>;
   totalBytes: number;
   skipped: Array<{ key: string; reason: string }>;
-  mode: 'vault';
-  envChanges: never[];
+  mode: ScheduleMode;
+  envChanges: EnvChangePreview[];
 }
 
 /** Calisma aninda onizleme; hicbir sey silmez/yazmaz. */
@@ -197,5 +251,20 @@ export function previewRule(rule: ScheduleRule, clusters: Cluster[]): PlanPrevie
       .filter((c) => !selected.includes(c))
       .slice(0, 50)
       .map((c) => ({ key: c.key, reason: 'secici kosullarini saglamadi veya limit disinda' })),
+  };
+}
+
+/**
+ * `env` kuralinin onizlemesi: kume yok, PATH degisiklikleri listelenir.
+ * Hicbir sey yazilmaz; yalniz gosterim.
+ */
+export function envPreview(rule: ScheduleRule, changes: readonly EnvChangePreview[]): PlanPreview {
+  return {
+    ruleId: rule.id,
+    mode: 'env',
+    items: [],
+    totalBytes: 0,
+    skipped: [],
+    envChanges: changes.map((c) => ({ scope: c.scope, name: c.name, reason: c.reason })),
   };
 }

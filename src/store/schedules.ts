@@ -38,7 +38,7 @@ export async function loadScheduleStore(): Promise<ScheduleStore> {
     const j = JSON.parse(await readFile(longPath(schedulesPath()), 'utf8')) as Partial<ScheduleStore>;
     return {
       version: 1,
-      rules: Array.isArray(j.rules) ? j.rules.filter(isRule) : [],
+      rules: Array.isArray(j.rules) ? j.rules.filter(isRule).map(normalizeRule) : [],
       runs: Array.isArray(j.runs) ? j.runs.filter(isRun) : [],
     };
   } catch {
@@ -133,8 +133,35 @@ function isRule(x: unknown): x is ScheduleRule {
     typeof r.minute === 'number' &&
     typeof r.createdAt === 'number' &&
     typeof r.enabled === 'boolean' &&
-    r.mode === 'vault'
+    (r.mode === undefined || r.mode === 'vault' || r.mode === 'env')
   );
+}
+
+/**
+ * Eski kayitlar `mode` alani tasimaz → `vault` sayilir. `env` kuralinin
+ * secenekleri bozuksa varsayilanlara cekilir; onay kaydi (`envApprovedAt`)
+ * YALNIZ gecerli sayi ise korunur (uydurulmaz).
+ */
+function normalizeRule(rule: ScheduleRule): ScheduleRule {
+  const mode = rule.mode === 'env' ? 'env' : 'vault';
+  if (mode === 'vault') {
+    const { env: _env, envApprovedAt: _at, ...rest } = rule;
+    return { ...rest, mode: 'vault' };
+  }
+  const scope = rule.env?.scope;
+  const { envApprovedAt, ...rest } = rule;
+  return {
+    ...rest,
+    mode: 'env',
+    env: {
+      scope: scope === 'machine' || scope === 'both' ? scope : 'user',
+      removeMissing: rule.env?.removeMissing !== false,
+      removeDuplicates: rule.env?.removeDuplicates !== false,
+    },
+    ...(typeof envApprovedAt === 'number' && Number.isFinite(envApprovedAt)
+      ? { envApprovedAt }
+      : {}),
+  };
 }
 
 function isRun(x: unknown): x is ScheduleRun {
