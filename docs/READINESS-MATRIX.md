@@ -1,4 +1,4 @@
-# READINESS MATRIX — 0.3.0-beta.0 (T74 / W0-a)
+# READINESS MATRIX — 0.3.0-beta.1 (T74 / W0-a)
 
 > **Durum:** guncellendi 06.11.2026; 750 test; kapsam satir **%86.29** / dal **%80.15** / fonksiyon **%80.32** (03.11.2026 olcumu); agirlikli skor **85.00**; beta kapisi **✅ (kosullu)**.
 > **Kapsam:** alpha/beta kapıları + E2E senaryo kataloğu (CLI, SAFE, ERR,
@@ -159,17 +159,17 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 | ID | Senaryo | Kabul | Durum |
 |---|---|---|---|
 | SAFE-01 | `report-only` küme | 0 silme hedefi | ✅ |
-| SAFE-02 | Git tracked dosya | Hiçbir koşulda hedef değil | 🟡 (`scratch/test-root-git.ts`) |
+| SAFE-02 | Git tracked dosya | Hiçbir koşulda hedef değil | ✅ (otomatik `tests/safety-fs.test.ts` (gercek `git init`, tracked dosya/klasor)) (`scratch/test-root-git.ts`) |
 | SAFE-03 | Kendi veri dizini | Aday gösterilmez; guard reddeder | ✅ |
 | SAFE-04 | Ajan çalışma alanı | `agent-workspace`; 0 hedef | ✅ |
 | SAFE-05 | Proje artefaktı | `project-artifact`; 0 hedef | ✅ |
 | SAFE-06 | Model deposu | Varsayılan 0 hedef; yalnız `--nuke-models` | ✅ |
 | SAFE-07 | Korumalı yolun atası | `guard` reddeder | ✅ |
-| SAFE-08 | Junction / symlink | Bağ hedefi korunur | 🟡 (`scratch/test-junction.ts`) |
+| SAFE-08 | Junction / symlink | Bağ hedefi korunur | ✅ (otomatik `tests/safety-fs.test.ts` (gercek junction; bag hedefi korunur)) (`scratch/test-junction.ts`) |
 | SAFE-09 | Kasa geri yükleme | Çakışmada `.restored-*`; atomik | ✅ |
 | SAFE-10 | Kalıcı silme | `SIL` yazılı onayı olmadan yok | ✅ |
 | SAFE-11 | Kasa taşıma | `TASI`; orta riskte `SIL` kabul edilmez | ✅ |
-| SAFE-12 | Profil değişimi | Sayı/hedef/plan/ifade değişmez | ❌ (T74) |
+| SAFE-12 | Profil değişimi | Sayı/hedef/plan/ifade değişmez | ✅ (otomatik `tests/profile-api.test.ts`: PROFILE-03/04/05) |
 
 ### 5.3 ERR (hata yolları)
 
@@ -180,21 +180,21 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 | ERR-03 | Keşif sınırı | `truncated` görünür; yarım liste "tam" sayılmaz | ✅ |
 | ERR-04 | Yarım işlem | Journal `interrupted`; `recover` raporlar | ✅ |
 | ERR-05 | Geçici hata | En fazla 3 deneme; iptal fatal değil | ✅ |
-| ERR-06 | Geçersiz JSON gövde | 400; süreç ayakta | 🟡 |
-| ERR-07 | 1 MB üstü gövde | 413; bağlantı kapanır | 🟡 |
-| ERR-08 | Plan TTL / eski plan | 404/410; execute etmez | 🟡 |
+| ERR-06 | Geçersiz JSON gövde | 400; süreç ayakta | ✅ (otomatik `tests/api.test.ts` (gecersiz JSON 400, surec ayakta)) |
+| ERR-07 | 1 MB üstü gövde | 413; bağlantı kapanır | ✅ (otomatik `tests/api.test.ts` (1 MB ustu govde 413)) |
+| ERR-08 | Plan TTL / eski plan | 404/410; execute etmez | ✅ (otomatik `tests/plan-ttl.test.ts` (TTL dolunca 410/404, execute etmez)) |
 
 ### 5.4 SEC (HTTP kapıları)
 
 | ID | Senaryo | Kabul | Durum |
 |---|---|---|---|
 | SEC-01 | Token yok | 401 | ✅ |
-| SEC-02 | Yabancı `Host` / `Origin` | 403 | ✅ (Host) / 🟡 (Origin) |
-| SEC-03 | Yalnız `127.0.0.1` | Dış arayüz dinlenmez | 🟡 |
+| SEC-02 | Yabancı `Host` / `Origin` | 403 | ✅ (Host) / ✅ (otomatik `tests/api.test.ts` (yabanci Origin 403; Host kapisi)) (Origin) |
+| SEC-03 | Yalnız `127.0.0.1` | Dış arayüz dinlenmez | ✅ (otomatik `tests/api.test.ts` (sunucu yalniz 127.0.0.1 dinler)) |
 | SEC-04 | Çerez | `HttpOnly` + `SameSite=Strict` | ✅ |
 | SEC-05 | URL/HTML'de token | Yok | ✅ |
 | SEC-06 | İstemci yol göndermez | Yalnız anahtar/kimlik | 🟡 (kod denetimi + shell-boundary) |
-| SEC-07 | Gövde sınırı | 1 MB; aşımda 413 | 🟡 |
+| SEC-07 | Gövde sınırı | 1 MB; aşımda 413 | ✅ (otomatik `tests/api.test.ts` (1 MB govde siniri, 413)) |
 | SEC-08 | HKLM env yazma | Yönetici + `TEMIZLE` + yedek | 🟡 |
 
 ### 5.5 API
@@ -210,7 +210,7 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 | API-07 | Env planı | `TEMIZLE` + plan kimliği | ✅ |
 | API-08 | Vault purge | Yanlış ifade 400 | ✅ |
 | API-09 | Graf what-if | Boş istek 400 | ✅ |
-| API-10 | SSE `Last-Event-ID` | Kaçırılan olaylar tampondan gelir | 🟡 |
+| API-10 | SSE `Last-Event-ID` | Kaçırılan olaylar tampondan gelir | ✅ (otomatik `tests/sse-resume.test.ts` (A..F: Last-Event-ID replay + tampon tavani)) |
 
 ### 5.6 PARITY (CLI ↔ API)
 
@@ -263,21 +263,21 @@ Durum: ✅ otomatik · 🟡 kısmi/elle · ❌ yok.
 | ID | Senaryo | Kabul | Durum |
 |---|---|---|---|
 | WEB-01 | İlk açılış / onboarding | 3 persona; varsayılan melez; atlanabilir | ✅ (T74/W2; elle, ego-browser) |
-| WEB-02 | Disk tarama SSE | Canlı liste; iptal/duraklat/devam | 🟡 |
-| WEB-03 | Plan + `TASI` | Özet; yüksek risk işareti; yazılı onay | 🟡 |
-| WEB-04 | Kasa | Geri yükleme; çakışma; seçili boşaltma · denetim filtresi + CSV/JSON dışa aktarma (B24, elle doğrulandı) | 🟡 |
-| WEB-05 | Araçlar | `SIL` planı; bağımlılık engeli | 🟡 |
-| WEB-06 | PATH & Ortam | `TEMIZLE` duvarı; yedek dosyası | 🟡 |
-| WEB-07 | Graf | What-if engeli gerekçeli | 🟡 |
-| WEB-08 | Planlar | `PLANLA`; önizleme; çalıştır/sil | 🟡 |
+| WEB-02 | Disk tarama SSE | Canlı liste; iptal/duraklat/devam | ✅ (E2E `02-disk-scan` (canli liste + iki adimli iptal + gecmis kaydi)) |
+| WEB-03 | Plan + `TASI` | Özet; yüksek risk işareti; yazılı onay | ✅ (E2E `03-plan-vault` (plan + `TASI`; yanlis ifade kapali)) |
+| WEB-04 | Kasa | Geri yükleme; çakışma; seçili boşaltma · denetim filtresi + CSV/JSON dışa aktarma (B24, elle doğrulandı) | ✅ (E2E `04-vault-restore` (geri yukleme + cakisma `.restored-*`)) |
+| WEB-05 | Araçlar | `SIL` planı; bağımlılık engeli | ✅ (E2E `05-tools-sil` (kanit + `SIL` duvari; kaldirma calistirilmaz)) |
+| WEB-06 | PATH & Ortam | `TEMIZLE` duvarı; yedek dosyası | ✅ (E2E `06-env-clean` (plan + `TEMIZLE` duvari; uygulanmaz)) |
+| WEB-07 | Graf | What-if engeli gerekçeli | ✅ (E2E `07-graph-whatif` (dugum testi; engellenen ornegi yok — birim testi)) |
+| WEB-08 | Planlar | `PLANLA`; önizleme; çalıştır/sil | ✅ (E2E `08-schedules` (`PLANLA` + onizleme + iki adimli silme)) |
 | WEB-09 | Ayarlar | Kaydet; kapalı güncelleme ağ isteği yok | ✅ (T64/P4: salt okunur "Arka planda" bloğu) |
-| WEB-10 | Klavye-only tur | Tüm akış; odak tuzağı; `Esc` | 🟡 |
-| WEB-11 | Ekran okuyucu | `aria-*`, canlı bölge, `role=alert` | 🟡 |
+| WEB-10 | Klavye-only tur | Tüm akış; odak tuzağı; `Esc` | ✅ (E2E `10-keyboard` (skip-link, `?`, `/`, rail roving tabindex)) |
+| WEB-11 | Ekran okuyucu | `aria-*`, canlı bölge, `role=alert` | ✅ (E2E `11-screen-reader` (tek main/h1, adsiz dugme 0, canli bolge, progressbar)) |
 | WEB-12 | `prefers-reduced-motion` | Animasyon kapanır | ✅ global `*` kuralı (`web/src/styles.css:4705-4714`) tüm animasyon/geçişi kapatır |
-| WEB-13 | TR/EN | Tüm yeni ekranlar | 🟡 |
-| WEB-14 | Dar ekran (≤820px) | Menü paneli; taşma yok | 🟡 |
+| WEB-13 | TR/EN | Tüm yeni ekranlar | ✅ (E2E `13-lang` (TR/EN + `lang` + kalicilik)) |
+| WEB-14 | Dar ekran (≤820px) | Menü paneli; taşma yok | ✅ (E2E `14-narrow` (1100/780 px, cekmece, tasma yok)) |
 | WEB-15 | Hata durumları | 401/403/404/500 kullanıcıya görünür | ✅ `role=alert` bandı gerçek tarayıcıda 500 ile doğrulandı (`App.tsx:1086-1089`) |
-| WEB-16 | Yeniden bağlanma | SSE `Last-Event-ID`; sayaç | 🟡 |
+| WEB-16 | Yeniden bağlanma | SSE `Last-Event-ID`; sayaç | ✅ (E2E `16-sse-resume` (akis kopmasi + otomatik yeniden baglanma)) |
 | WEB-17 | F5 kanıt rozetleri | state/history/atime/install ayrımı | ✅ motor `F5-1..F5-4`; TR/EN etiket testi; gerçek tarayıcıda dört sinyal + atime uyarısı görüldü |
 | WEB-18 | Sağ panel | Modül seçimi; planlananlar; TTL temizliği | ✅ (T64/P1: gizle/göster menüsü, `localStorage`, son modül korunur) |
 
@@ -319,9 +319,12 @@ güncellenmez.
 2. **Git tracked + junction koruması (kapandı)** — 03.11.2026'dan beri
    otomatik: `tests/safety-fs.test.ts` gerçek `git init` + junction hedefini
    doğrular; scratch kanıtı tarihsel.
-3. **Web UI otomatik E2E yok** — M5, B24, B19/B21, T74/W2 ve PROFILE-07
-   **elle** doğrulandı (ego-browser); WEB-15/WEB-17 ve PROFILE-07 tarayıcıda
-   kanıtlandı. Otomatik tarayıcı E2E'si hâlâ yok.
+3. **Web UI otomatik E2E (kapandı 07.11.2026)** — 12 senaryo, 123/123
+   kontrol: WEB-02/03/04/05/06/07/08/10/11/13/14/16 (`npm run e2e`,
+   `docs/E2E.md`). Önceki elle doğrulamalar (M5, B24, B19/B21, T74/W2,
+   PROFILE-07) tarihsel kanıt olarak duruyor. Bilinen sınır: WEB-07
+   "engellenen" örneği sandbox'ta üretilemiyor (birim testleri kapsıyor);
+   WEB-05/WEB-06 gerçek kaldırma/temizlik çalıştırmıyor.
 4. **Backlog hijyeni** — tamamlanan iş açık kalabiliyordu: B23 (27.10,
    `a8e7110`) ve B24 (28.10, `fd87707`) backlog'da hâlâ `planned`, B22
    `done` ama `doneAt`/`commit` yoktu. 28.10.2026'da üçü `done` + commit ile
