@@ -1,5 +1,10 @@
 # Devir — 2026-11-07 (b) — Beta kapanışı
 
+> **Ara taslak.** Aynı oturumun nihai devir kaydı
+> [`docs/HANDOVER-2026-11-08.md`](./HANDOVER-2026-11-08.md) — yayın
+> (`0.3.0-beta.1`), kabul matrisi (86 ✅ · 5 🟡) ve kararlı sürüm kararı
+> orada. Çelişkide o belge geçerlidir.
+
 ## Kapsam
 
 Bu oturumda backlog sıfırlandı ve beta kapısı kapatıldı:
