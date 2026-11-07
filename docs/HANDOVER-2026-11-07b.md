@@ -16,6 +16,9 @@ Bu oturumda backlog sıfırlandı ve beta kapısı kapatıldı:
 | **E2E** | Otomatik tarayıcı kapısı | 12 senaryo, **123/123 kontrol** |
 
 Sürüm: **`0.3.0-beta.1`** (`latest` kararlı sürümde kalır).
+Yayın (07.11.2026): `npm publish --tag beta` → `{ latest: '2.2.0', beta: '0.3.0-beta.1' }`;
+paket 143 dosya / 509.5 kB; shasum `8a6d8fb99b37aa419dfddfc9d67658a492ea7f9f`;
+tag `v0.3.0-beta.1` GitHub'a gönderildi.
 Test: **824/824** · typecheck temiz · `build:web` temiz · `smoke` +
 `smoke:package` temiz · `npm run e2e` temiz (iki ardışık koşu).
 
