@@ -668,6 +668,7 @@ export function App() {
         key={id}
         type="button"
         className={`rail-item${screen === id ? ' active' : ''}`}
+        data-screen={id}
         aria-current={screen === id ? 'page' : undefined}
         tabIndex={screen === id ? 0 : -1}
         title={label}
@@ -1039,6 +1040,7 @@ export function App() {
         <main
           className={`main${screen === 'disk' ? ' main-fill' : ''}`}
           id="main"
+          data-screen={screen}
           tabIndex={-1}
           aria-label={t('a11y.main')}
           aria-busy={loading || refreshing}
