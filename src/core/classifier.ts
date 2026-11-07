@@ -405,7 +405,9 @@ export async function probeDir(path: string): Promise<Probe> {
 
   // Paket yoneticisi depolarini YAPIDAN tani (T32): pnpm / yarn / bun.
   // Genel "cache" adi tek basina kanit DEGILDIR.
-  await probePackageManagerStore(path, p);
+  // B14: kok girdileri disaridan verilir; ayni klasor icin IKINCI readdir
+  // atilmaz. Kanit AYNI listeden okunur, karar degismez.
+  await probePackageManagerStore(path, p, entries);
 
   // Komut shim'i + node_modules: global paket kurulumu (npm prefix).
   if (hasShim) p.markers.push('shim-dir');
@@ -496,11 +498,12 @@ export async function probeDir(path: string): Promise<Probe> {
   // bulunana kadar derinlemesine arama yapilir — "logs" tek basina
   // yeterli bir sinyal degildir.
   if (!hasSubstantiveSignal(p)) {
-    await deepProbe(path, p, 3);
+    // B14: kok listesi yeniden okunmaz; ayni `entries` derin proba verilir.
+    await deepProbe(path, p, 3, entries);
   }
 
   // --- package.json: gercek kimlik kaynagi ---
-  const pkg = await probePackageJson(path);
+  const pkg = await probePackageJson(path, entries);
   if (pkg) p.owner = pkg;
 
   // --- Klasor adindan kimlik (kanit, kesin gercek degil) ---
@@ -599,11 +602,17 @@ function hasSubstantiveSignal(p: Probe): boolean {
   return false;
 }
 
-async function deepProbe(dir: string, p: Probe, depth: number): Promise<void> {
+async function deepProbe(
+  dir: string,
+  p: Probe,
+  depth: number,
+  /** B14: kok zaten okunduysa ayni liste kullanilir (tekrar readdir yok). */
+  seen?: Dirent[],
+): Promise<void> {
   if (depth <= 0) return;
   let entries;
   try {
-    entries = await readdir(longPath(dir), { withFileTypes: true });
+    entries = seen ?? (await readdir(longPath(dir), { withFileTypes: true }));
   } catch {
     return;
   }
@@ -963,11 +972,11 @@ async function readJsonSafe(file: string): Promise<Record<string, unknown> | nul
  * taranan klasorden farkliysa `cacheRoot` olarak isaretlenir ve silme
  * hedefi YALNIZCA o alt klasor olur.
  */
-async function probePackageManagerStore(path: string, p: Probe): Promise<void> {
+async function probePackageManagerStore(path: string, p: Probe, entries?: Dirent[]): Promise<void> {
   const hit =
-    (await findPnpmStore(path)) ??
-    (await findYarnCache(path)) ??
-    (await findBunCache(path));
+    (await findPnpmStore(path, entries)) ??
+    (await findYarnCache(path, entries)) ??
+    (await findBunCache(path, entries));
   if (!hit) return;
   p.markers.push('store', hit.marker);
   if (normLocal(hit.root) !== normLocal(path)) p.cacheRoot = hit.root;
@@ -988,6 +997,30 @@ function normLocal(p: string): string {
   return p.replace(/[\\/]+$/, '').toLowerCase();
 }
 
+/**
+ * B14: kok girdilerinde bir alt klasor var mi?
+ *
+ * Amac YALNIZCA gereksiz syscall'i onlemek: liste verilmediginde `true`
+ * doner ve eski davranis korunur. Karar kaniti listeden okunur; boylece
+ * ayni klasor icin ikinci bir `readdir` atilmaz (Windows'ta her basarisiz
+ * `readdir`/`stat` AV gecikmesiyle ~0.2 ms ekler).
+ */
+function hasChildDir(entries: Dirent[] | undefined, name: string): boolean {
+  if (!entries) return true;
+  const n = name.toLowerCase();
+  // Sembolik bag/junction da "var" sayilir: hedefte gercek bir klasor
+  // olabilir ve onceki davranis (kosulsuz readdir) kaniti okuyordu.
+  return entries.some((e) => e.name.toLowerCase() === n && (e.isDirectory() || e.isSymbolicLink()));
+}
+
+/** B14: hazir kok listesinden surum klasorlerini sec (tekrar readdir yok). */
+function versionDirsFrom(entries: Dirent[], dir: string, max = 8): string[] {
+  return entries
+    .filter((e) => e.isDirectory() && VERSION_DIR_RE.test(e.name))
+    .slice(0, max)
+    .map((e) => join(dir, e.name));
+}
+
 async function childDirs(
   dir: string,
   match: (name: string) => boolean,
@@ -1006,22 +1039,26 @@ async function childDirs(
  * onek + uzun hex dosya adi) ve genelde yanindaki `index` klasoru.
  * Ad ("pnpm") tek basina kanit sayilmaz.
  */
-async function findPnpmStore(root: string): Promise<StoreHit | null> {
+async function findPnpmStore(root: string, rootEntries?: Dirent[]): Promise<StoreHit | null> {
   const base = root.split('\\').filter(Boolean).pop()?.toLowerCase() ?? '';
   const candidates: string[] = [root];
-  if (base !== 'store') candidates.push(join(root, 'store'));
+  if (base !== 'store' && hasChildDir(rootEntries, 'store')) candidates.push(join(root, 'store'));
 
   const storeBase = base === 'store' ? root : join(root, 'store');
-  candidates.push(...(await childDirs(storeBase, (n) => VERSION_DIR_RE.test(n))));
+  if (base === 'store' || hasChildDir(rootEntries, 'store')) {
+    candidates.push(...(await childDirs(storeBase, (n) => VERSION_DIR_RE.test(n))));
+  }
   // Taranan klasor dogrudan surum deposu ise (store\v10) yukarida root zaten denenir.
 
   for (const c of candidates) {
-    if (await isPnpmFilesStore(c)) return { root: c, marker: 'pnpm-store' };
+    const ents = c === root ? rootEntries : undefined;
+    if (await isPnpmFilesStore(c, ents)) return { root: c, marker: 'pnpm-store' };
   }
   return null;
 }
 
-async function isPnpmFilesStore(dir: string): Promise<boolean> {
+async function isPnpmFilesStore(dir: string, ents?: Dirent[]): Promise<boolean> {
+  if (!hasChildDir(ents, 'files')) return false;
   const files = join(dir, 'files');
   if (!existsSync(longPath(files))) return false;
   const prefixes = (await readdirSafe(files))?.filter(
@@ -1039,30 +1076,36 @@ async function isPnpmFilesStore(dir: string): Promise<boolean> {
  * yarn: v1 icin `v6/v8` altinda `.yarn-metadata.json` tasiyan paket
  * klasorleri; Berry icin `*-npm-*.zip` arsivleri. Ikisi de yapidir.
  */
-async function findYarnCache(root: string): Promise<StoreHit | null> {
+async function findYarnCache(root: string, rootEntries?: Dirent[]): Promise<StoreHit | null> {
   const candidates: string[] = [root, join(root, 'Cache'), join(root, 'cache')];
   for (const base of [root, join(root, 'Cache'), join(root, 'cache')]) {
-    candidates.push(...(await childDirs(base, (n) => VERSION_DIR_RE.test(n))));
+    if (base === root && rootEntries) {
+      // B14: kok zaten okundu; surum klasorleri ayni listeden secilir.
+      candidates.push(...versionDirsFrom(rootEntries, root));
+    } else if (hasChildDir(rootEntries, base === join(root, 'Cache') ? 'Cache' : 'cache')) {
+      candidates.push(...(await childDirs(base, (n) => VERSION_DIR_RE.test(n))));
+    }
   }
   candidates.push(join(root, 'Berry', 'cache'), join(root, 'berry', 'cache'));
 
   for (const c of candidates) {
-    if (await isYarnCacheDir(c)) return { root: c, marker: 'yarn-cache' };
+    const ents = c === root ? rootEntries : undefined;
+    if (await isYarnCacheDir(c, ents)) return { root: c, marker: 'yarn-cache' };
   }
   return null;
 }
 
-async function isYarnCacheDir(dir: string): Promise<boolean> {
-  const ents = await readdirSafe(dir);
-  if (!ents) return false;
+async function isYarnCacheDir(dir: string, ents?: Dirent[]): Promise<boolean> {
+  const entries = ents ?? (await readdirSafe(dir));
+  if (!entries) return false;
 
   // Berry: paket arsivleri (adinda -npm- gecen .zip)
-  const zips = ents.filter((e) => e.isFile() && /-npm-.*\.zip$/i.test(e.name));
+  const zips = entries.filter((e) => e.isFile() && /-npm-.*\.zip$/i.test(e.name));
   if (zips.length >= 2) return true;
 
   // v1: paket klasorlerinde .yarn-metadata.json
   let hits = 0;
-  for (const e of ents.filter((x) => x.isDirectory()).slice(0, 6)) {
+  for (const e of entries.filter((x) => x.isDirectory()).slice(0, 6)) {
     if (await hasYarnMetadata(join(dir, e.name))) {
       hits++;
       if (hits >= 2) return true;
@@ -1085,18 +1128,22 @@ async function hasYarnMetadata(entry: string): Promise<boolean> {
  * bun: `install\cache` altinda `pkg@surum` klasorleri (her birinde
  * package.json). Rastgele bir "cache" klasoru bu yapiyi saglamaz.
  */
-async function findBunCache(root: string): Promise<StoreHit | null> {
-  const candidates = [join(root, 'install', 'cache'), join(root, 'cache'), root];
+async function findBunCache(root: string, rootEntries?: Dirent[]): Promise<StoreHit | null> {
+  const candidates: string[] = [];
+  if (hasChildDir(rootEntries, 'install')) candidates.push(join(root, 'install', 'cache'));
+  if (hasChildDir(rootEntries, 'cache')) candidates.push(join(root, 'cache'));
+  candidates.push(root);
   for (const c of candidates) {
-    if (await isBunCacheDir(c)) return { root: c, marker: 'bun-cache' };
+    const ents = c === root ? rootEntries : undefined;
+    if (await isBunCacheDir(c, ents)) return { root: c, marker: 'bun-cache' };
   }
   return null;
 }
 
-async function isBunCacheDir(dir: string): Promise<boolean> {
-  const ents = await readdirSafe(dir);
-  if (!ents) return false;
-  const dirs = ents
+async function isBunCacheDir(dir: string, ents?: Dirent[]): Promise<boolean> {
+  const entries = ents ?? (await readdirSafe(dir));
+  if (!entries) return false;
+  const dirs = entries
     .filter((e) => e.isDirectory() && PKG_AT_VERSION_RE.test(e.name))
     .slice(0, 8);
   if (dirs.length < 2) return false;
@@ -1114,7 +1161,11 @@ async function isBunCacheDir(dir: string): Promise<boolean> {
   return inInstallCache || withBunTag >= 2;
 }
 
-async function probePackageJson(dir: string): Promise<OwnerSignal | null> {
+async function probePackageJson(dir: string, entries?: Dirent[]): Promise<OwnerSignal | null> {
+  // B14: kok listesinde package.json yoksa stat denemesi yapilmaz.
+  if (entries && !entries.some((e) => e.name.toLowerCase() === 'package.json' && (e.isFile() || e.isSymbolicLink()))) {
+    return null;
+  }
   const f = `${dir}\\package.json`;
   try {
     const st = await stat(longPath(f));
@@ -1188,13 +1239,18 @@ export function signalKind(s: Partial<LogSignal> & { means: string }): LogSignal
  */
 async function probeLogs(dir: string, p: Probe, rootEntries: Dirent[]): Promise<void> {
   const picked: Array<{ name: string; inLogs: boolean }> = [];
-  try {
-    const ents = await readdir(longPath(`${dir}\\logs`));
-    for (const n of ents.filter((n) => n.toLowerCase().endsWith('.log')).sort().reverse().slice(0, 2)) {
-      picked.push({ name: n, inLogs: true });
+  // B14: kok listesinde `logs` klasoru yoksa basarisiz readdir denenmez.
+  // (Windows dosya sistemi buyuk/kucuk harf duyarsiz; ad eslesmesi oyledir.
+  // Junction/symlink de kabul edilir, kanit kaybi olmaz.)
+  if (hasChildDir(rootEntries, 'logs')) {
+    try {
+      const ents = await readdir(longPath(`${dir}\\logs`));
+      for (const n of ents.filter((n) => n.toLowerCase().endsWith('.log')).sort().reverse().slice(0, 2)) {
+        picked.push({ name: n, inLogs: true });
+      }
+    } catch {
+      /* `logs/` yok ya da okunamadi — kok loglarina yedeklenir */
     }
-  } catch {
-    /* `logs/` yok ya da okunamadi — kok loglarina yedeklenir */
   }
   const rootLogs = rootEntries.filter((e) => e.isFile() && e.name.toLowerCase().endsWith('.log'));
   for (const e of rootLogs.slice(0, 3)) {

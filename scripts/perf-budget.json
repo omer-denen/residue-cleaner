@@ -54,6 +54,7 @@
   "notes": [
     "npm run perf kalici bir butce kapisidir; npm test icindeki kaba kapi budgets.scan10kMs * 5 kullanir.",
     "Eşikler 26.10.2026'da iki gercek kosunun taban + en kotu degerlerine gore kalibre edildi (2x kurali tek basina yetmedi: 100k taramada 2.3x sapma olctu).",
-    "LOAD-02/LOAD-03 esikleri 28.10.2026'da iki kosuyla kalibre edildi: 5000 kume p95 49.55 / 25.22 ms, 1k replay p95 159.55 / 122.95 ms, payload 1.90 MB (sabit). worstObserved en kotu gozlemdir."
+    "LOAD-02/LOAD-03 esikleri 28.10.2026'da iki kosuyla kalibre edildi: 5000 kume p95 49.55 / 25.22 ms, 1k replay p95 159.55 / 122.95 ms, payload 1.90 MB (sabit). worstObserved en kotu gozlemdir.",
+    "B14 (07.11.2026): kanit toplamada gereksiz syscall kaldirildi. Ayni 10k agacta ayni surec icinde A/B: eski 310-373 ms, yeni 245-320 ms (min 310 -> 245, ~%21); taze agacta tam tarama 2450-2772 -> 2025-2329 ms. PERF-01 p95 ilk (soguk) kosuya takildigi icin butce degeri degismedi. Klasor boyutu mtime onbellegi BILEREK yapilmadi: alt klasordeki dosya buyuyunce ust klasor mtime'i degismez, bayt yanlis olur."
   ]
 }
