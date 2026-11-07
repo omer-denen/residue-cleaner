@@ -55,3 +55,56 @@ test('T54: ownDataDirs yalnizca guncel dizinleri dondurur', () => {
 test('T54: dataDir guncel ad tanir', () => {
   assert.equal(dataDir(ENV), 'C:\\Users\\x\\AppData\\Local\\residue');
 });
+
+/**
+ * B17 — eski ad kullanici-gorunur yuzeylerden de kaldirildi.
+ *
+ * T54 testi yalniz `src/` altini tariyordu; kullaniciya gorunen dosyalar
+ * (`package.json`, README, `bin/`, `web/src/`) kapsam disindaydi. Tarihsel
+ * arsiv (HANDOVER / CHANGELOG / eski plan belgeleri) BILEREK kapsam disi:
+ * gecmisi yeniden yazmak kanit degil, gurultu uretir.
+ */
+
+const ROOT = process.cwd();
+const VISIBLE_TREES = ['bin', 'web/src'];
+const VISIBLE_FILES = ['package.json', 'README.md'];
+const ALLOWED_TREES = new Set(['node_modules', 'dist', 'build']);
+
+function listVisibleFiles(dir: string, out: string[] = []): string[] {
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
+    if (ALLOWED_TREES.has(entry)) continue;
+    const p = join(dir, entry);
+    if (statSync(p).isDirectory()) listVisibleFiles(p, out);
+    else if (/\.(ts|tsx|css|mjs|js|json|md)$/.test(entry)) out.push(p);
+  }
+  return out;
+}
+
+test('B17: kullanici-gorunur yuzeylerde eski ad gecmez', () => {
+  const files = [
+    ...VISIBLE_FILES.map((f) => join(ROOT, f)),
+    ...VISIBLE_TREES.flatMap((d) => listVisibleFiles(join(ROOT, d))),
+  ];
+  const offenders: string[] = [];
+  for (const file of files) {
+    const lines = readFileSync(file, 'utf8').split('\n');
+    lines.forEach((line, i) => {
+      if (/clicleaner/i.test(line)) offenders.push(`${file}:${i + 1}`);
+    });
+  }
+  assert.ok(files.length > 5, `yuzey dosyasi bulunamadi (${files.length})`);
+  assert.deepEqual(offenders, []);
+});
+
+test('B17: kendi veri dizini korumasi eski adi tanimaz', () => {
+  // Korumali yollar SILINMEZ; bu test onlarin yerinde durdugunu dogrular.
+  assert.equal(isOwnDataPath('C:\\Users\\x\\AppData\\Local\\clicleaner', ENV), false);
+  assert.equal(isOwnDataPath('C:\\Users\\x\\AppData\\Local\\residue', ENV), true);
+  assert.deepEqual(ownDataDirs(ENV).length, 2);
+});
