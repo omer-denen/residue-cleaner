@@ -11,6 +11,8 @@
  */
 
 import type { CliInventory, CliTool } from './cli-inventory-types.ts';
+import type { ProjectCandidateView } from './contract.ts';
+import type { Cluster, OwnerSignal } from './types.ts';
 
 export type GraphNodeKind =
   | 'tool'
@@ -19,6 +21,9 @@ export type GraphNodeKind =
   | 'path-entry'
   | 'env-var'
   | 'project'
+  | 'project-artifact'
+  | 'disk-cluster'
+  | 'owner'
   | 'state-dir'
   | 'shortcut'
   | 'runtime'
@@ -30,6 +35,8 @@ export type EdgeKind =
   | 'exec'
   | 'package'
   | 'project-ref'
+  | 'artifact'
+  | 'ownership'
   | 'env'
   | 'runtime'
   | 'shortcut'
@@ -75,6 +82,9 @@ const KIND_ORDER: GraphNodeKind[] = [
   'path-entry',
   'env-var',
   'project',
+  'project-artifact',
+  'disk-cluster',
+  'owner',
   'state-dir',
   'shortcut',
   'runtime',
@@ -571,6 +581,150 @@ export function buildInventoryGraph(inv: CliInventory): DependencyGraph {
   }
 
   g.validate();
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// Disk kumeleri + proje artifact'lari (SALT OKUNUR; onbellekten beslenir)
+// ---------------------------------------------------------------------------
+
+/**
+ * Kume sahibi kanitini okunabilir ada cevirir. Kanit turu metne girer;
+ * ayni sekilde ad UYDURULMAZ (kanit yoksa dugum de yok).
+ */
+function ownerRef(owner: OwnerSignal | undefined): { label: string; evidence: string } | null {
+  if (!owner) return null;
+  switch (owner.kind) {
+    case 'packageJson':
+      return { label: owner.name, evidence: 'package.json kimligi' };
+    case 'manifest':
+      return { label: owner.app, evidence: 'uygulama manifesti' };
+    case 'logFile':
+      return { label: owner.product, evidence: 'log urun kimligi' };
+    case 'binaryProduct':
+      return { label: owner.product, evidence: 'ikili urun kimligi' };
+    case 'directoryName':
+      return { label: owner.name, evidence: 'klasor adi' };
+  }
+}
+
+function ownerNodeId(label: string): string {
+  return `owner:${label.toLowerCase()}`;
+}
+
+/**
+ * Disk taramasinin kumelerini grafige ekler.
+ *
+ * Kume bir dugumdur; sahibi (kanit varsa) ayri dugumdur ve
+ * `ownership` kenari YUMUSAK'tir: sahip, kumenin silinmesini engellemez.
+ * Rapor-only / korunan kumeler `protected` isaretlenir (seviye critical).
+ */
+export function appendDiskGraph(
+  g: DependencyGraph,
+  clusters: readonly Cluster[],
+): DependencyGraph {
+  for (const cluster of clusters) {
+    const id = `disk:${cluster.key}`;
+    const primary = cluster.parts[0]?.path;
+    const targets = cluster.deleteTargets?.length ?? 0;
+    g.addNode({
+      id,
+      kind: 'disk-cluster',
+      label: cluster.title || cluster.key,
+      ...(primary ? { path: primary } : {}),
+      protected: cluster.verdict.kind === 'keep' || cluster.verdict.kind === 'report-only',
+      group: id,
+      meta: {
+        archetype: cluster.archetype,
+        bytes: cluster.totalBytes,
+        reclaimableBytes: cluster.reclaimableBytes,
+        risk: cluster.verdict.risk,
+        decision: cluster.verdict.kind,
+        regenerable: cluster.verdict.regenerability,
+        parts: cluster.parts.length,
+        targets,
+      },
+    });
+
+    const owner = ownerRef(cluster.evidence.owner);
+    if (owner) {
+      const oId = ownerNodeId(owner.label);
+      g.addNode({ id: oId, kind: 'owner', label: owner.label });
+      g.addEdge({
+        from: oId,
+        to: id,
+        kind: 'ownership',
+        strength: 'soft',
+        active: true,
+        evidence: `sahip kaniti: ${owner.evidence}`,
+      });
+    }
+  }
+  return g;
+}
+
+function joinChild(root: string, name: string): string {
+  const sep = root.includes('\\') && !root.includes('/') ? '\\' : '/';
+  return `${root.replace(/[\\/]+$/, '')}${sep}${name}`;
+}
+
+/**
+ * Proje kesif onbellegindeki projeleri grafige ekler.
+ *
+ * Proje kokune giden `artifact` kenari SERT'tir (artifact'lar projenin
+ * parcasi) ama ayni grupta oldugu icin what-if'te kendi projesi engel
+ * sayilmaz. Proje koku `protected`: Residue proje kaynagini hedef gostermez.
+ */
+export function appendProjectGraph(
+  g: DependencyGraph,
+  projects: readonly ProjectCandidateView[],
+): DependencyGraph {
+  for (const project of projects) {
+    const group = `project:${project.root.toLowerCase()}`;
+    g.addNode({
+      id: group,
+      kind: 'project',
+      label: project.name,
+      path: project.root,
+      protected: true,
+      group,
+      meta: {
+        git: project.git,
+        agentWorkspace: project.agentWorkspace,
+        lockfile: project.lockfile,
+        markers: project.markers,
+        lastActivityAt: project.lastActivityAt,
+      },
+    });
+
+    for (const artifact of project.artifacts) {
+      const path = joinChild(project.root, artifact);
+      const aId = `artifact:${path.toLowerCase()}`;
+      g.addNode({
+        id: aId,
+        kind: 'project-artifact',
+        label: artifact,
+        path,
+        group,
+        meta: {
+          project: project.root,
+          lockfile: project.lockfile,
+          regenerable: project.lockfile !== null,
+          reportOnly: true,
+        },
+      });
+      g.addEdge({
+        from: group,
+        to: aId,
+        kind: 'artifact',
+        strength: 'hard',
+        active: true,
+        evidence: project.lockfile
+          ? `${project.lockfile} kilit dosyasi (yeniden uretilebilir)`
+          : 'kilit dosyasi yok (yeniden uretilebilirlik bilinmiyor)',
+      });
+    }
+  }
   return g;
 }
 

@@ -1,4 +1,6 @@
 import {
+  appendDiskGraph,
+  appendProjectGraph,
   buildInventoryGraph,
   groupNodesByKind,
   matchGraphNodes,
@@ -6,6 +8,8 @@ import {
   type EdgeState,
 } from '../core/dependency-graph.ts';
 import type { CliInventoryService } from './cli-inventory-service.ts';
+import type { ProjectService } from './project-service.ts';
+import type { ScanService } from './scan-service.ts';
 import type {
   DependenciesResponse,
   DependencyRefView,
@@ -40,9 +44,19 @@ function sortRefs(refs: DependencyRefView[]): DependencyRefView[] {
 
 export class GraphService {
   private readonly inventory: CliInventoryService;
+  /** Disk kumeleri (son tarama onbellegi; agir tarama tetiklenmez). */
+  private readonly scans: ScanService | null;
+  /** Proje kesif onbellegi (yalniz onbellek). */
+  private readonly projects: ProjectService | null;
 
-  constructor(inventory: CliInventoryService) {
+  constructor(
+    inventory: CliInventoryService,
+    scans: ScanService | null = null,
+    projects: ProjectService | null = null,
+  ) {
     this.inventory = inventory;
+    this.scans = scans;
+    this.projects = projects;
   }
 
   private async graph(force = true): Promise<DependencyGraph> {
@@ -51,6 +65,11 @@ export class GraphService {
       : this.inventory.getLast();
     if (!inv) throw new Error('envanter onbellegi yok');
     const g = buildInventoryGraph(inv);
+    // Disk + proje dugumleri YALNIZ onbellekten gelir (SALT OKUNUR).
+    // Diskteki sonuc varsa yukle; yoksa tarama baslatma (agir is yok).
+    await this.scans?.ensureCacheLoaded();
+    appendDiskGraph(g, this.scans?.last()?.scan.clusters ?? []);
+    appendProjectGraph(g, this.projects?.cached()?.projects ?? []);
     g.validate();
     return g;
   }

@@ -95,6 +95,14 @@ export class ProjectService {
   private discovery: DiscoveryCache | null = null;
 
   /**
+   * Son kesif onbellegi (SALT OKUNUR). Grafik gibi tuketiciler icin:
+   * agir tarama TETIKLEMEZ; onbellek yoksa `null` doner.
+   */
+  cached(): ProjectDiscoverResponse | null {
+    return this.discovery?.data ?? null;
+  }
+
+  /**
    * Onerilen kesif kokleri. Yalnizca var olan dizinler; istemci
    * gonderebilir ama sunucu yine dogrular.
    */
