@@ -66,8 +66,10 @@ npm run perf           # B14 sonrası temiz (10k p95 ~3.8 s, 100k ~13.6 s)
 
 ## 4. Sonraki adımlar
 
-1. `0.3.0-beta.1` paketini `beta` etiketiyle yayınla (`npm publish --tag beta`),
-   tag `v0.3.0-beta.1`; `latest` **değişmez**.
+1. **Kararlı sürüm kararı kullanıcıya bırakıldı (07.11.2026): şimdilik beta
+   kalır.** Kararlıya çıkılacaksa sürüm numarası (0.3.0 / 1.0.0) ve `latest`
+   etiketinin taşınması ayrı bir karar; `latest`'i 0.x'e çekmek 2.2.0
+   kullanıcıları için sürüm düşüşü demektir.
 2. E2E'yi CI'ya bağlamak (Windows runner + Edge) — isteğe bağlı.
 3. Kasa kararı bekleyen kayıt `Local\uv` + `Local\rattler` (kullanıcı silme
    talimatını verdi; kayıtlar 06.11.2026'da silindi — yeniden kontrol et).
