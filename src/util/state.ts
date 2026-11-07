@@ -5,11 +5,12 @@
  * okuyarak cevaplayabilsin. AGENTS.md insan icin, bu dosya
  * ajanlar icindir.
  */
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, copyFile, access } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { longPath } from './longpath.ts';
+import { longPath, errorCode } from './longpath.ts';
 import { BugViewList } from '../core/bug-view.ts';
 import { TaskViewList, type TaskStatus } from '../core/task-view.ts';
+import { StateScaffold, type ScaffoldDecision } from '../core/state-scaffold.ts';
 
 export interface TaskState {
   id: string;
@@ -93,6 +94,78 @@ export async function writeState(s: ProjectState, cwd = process.cwd()): Promise<
   const p = stateFile(cwd);
   await mkdir(longPath(dirname(p)), { recursive: true });
   await writeFile(longPath(p), JSON.stringify(s, null, 2), 'utf8');
+}
+
+export interface SafeWriteOptions {
+  cwd?: string;
+  /** Mevcut dosyanin uzerine yaz (once zaman damgali yedek alinir). */
+  force?: boolean;
+}
+
+export interface SafeWriteResult {
+  written: boolean;
+  decision: ScaffoldDecision;
+  /** Yedek dosyasinin yolu (yalnizca `force` ile yazildiysa). */
+  backup?: string;
+}
+
+/**
+ * `state.json` yaziminin guvenli yolu (B18).
+ *
+ * Dosya yoksa yazar. Varsa **dokunmaz** ve nedeni dondurur; `force`
+ * verilirse once `state.json.bak-<zaman>` yedegi alir, sonra yazar.
+ * Bozuk JSON da "dolu dosya" sayilir: sessizce ezilmez.
+ */
+export async function writeStateSafely(
+  s: ProjectState,
+  opts: SafeWriteOptions = {},
+): Promise<SafeWriteResult> {
+  const cwd = opts.cwd ?? process.cwd();
+  const path = stateFile(cwd);
+
+  let raw: string | null = null;
+  try {
+    raw = await readFile(longPath(path), 'utf8');
+  } catch (err) {
+    if (errorCode(err) !== 'ENOENT') throw err;
+  }
+  const present = raw !== null && raw.trim().length > 0;
+  const existing = raw !== null ? parseState(raw) : null;
+  const decision = StateScaffold.decide(present, existing, opts.force === true);
+
+  if (!decision.allowed) return { written: false, decision };
+
+  let backup: string | undefined;
+  if (decision.reason === 'forced') {
+    const stamp = StateScaffold.backupSuffix(new Date());
+    backup = await freePath(`${path}.bak-${stamp}`);
+    await copyFile(longPath(path), longPath(backup));
+  }
+
+  await writeState(s, cwd);
+  return { written: true, decision, backup };
+}
+
+function parseState(raw: string): ProjectState | null {
+  try {
+    return JSON.parse(raw) as ProjectState;
+  } catch {
+    return null;
+  }
+}
+
+/** Ayni milisaniyede iki yedek istenirse ad cakismasin. */
+async function freePath(base: string): Promise<string> {
+  let candidate = base;
+  for (let i = 1; i < 100; i++) {
+    try {
+      await access(longPath(candidate));
+    } catch {
+      return candidate;
+    }
+    candidate = `${base}-${i}`;
+  }
+  return candidate;
 }
 
 /** Yeni bir oturum icin ozet uretir. */

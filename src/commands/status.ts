@@ -1,7 +1,8 @@
-import { readState, writeState, renderHandoff, type ProjectState } from '../util/state.ts';
+import { readState, writeStateSafely, renderHandoff } from '../util/state.ts';
 import { info } from '../util/log.ts';
 import { BugViewList } from '../core/bug-view.ts';
 import { TaskViewList } from '../core/task-view.ts';
+import { StateScaffold } from '../core/state-scaffold.ts';
 
 const C = {
   reset: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m',
@@ -14,8 +15,16 @@ export async function runStatus(args: string[]): Promise<void> {
   const cwd = process.cwd();
 
   if (args.includes('--init')) {
-    await writeState(initialState(cwd));
-    console.log(`${C.green}state.json olusturuldu.${C.reset}`);
+    // B18: var olan durum dosyasi sessizce ezilmez; istenirse --force ile
+    // once zaman damgali yedek alinir.
+    const result = await writeStateSafely(StateScaffold.skeleton(), {
+      cwd,
+      force: args.includes('--force'),
+    });
+    const tone = result.written ? C.green : C.yellow;
+    console.log(`${tone}${StateScaffold.describe(result.decision)}${C.reset}`);
+    if (result.backup) console.log(`${C.dim}Yedek: ${result.backup}${C.reset}`);
+    if (!result.written) process.exitCode = 1;
     return;
   }
 
@@ -110,31 +119,4 @@ export async function runStatus(args: string[]): Promise<void> {
     bilinmeyen: taskCounts.unknown,
     acikHata: openBugs.length,
   });
-}
-
-function initialState(cwd: string): ProjectState {
-  void cwd;
-  return {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    project: {
-      name: 'Residue',
-      purpose: 'Disk artiklarini kanitlarla listeleyen, secimini kullaniciya onaylatan temizleyici',
-      stack: 'TypeScript + Node 24 + Ink/React (tsx runner)',
-      entry: 'src/cli.ts',
-    },
-    commands: [
-      { cmd: 'node bin/residue.mjs scan', desc: 'Tara ve listele' },
-      { cmd: 'node bin/residue.mjs ui', desc: 'Terminal TUI (Ink)' },
-      { cmd: 'node bin/residue.mjs clean', desc: 'Iki asamali onay + geri donusum kutusu' },
-      { cmd: 'node bin/residue.mjs explain <ad>', desc: 'Karar gerekcesini kanitlarla goster' },
-      { cmd: 'node bin/residue.mjs log --summary', desc: 'Gunluk ozeti' },
-      { cmd: 'node bin/residue.mjs doctor', desc: 'Ortam kontrolu' },
-    ],
-    tasks: [],
-    bugs: [],
-    perf: [],
-    actionsPerformed: [],
-    openQuestions: [],
-  };
 }
