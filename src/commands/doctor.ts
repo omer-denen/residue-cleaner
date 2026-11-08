@@ -1,9 +1,12 @@
 import { stat, readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { longPath } from '../util/longpath.ts';
 import { formatBytes } from '../util/format.ts';
 import { detectGpu } from '../core/analyze.ts';
 import { walk } from '../core/walker.ts';
+import { InstallShadowReport } from '../core/install-shadow.ts';
+import { probeInstalls } from '../util/install-probe.ts';
+import { currentVersion } from '../util/version.ts';
 
 const C = {
   reset: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m',
@@ -95,11 +98,29 @@ export async function runDoctor(): Promise<void> {
         : `${updaters.length} adet, toplam ${formatBytes(updaters.reduce((a, b) => a + b.bytes, 0))}`,
   });
 
+  // --- Kurulum kopyasi (golgeleme) ---
+  // Gozlenen durum (08.11.2026): global paket guncelken `npx` eski surumu
+  // aciyordu; sebep diskteki ikinci kopya. Karar motorda, kanit yerel dosyadan.
+  const install = await checkInstallCopies();
+  checks.push({
+    name: 'Kurulum kopyasi',
+    status: install.status,
+    detail: install.detail,
+  });
+
   // --- Rapora yaz ---
   console.log(`\n${C.bold}Residue — ortam kontrolu${C.reset}\n`);
   for (const c of checks) {
     const mark = c.status === 'ok' ? `${C.green}${C.bold}v${C.reset}` : c.status === 'warn' ? `${C.yellow}${C.bold}!${C.reset}` : `${C.red}${C.bold}x${C.reset}`;
     console.log(`  ${mark} ${c.name.padEnd(22)} ${C.gray}${c.detail}${C.reset}`);
+  }
+
+  // Golge kopya varsa yapilacak is: dogru kopyayi calistirmak.
+  if (install.advice.length > 0) {
+    console.log(`\n${C.bold}Kurulum:${C.reset}`);
+    for (const line of install.advice) {
+      console.log(`  ${C.cyan}->${C.reset} ${line}`);
+    }
   }
 
   const upd = await findUpdaterLeftovers();
@@ -111,12 +132,48 @@ export async function runDoctor(): Promise<void> {
   }
 
   const fails = checks.filter((c) => c.status === 'fail').length;
+  const warns = checks.filter((c) => c.status === 'warn').length;
   console.log('');
   if (fails > 0) {
     console.log(`${C.red}${fails} kontrol basarisiz.${C.reset}\n`);
+  } else if (warns > 0) {
+    // Uyari varken "tum kontroller gecti" demek yanlis raporlama olur.
+    console.log(`${C.yellow}${warns} uyari var; kritik sorun yok.${C.reset}\n`);
   } else {
     console.log(`${C.green}Tum kontroller gecti.${C.reset}\n`);
   }
+}
+
+/**
+ * Calisan kopya ile diskteki diger kopyalari karsilastirir.
+ *
+ * Surum karsilastirmasi motorda (`InstallShadowReport`); burada yalnizca
+ * kanit toplanir: calisan betigin yolu + cwd/PATH/npx onbellegi.
+ */
+async function checkInstallCopies(): Promise<{
+  status: 'ok' | 'warn';
+  detail: string;
+  advice: string[];
+}> {
+  const packageName = 'residue-cleaner';
+  const entry = process.argv[1] ?? '';
+  const version = currentVersion();
+  const running = {
+    root: entry ? resolve(dirname(entry), '..') : '',
+    // currentVersion okunamazsa 'unknown' doner; 'unknown' bir surum DEGILDIR.
+    version: version === 'unknown' ? null : version,
+  };
+  const copies = await probeInstalls({
+    packageName,
+    binNames: ['residue', 'residue-cleaner'],
+    cwd: process.cwd(),
+  });
+  const report = new InstallShadowReport(packageName, running, copies);
+  return {
+    status: report.status(),
+    detail: report.summary(),
+    advice: report.advice(),
+  };
 }
 
 async function testLongPath(): Promise<{ ok: boolean; detail: string }> {

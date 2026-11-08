@@ -298,6 +298,14 @@ cd residue-cleaner && npm install
 node bin/residue.mjs scan
 ```
 
+**Sürüm ve kopya kontrolü.** `npx` indirdiği paketi önbellekte tutar ve
+kendiliğinden güncellemez; bu yüzden eski bir sürüm açılabilir. Kalıcı
+kullanımda `npm install -g residue-cleaner@latest`, tek seferlik denemede
+`npx residue-cleaner@latest scan` yazın. Ayrıca herhangi bir üst klasörde
+`-g` olmadan kurulmuş bir kopya varsa `npx` önce onu çalıştırır. Hangi
+kopyanın çalıştığını `residue doctor` söyler: **Kurulum kopyası** satırı
+gölge kopyanın yolunu ve onu kaldıran komutu gösterir.
+
 Tarama, plan ve kasa için **yönetici hakkı gerekmez**. Yalnızca makine geneli
 ortam değişkeni/PATH yazımı (`residue env --clean --apply`) yönetici ister.
 

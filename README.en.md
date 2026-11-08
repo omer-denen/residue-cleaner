@@ -301,6 +301,14 @@ cd residue-cleaner && npm install
 node bin/residue.mjs scan
 ```
 
+**Versions and stray copies.** `npx` keeps the package it downloaded in a
+cache and does not refresh it, so an older version may start. For a permanent
+install use `npm install -g residue-cleaner@latest`; for a one-off run write
+`npx residue-cleaner@latest scan`. If a copy was installed without `-g` in any
+parent folder, `npx` runs that copy first. `residue doctor` shows which copy is
+in use: the installation check (`Kurulum kopyasi`) reports the stray copy with
+its path and the command that removes it.
+
 Scanning, planning and the vault need **no administrator rights**. Only
 machine-wide environment/PATH writes (`residue env --clean --apply`) require
 elevation.

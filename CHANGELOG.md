@@ -3,6 +3,17 @@
 Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kullanır.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.1/) temellidir.
 
+## [3.0.1] - 2026-11-08
+
+### Eklendi
+
+- `residue doctor` kurulum kontrolü: eski bir kopya çalıştırılıyorsa uyarı
+  ve düzeltme komutu gösterilir.
+
+### Düzeltildi
+
+- Kurulum notları düzeltildi.
+
 ## [3.0.0] - 2026-11-08
 
 İlk kararlı sürüm. Beta hattı (`0.3.0-beta.x`) bu sürümle kapanır.
