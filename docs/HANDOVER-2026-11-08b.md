@@ -89,6 +89,19 @@ Doğrulama: `npm pack residue-cleaner@3.0.0` → indi; `dist-tags`
 `npm dist-tag add residue-cleaner@2.2.0 latest` ile `latest` geri alınır
 (indirme çalışır kalır); tarball yayına girince etiket 3.0.0'a döndürülür.
 
+**Yanıltıcı görünen ama ürün hatası olmayan durum:** `npx residue-cleaner@3.0.0
+--version` **paket dizininin içinden** çalıştırıldığında `2.2.0` yazıyor.
+Sebep: npm'in `_npx` önbelleğinde aynı adlı eski girdiler var
+(`2fd23864ba5c9c20 -> 2.2.0`, `9be9d3e225b5a200 -> 3.0.0`); cwd paketinin adı
+istenen paketle aynı olduğunda npx, istenen sürümü kurmak yerine eski önbellek
+girdisini çalıştırıyor. Doğrulama **paket dizini dışında** yapılmalı:
+
+```
+temiz dizin:            npx --yes residue-cleaner@3.0.0 --version  -> 3.0.0
+gecici prefix kurulumu: npm i --prefix <tmp> residue-cleaner@3.0.0
+                        <tmp>\node_modules\.bin\residue.cmd --version -> 3.0.0
+```
+
 ---
 
 ## 4. Dagitim kanallari (bu sürümle açılan kapı)
