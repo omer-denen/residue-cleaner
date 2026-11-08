@@ -122,6 +122,17 @@ Sonrasinda:
 - `residue ui --web --no-browser --port 4495` -> HTTP 200 (web arayuzu aciliyor).
 - `main` + tag `v3.0.1` gonderildi (`a4c37c0…`).
 
+**Yayin sonrasi duzeltme (commit `e2575ce`):** `README.md` / `README.en.md`
+ust bannerindaki "Kararli surum: 3.0.0" metni **3.0.1**'e cekildi; kullanici
+bunu git tarafinda fark etti. Yalniz iki satir degisti; `3.0.0 notu:` basliklari
+(kalici silmenin yalniz kasada olmasi gibi davranis degisiklikleri) tarihsel
+oldugu icin 3.0.0 olarak birakildi.
+
+> **Dikkat:** npm sayfasi README'yi **paketten** okur. 3.0.1 tarball'i
+> yayinlandiginda banner hala 3.0.0 idi; npmjs.com bu satiri bir sonraki
+> yayina kadar eski gosterir. Git tarafi dogru. Istenirse yalniz bu duzeltme
+> icin 3.0.2 yayinlanabilir.
+
 ---
 
 ## 5. Degismezler / dikkat
