@@ -14,14 +14,29 @@ export async function run(h, { page, errors }) {
   const start = page.locator('button.primary:has-text("Envanteri tara")').first();
   await start.waitFor({ state: 'visible', timeout: 30000 });
   await click(page, 'button.primary:has-text("Envanteri tara")');
-  await page.waitForSelector('.cli-row', { timeout: 120000 });
+
+  // Envanter SSE ile satir satir akar; "ilk satir" beklemek yaris uretir
+  // (ilk gelen satir aranan arac olmayabilir). Aranan satiri bekle.
+  const found = await page
+    .waitForSelector('.cli-row:has-text("demo-tool")', { timeout: 120000 })
+    .then(() => true)
+    .catch(() => false);
 
   const rows = await page.locator('.cli-row').count();
   h.check('WEB-05 envanter arac listeledi', rows > 0, `${rows} arac`);
 
+  const rowTexts = (await page.locator('.cli-row').allInnerTexts())
+    .slice(0, 5)
+    .map((text) => text.replace(/\s+/g, ' ').trim())
+    .join(' | ');
+  h.check(
+    'WEB-05 sahte arac envanterde',
+    found,
+    found ? 'demo-tool satiri bulundu' : `satirlar: ${rowTexts.slice(0, 240)}`,
+  );
+  if (!found) return;
+
   const named = page.locator('.cli-row:has-text("demo-tool")').first();
-  h.check('WEB-05 sahte arac envanterde', (await named.count()) > 0);
-  if ((await named.count()) === 0) return;
 
   await named.locator('button.cli-name-wrap').click();
   await page.waitForSelector('.tools-detail', { timeout: 15000 });

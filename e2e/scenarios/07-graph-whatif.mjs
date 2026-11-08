@@ -6,7 +6,7 @@
  * testlerinde (tests/graph-*.test.ts) dogrulanir. Burada what-if'in
  * gerekceli allowed/kopuk kenar ciktisi ve eslesmeyen sorgu denenir.
  */
-import { click, rail } from '../harness.mjs';
+import { click, rail, waitText } from '../harness.mjs';
 
 export const title = 'WEB-07 graf + what-if';
 
@@ -19,8 +19,21 @@ export async function run(h, { page, errors }) {
   h.check('WEB-07 graf dugum uretiyor', (summary?.nodes ?? 0) > 0, `${summary?.nodes} dugum`);
   h.check('WEB-07 graf kenar uretiyor', (summary?.edges ?? 0) > 0, `${summary?.edges} kenar`);
 
+  // Graf ekrani once envanteri toplar, sonra gruplari acar; bu iki adim arasinda
+  // bir kare "ozet var, dugum satiri yok" gorunebilir. Metni bekle, tek kare
+  // okuma yapma.
+  let onScreen = true;
+  try {
+    await waitText(page, '.graph', 'demo-tool', 60000);
+  } catch {
+    onScreen = false;
+  }
   const text = await page.evaluate(() => document.querySelector('.graph')?.innerText ?? '');
-  h.check('WEB-07 dugumler ekranda', /demo-tool/.test(text));
+  h.check(
+    'WEB-07 dugumler ekranda',
+    onScreen,
+    onScreen ? '' : `ekran: ${text.replace(/\s+/g, ' ').slice(0, 240)}`,
+  );
   h.check('WEB-07 ozet kartlari var', /Düğüm|Kenar/.test(text));
 
   const input = page.locator('#graph-whatif input').first();

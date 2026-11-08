@@ -9,10 +9,48 @@
 import { chromium } from 'playwright-core';
 import { spawn } from 'node:child_process';
 import fs, { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { createConnection, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
-const PORT_BASE = 4610;
+/** Isletim sisteminden bos bir port ister (sabit aralik + rastgele secim YOK). */
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.unref();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : 0;
+      server.close(() => (port > 0 ? resolve(port) : reject(new Error('bos port bulunamadi'))));
+    });
+  });
+}
+
+/** Portu dinleyen bir surec var mi? */
+function portOpen(port) {
+  return new Promise((resolve) => {
+    const socket = createConnection({ port, host: '127.0.0.1' });
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('error', () => {
+      socket.destroy();
+      resolve(false);
+    });
+  });
+}
+
+/** Sunucu kapandiktan sonra portun gercekten bosaldigini dogrular. */
+async function waitPortClosed(port, timeoutMs = 8000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!(await portOpen(port))) return true;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return false;
+}
 
 /** Dosya/dizin zamanlarini geriye alir (eski dosya kurallari icin). */
 function backdate(dir, stamp, depth = 0) {
@@ -33,8 +71,13 @@ export class Harness {
     this.local = join(this.dir, 'Local');
     this.roaming = join(this.dir, 'Roaming');
     this.userprofile = join(this.dir, 'User');
-    this.port = opts.port ?? PORT_BASE + Math.floor(Math.random() * 60);
-    this.base = `http://127.0.0.1:${this.port}`;
+    // Port sabit bir araliktan RASTGELE secilmez: onceki senaryonun sunucusu
+    // henuz olmemisse ayni portu yakalayip ESKI sunucuyla konusmak mumkun
+    // olurdu (belirti: yanlis veri dizini, "Tarama zaten suruyor", bos
+    // envanter/graf). Bos port isletim sisteminden istenir, kimlik ayrica
+    // dogrulanir (bkz. waitForServer).
+    this.port = opts.port ?? null;
+    this.base = '';
     this.server = null;
     this.browser = null;
     this.checks = [];
@@ -173,11 +216,31 @@ export class Harness {
 
   async start() {
     this.seedDisk();
+    if (this.port === null) this.port = await freePort();
+    this.base = `http://127.0.0.1:${this.port}`;
+    // PATH de izole edilir: gercek makinenin PATH'i miras kalirsa envanter
+    // GERCEK npm global shim'lerini (ve gercek araclari) listeler; senaryo
+    // makinenin kurulu araclarina gore gecer/duser. Sandbox PATH yalnizca
+    // gecici npm klasoru + node + sistem araclari icerir.
+    const windows = process.env.SystemRoot ?? 'C:\\Windows';
+    const sandboxPath = [
+      join(this.roaming, 'npm'),
+      dirname(process.execPath),
+      join(windows, 'System32'),
+      join(windows, 'System32', 'WindowsPowerShell', 'v1.0'),
+      windows,
+    ].join(';');
     const env = {
       ...process.env,
       LOCALAPPDATA: this.local,
       APPDATA: this.roaming,
       USERPROFILE: this.userprofile,
+      PATH: sandboxPath,
+      // npm global koku: harness'in gecici dizini. Bu degisken olmadan
+      // envanter `npm prefix -g` calistirip GERCEK prefix'i bulur ve makinenin
+      // kurulu araclarini listeler (test makineye bagimli olur).
+      NPM_CONFIG_PREFIX: join(this.roaming, 'npm'),
+      npm_config_prefix: join(this.roaming, 'npm'),
       RESIDUE_E2E: '1',
     };
     this.server = spawn(
@@ -199,15 +262,29 @@ export class Harness {
   async waitForServer(timeoutMs = 60000) {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
+      if (this.server && this.server.exitCode !== null) {
+        throw new Error(
+          `sunucu erken kapandi (cikis ${this.server.exitCode}, port ${this.port})\n${this.serverLog.slice(-2000)}`,
+        );
+      }
       try {
         const res = await fetch(`${this.base}/`);
         if (res.ok) {
           const raw = res.headers.getSetCookie?.() ?? [];
           this.cookies = raw.map((c) => c.split(';')[0]).join('; ');
+          // Kimlik kapisi: cevap veren sunucu BU harness'in veri dizinini mi
+          // kullaniyor? Baska bir (eski) sunucuya baglandiysak hemen dur.
+          const meta = await this.api('/api/meta');
+          const home = meta.body?.home;
+          if (meta.status === 200 && typeof home === 'string' && home !== this.userprofile) {
+            throw new Error(
+              `port ${this.port} baska bir sunucuya ait (home=${home}); eski sunucu kapanmamis`,
+            );
+          }
           return;
         }
-      } catch {
-        // sunucu henuz acilmadi
+      } catch (error) {
+        if (error instanceof Error && /baska bir sunucuya ait/.test(error.message)) throw error;
       }
       await new Promise((r) => setTimeout(r, 250));
     }
@@ -296,10 +373,10 @@ export class Harness {
     if (this.server && !this.server.killed) {
       this.server.kill();
       await new Promise((r) => setTimeout(r, 300));
-      if (existsSync(this.dir)) {
-        // gecici dizin; temizlik en iyi caba
-      }
     }
+    // Port gercekten bosalsin: sonraki senaryo ayni portu alirsa eski
+    // sunucuyla konusma riski kalmasin.
+    if (this.port !== null) await waitPortClosed(this.port);
   }
 
   summary() {
