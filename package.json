@@ -67,6 +67,8 @@
     "smoke": "node scripts/smoke-web.mjs",
     "perf": "node scripts/perf.mjs",
     "smoke:package": "node scripts/smoke-package.mjs",
+    "dist:verify": "tsx scripts/dist-manifest.mjs --verify-local",
+    "dist:scoop": "tsx scripts/dist-manifest.mjs",
     "build:web": "vite build",
     "prepublishOnly": "npm run build:web && npm run typecheck",
     "preversion": "npm run typecheck",
