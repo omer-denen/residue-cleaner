@@ -18,7 +18,7 @@ folder is, what exactly deletion would cost, and why it decided that way.
 > the developer and AI leftovers that Windows never lists. **Nothing is
 > deleted without your approval;** the first scan only lists.
 
-> **Stable release: 3.0.0.** The npm `latest` tag points at it:
+> **Stable release: 3.0.1.** The npm `latest` tag points at it:
 > `npx residue-cleaner scan`. The beta line (`0.3.0-beta.x`) is closed; the UI,
 > vault and contract are now considered stable. The first run deletes nothing;
 > try `--dry-run` and the vault before any real deletion.

@@ -19,7 +19,7 @@ olacağını ve kararın gerekçesini gösterir.
 > artıklardır. **Hiçbir şey sen onaylamadan silinmez;** ilk tarama yalnızca
 > listeler.
 
-> **Kararlı sürüm: 3.0.0.** npm'de `latest` etiketi bu sürümü gösterir:
+> **Kararlı sürüm: 3.0.1.** npm'de `latest` etiketi bu sürümü gösterir:
 > `npx residue-cleaner scan`. Beta hattı (`0.3.0-beta.x`) kapatıldı; arayüz,
 > kasa ve sözleşme artık kararlı sayılır. İlk çalıştırma hiçbir şeyi silmez;
 > gerçek silmeden önce `--dry-run` ve kasa ile denemeniz önerilir.
