@@ -1,0 +1,37 @@
+{
+  "$schema": "https://raw.githubusercontent.com/ScoopInstaller/Schemas/master/schema.json",
+  "version": "3.0.0",
+  "description": "Evidence-first cleaner and auditor for developer caches, CLI installs and AI runtime leftovers.",
+  "homepage": "https://github.com/omer-denen/residue-cleaner#readme",
+  "license": "MIT",
+  "depends": [
+    "nodejs"
+  ],
+  "url": "https://registry.npmjs.org/residue-cleaner/-/residue-cleaner-3.0.0.tgz",
+  "hash": "e4170b15e04fcfceed756a5f16a25309fd6c3e5e51bc5507b6bf719bbf8d02d6",
+  "extract_dir": "package",
+  "bin": [
+    [
+      "bin\\residue.cmd",
+      "residue"
+    ],
+    [
+      "bin\\residue.cmd",
+      "residue-cleaner"
+    ]
+  ],
+  "notes": [
+    "Usage: residue --help",
+    "Browser UI: residue ui --web --no-browser"
+  ],
+  "checkver": {
+    "url": "https://registry.npmjs.org/residue-cleaner/latest",
+    "jsonpath": "$.version"
+  },
+  "autoupdate": {
+    "url": "https://registry.npmjs.org/residue-cleaner/-/residue-cleaner-$version.tgz",
+    "hash": {
+      "mode": "download"
+    }
+  }
+}
