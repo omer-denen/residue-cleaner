@@ -18,11 +18,10 @@ folder is, what exactly deletion would cost, and why it decided that way.
 > the developer and AI leftovers that Windows never lists. **Nothing is
 > deleted without your approval;** the first scan only lists.
 
-> **Beta (0.3.0-beta.0) — not a stable release.** It is published to npm under
-> the `beta` tag: `npx residue-cleaner@beta scan`. The `latest` tag stays on the
-> stable `2.2.0` release. The UI and contract may still change during beta;
-> before real deletions, try `--dry-run` and the vault. The version stays
-> **0.x** until a stable release is announced.
+> **Stable release: 3.0.0.** The npm `latest` tag points at it:
+> `npx residue-cleaner scan`. The beta line (`0.3.0-beta.x`) is closed; the UI,
+> vault and contract are now considered stable. The first run deletes nothing;
+> try `--dry-run` and the vault before any real deletion.
 
 ## Why trust it?
 
@@ -54,8 +53,13 @@ It answers one question with evidence: **"What is this folder, and what happens 
 3. Type this and press Enter:
 
    ```powershell
-   node bin/residue.mjs scan
+   npx residue-cleaner scan
    ```
+
+   Permanent install: `npm install -g residue-cleaner`, then `residue scan`.
+   From source:
+   `git clone https://github.com/omer-denen/residue-cleaner.git` →
+   `cd residue-cleaner && npm install` → `node bin/residue.mjs scan`.
 
 4. The tool scans the folders left behind by developer and AI tooling and
    lists each one with **what it is, what deletion would cost and why it
@@ -70,11 +74,12 @@ It answers one question with evidence: **"What is this folder, and what happens 
 The default mode moves items into the tool's own **vault**, so a wrong
 decision is reversible (`residue undo --restore`).
 
-> **2.2.0 note:** The browser UI is back: `residue ui --web` (loopback only;
-> the token travels in an `HttpOnly + SameSite=Strict` cookie and never
-> appears in the URL). The UI never decides anything: lists, totals and
-> approval phrases come from the decision engine. Deletion is still a
-> two-step, written-approval flow.
+> **3.0.0 note:** Permanent deletion now applies **only to vault items**
+> (`residue vault purge`); the direct path-deletion mode is gone. This release
+> also includes the browser UI (`residue ui --web`), the projects screen, the
+> PATH/environment plan, the dependency graph, scheduled vault cleanup and the
+> audit trail. The UI never decides anything: lists, totals, approval phrases
+> and plans come from the decision engine. Deletion is still two-step.
 >
 > **2.0.0 note:** The project was renamed: **Residue** (npm package
 > `residue-cleaner`, command `residue`). Your data (vault, journal) lives
@@ -83,19 +88,19 @@ decision is reversible (`residue undo --restore`).
 ### Never used a terminal before?
 
 - Run `node --version`; if it is below `v22.6.0`, install the LTS from nodejs.org.
-- `node bin/residue.mjs scan` downloads the package on first run; it takes a few seconds.
-- `node bin/residue.mjs` prints the command list and the help text.
+- `npx residue-cleaner scan` downloads the package on first run; it takes a few seconds.
+- `npx residue-cleaner` prints the command list and the help text.
 - You do not have to delete anything; `residue clean --dry-run` shows the
   plan only.
 
 ---
 
-## Browser UI (2.2.0)
+## Browser UI
 
 Prefer a browser over the terminal:
 
 ```powershell
-node bin/residue.mjs ui --web
+residue ui --web
 ```
 
 - The server listens on **`127.0.0.1` only**; it cannot be reached from the
@@ -281,17 +286,27 @@ No. Everything runs locally.
 ## Installation
 
 **Requirements:** Windows 10/11 and Node.js 22.6+ ([nodejs.org](https://nodejs.org)).
-No administrator rights needed.
 
-```bash
+```powershell
+# 1) Try without installing
+npx residue-cleaner scan
+
+# 2) Permanent install (command: residue)
+npm install -g residue-cleaner
+residue scan
+
+# 3) Run from source
 git clone https://github.com/omer-denen/residue-cleaner.git
 cd residue-cleaner && npm install
-node bin/residue.mjs scan   # scan without installing anything globally
+node bin/residue.mjs scan
 ```
 
-Command form: `node bin/residue.mjs <subcommand>` (e.g. `node bin/residue.mjs scan`).
+Scanning, planning and the vault need **no administrator rights**. Only
+machine-wide environment/PATH writes (`residue env --clean --apply`) require
+elevation.
 
-**Uninstall:** there is no npm install; delete the repository folder.
+**Uninstall:** `npm uninstall -g residue-cleaner` (if you only used `npx`,
+nothing is installed). Running from source? Delete the repository folder.
 Tool data lives under `%LOCALAPPDATA%\residue` (logs, scan cache, backup
 vault). **The tool never lists or deletes this directory in its own scans**;
 because the backup vault lives there, do not delete it by hand either.
@@ -322,6 +337,7 @@ residue project [dir]       # project dependencies + reproducible recipe
 residue graph               # CLI dependency graph; --what-if <name>
 residue schedule            # scheduled vault cleanup (daily/weekly)
 residue vault               # vault inventory / retention / permanent delete
+residue audit               # audit trail (read-only)
 residue recover             # report interrupted operations
 residue ui                  # terminal UI (Ink; needs a real terminal)
 residue ui --web            # browser UI (dist/web; 127.0.0.1)
@@ -339,10 +355,11 @@ The automatic update check is **off by default**. Choosing `Daily` or
 while it is off, **no network request is made**.
 Manual update:
 
-```bash
-git pull                        # update from source
-npm install                     # refresh dependencies
+```powershell
+npm install -g residue-cleaner@latest   # npm install
 ```
+
+Running from source? `git pull` → `npm install`.
 
 - Source: <https://github.com/omer-denen/residue-cleaner>
 

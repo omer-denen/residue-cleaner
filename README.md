@@ -19,11 +19,10 @@ olacağını ve kararın gerekçesini gösterir.
 > artıklardır. **Hiçbir şey sen onaylamadan silinmez;** ilk tarama yalnızca
 > listeler.
 
-> **Beta (0.3.0-beta.0) — kararlı sürüm değil.** npm'de `beta` etiketiyle
-> yayınlandı: `npx residue-cleaner@beta scan`. `latest` etiketi kararlı `2.2.0`
-> sürümünde kalıyor. Arayüz ve sözleşme beta süresince değişebilir; gerçek veri
-> silmeden önce `--dry-run` ve kasa ile deneyin. Kararlı bir sürüm duyurulana
-> kadar sürüm numarası **0.x** kalır.
+> **Kararlı sürüm: 3.0.0.** npm'de `latest` etiketi bu sürümü gösterir:
+> `npx residue-cleaner scan`. Beta hattı (`0.3.0-beta.x`) kapatıldı; arayüz,
+> kasa ve sözleşme artık kararlı sayılır. İlk çalıştırma hiçbir şeyi silmez;
+> gerçek silmeden önce `--dry-run` ve kasa ile denemeniz önerilir.
 
 ## Neden Güvenilir?
 
@@ -54,11 +53,13 @@ Aradığı şey tek bir sorunun kanıtlı cevabıdır: **"Bu klasör ne, silsem 
 3. Şunu yaz ve Enter'a bas:
 
    ```powershell
-   git clone https://github.com/omer-denen/residue-cleaner.git
-   cd residue-cleaner
-   npm install
-   node bin/residue.mjs scan
+   npx residue-cleaner scan
    ```
+
+   Kalıcı kurulum istersen: `npm install -g residue-cleaner` → `residue scan`.
+   Kaynaktan çalıştırmak istersen:
+   `git clone https://github.com/omer-denen/residue-cleaner.git` →
+   `cd residue-cleaner && npm install` → `node bin/residue.mjs scan`.
 
 4. Araç geliştirici ve AI araçlarının bıraktığı klasörleri tarar; her birini
    **ne olduğu, silinirse ne olacağı ve gerekçesiyle** listeler. Ölçüm büyük
@@ -67,15 +68,17 @@ Aradığı şey tek bir sorunun kanıtlı cevabıdır: **"Bu klasör ne, silsem 
    orta/yüksek riskte `TASI` yaz → onayla. Kalıcı silme yalnız kasa
    öğelerinde (`residue vault purge --id <kasa-id>`) ve `BOŞALT`
    onayıyla yapılır.
-6. Terminal yerine tarayıcıyı tercih edersen: `node bin/residue.mjs ui --web`.
+6. Terminal yerine tarayıcıyı tercih edersen: `residue ui --web`.
 
 Varsayılan mod **aracın kendi kasası**dır; yanlış karar verirsen geri
 alabilirsin (`residue undo --restore`).
 
-> **2.2.0 notu:** Tarayıcı arayüzü yeniden geldi: `residue ui --web`
-> (yalnızca `127.0.0.1`; token `HttpOnly + SameSite=Strict` çerezdedir,
-> URL'de görünmez). Arayüz karar vermez: listeler, toplamlar, onay ifadeleri
-> ve planlar motordan gelir. Silme yine iki aşamalıdır.
+> **3.0.0 notu:** Kalıcı silme artık **yalnız kasa öğelerinde** yapılır
+> (`residue vault purge`); yol üzerinde doğrudan silme modu kaldırıldı.
+> Tarayıcı arayüzü (`residue ui --web`), proje ekranı, PATH/ortam planı,
+> bağımlılık grafiği, planlı kasa temizliği ve denetim geçmişi bu sürümde.
+> Arayüz karar vermez: listeler, toplamlar, onay ifadeleri ve planlar motordan
+> gelir. Silme iki aşamalıdır.
 >
 > **2.0.0 notu:** Proje yeniden adlandırıldı: **Residue** (npm paketi
 > `residue-cleaner`, komut `residue`). Veriler (kasa, günlük)
@@ -84,19 +87,19 @@ alabilirsin (`residue undo --restore`).
 ### Hiç terminal kullanmadıysan
 
 - `node --version` yaz; `v22.6.0` veya üzeri değilse nodejs.org'dan LTS kur.
-- `node bin/residue.mjs scan` ilk çalıştırmada paketi indirir; birkaç saniye sürer.
-- `node bin/residue.mjs` komut listesi ve yardım metnini gösterir.
+- `npx residue-cleaner scan` ilk çalıştırmada paketi indirir; birkaç saniye sürer.
+- `npx residue-cleaner` komut listesi ve yardım metnini gösterir.
 - Hiçbir şeyi silmek zorunda değilsin; `residue clean --dry-run` yalnızca
   planı gösterir.
 
 ---
 
-## Tarayıcı arayüzü (2.2.0)
+## Tarayıcı arayüzü
 
 Terminal yerine tarayıcıda çalışmak istersen:
 
 ```powershell
-node bin/residue.mjs ui --web
+residue ui --web
 ```
 
 - Sunucu **yalnızca `127.0.0.1`** üzerinde açılır; ağdan erişilemez.
@@ -280,17 +283,26 @@ Hayır. Her şey yerel makinede çalışır.
 ## Kurulum
 
 **Gereksinimler:** Windows 10/11 ve Node.js 22.6+ ([nodejs.org](https://nodejs.org)).
-Yönetici hakkı gerekmez.
 
-```bash
+```powershell
+# 1) Kurmadan denemek icin
+npx residue-cleaner scan
+
+# 2) Kalici kurulum (komut: residue)
+npm install -g residue-cleaner
+residue scan
+
+# 3) Kaynaktan calistirma
 git clone https://github.com/omer-denen/residue-cleaner.git
 cd residue-cleaner && npm install
 node bin/residue.mjs scan
 ```
 
-Komut biçimi: `node bin/residue.mjs <alt komut>` (ör. `node bin/residue.mjs scan`).
+Tarama, plan ve kasa için **yönetici hakkı gerekmez**. Yalnızca makine geneli
+ortam değişkeni/PATH yazımı (`residue env --clean --apply`) yönetici ister.
 
-**Kaldırma:** npm kurulumu yok; depo klasörünü silmek yeterlidir.
+**Kaldırma:** `npm uninstall -g residue-cleaner` (yalnız `npx` kullandıysan
+kurulum kalmaz). Kaynaktan çalıştırdıysan depo klasörünü silmek yeterlidir.
 Araç verileri `%LOCALAPPDATA%\residue` altındadır (günlükler, tarama
 önbelleği, yedek kasası). **Araç bu dizini kendi taramalarında hedef olarak
 göstermez ve silmez**; yedek kasası orada yaşadığı için elle de silmemek
@@ -322,6 +334,7 @@ residue project [dir]       # proje bağımlılıkları + yeniden kurulum tarifi
 residue graph               # CLI bağımlılık grafiği; --what-if <ad>
 residue schedule            # planlı kasa temizliği (günlük/haftalık)
 residue vault               # kasa envanteri / saklama / kalıcı silme
+residue audit               # denetim geçmişi (salt okunur)
 residue recover             # yarım kalan işlemleri raporla
 residue ui                  # terminal arayüzü (Ink; gerçek terminal gerekir)
 residue ui --web            # tarayıcı arayüzü (dist/web; 127.0.0.1)
@@ -339,10 +352,11 @@ ekranından `Günlük` veya `Haftalık` seçilirse yalnızca npm registry'deki
 sürüm numarası sorulur; kapalıyken **hiçbir ağ isteği yapılmaz**.
 Manuel güncelleme:
 
-```bash
-git pull                        # kaynaktan güncelle
-npm install                     # bağımlılıkları tazele
+```powershell
+npm install -g residue-cleaner@latest   # npm kurulumu
 ```
+
+Kaynaktan çalıştırıyorsan: `git pull` → `npm install`.
 
 - Kaynak: <https://github.com/omer-denen/residue-cleaner>
 

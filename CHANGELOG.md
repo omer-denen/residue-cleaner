@@ -3,6 +3,39 @@
 Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kullanır.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.1/) temellidir.
 
+## [3.0.0] - 2026-11-08
+
+İlk kararlı sürüm. Beta hattı (`0.3.0-beta.x`) bu sürümle kapanır.
+
+### Eklendi
+
+- **Kararlı sürüm.** npm `latest` etiketi 3.0.0'ı gösterir; `npx residue-cleaner`
+  ile kurulum yapmadan denenebilir, `npm install -g residue-cleaner` ile
+  kalıcı kurulur.
+- **Graf ekranı disk ve projeleri birlikte gösteriyor:** disk kümeleri, proje
+  kökleri, proje yapıtları ve küme sahipleri; proje kaynağı silme hedefi olmaz.
+- **Denetim geçmişi ve planlı çalışmalar:** kasa, PATH temizliği ve silme
+  işlemleri kayıt altında; planlı çalışma yalnız kasaya taşır.
+- **Tarayıcı arayüzü, terminal arayüzü ve başsız API** aynı karar motorunu
+  kullanır; arayüz kendi kararını vermez.
+- **Windows başlatıcı:** paketle birlikte `residue.cmd` gelir; npm dışında
+  (zip ile açıp) çalıştırıldığında da komut bulunur.
+
+### Değişti
+
+- **Kalıcı silme yalnız kasa öğelerinde.** Yol üzerinde doğrudan silme modu
+  kaldırıldı; silinen her şey önce kasaya taşınır ve geri alınabilir.
+- **Yüksek riskli kümede ek onay:** onay kutusuna ek olarak kümenin adı yazılır.
+- **Sürüm numarası** 2.x hattının devamıdır (2.2.0 → 3.0.0).
+
+### Düzeltildi
+
+- İptal edilen veya hata ile biten tarama geçmişte "tamamlanmadı" olarak
+  görünür; sonuç sayıları kısmi olduğu belirtilir.
+- Kanıt toplama daha az dosya sistemi çağrısı yapar; tarama hızlandı.
+- `state.json` üzerine sessiz yazma engellendi; sıfırlama için `--force` ve
+  yedek gerekir.
+
 ## [0.3.0-beta.1] - 2026-11-07
 
 ### Eklendi
